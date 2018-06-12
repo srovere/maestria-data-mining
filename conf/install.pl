@@ -136,7 +136,7 @@ sub createFile($$$$) {
 {
 	# 2. Inicializar logger
 	my $conf = {
-		'log4perl.category.SIAT.Installer'					=>	"INFO, ScreenColoredLevels",
+		'log4perl.category.MaestriaDM.Installer'					=>	"INFO, ScreenColoredLevels",
 		'log4perl.appender.ScreenColoredLevels'					=>	'Log::Log4perl::Appender::Screen',
 		'log4perl.appender.ScreenColoredLevels.layout'				=>	"Log::Log4perl::Layout::PatternLayout",
 		'log4perl.appender.ScreenColoredLevels.layout.ConversionPattern'	=>	"%d - (%P) - %p - %m%n"
