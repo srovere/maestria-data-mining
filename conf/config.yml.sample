@@ -1,0 +1,13 @@
+#
+# ATENCION: Antes de realizar algun cambio, es recomendable copiar este archivo a config.yml, ya que dicho archivo no esta versionado.
+#           Trabajar sobre el .sample puede ocasionar conflictos de SVN si este se modifica en el futuro.
+#
+
+# Directorios base y temporal
+base: '/devel/maestria-data-mining'
+tmp: '/tmp'
+
+# Configuracion de directorios de R
+R:
+  home: '/opt/R/3.5.0/bin/'
+  pandoc:
