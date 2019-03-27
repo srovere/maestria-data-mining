@@ -1,0 +1,17 @@
+---
+output: 
+   pdf_document:
+      toc: true
+title: Práctica de laboratorio I
+subtitle: Conceptos de Estadística Descriptiva & Preprocesamiento
+date: "`r Sys.Date()`"
+---
+\newpage
+
+# Estadística descriptiva
+## Exploración de datos
+```{r eval=TRUE, echo=TRUE, warning=FALSE, message=FALSE, results='asis'}
+head(mpi.national)
+
+```
+\newpage
