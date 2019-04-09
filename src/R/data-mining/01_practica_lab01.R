@@ -12,6 +12,8 @@ rm(list = objects())
 require(dplyr)
 require(ggplot2)
 require(GGally)
+require(kableExtra)
+require(knitr)
 require(readr)
 require(rmarkdown)
 require(tidyr)
@@ -122,7 +124,7 @@ medidas.dispersion.por.region <- mpi.subnational %>%
   dplyr::group_by(W_Region, Variable) %>%
   dplyr::summarise(Varianza = var(Valor, na.rm = TRUE), 
                    DesviacionEstandar = sd(Valor, na.rm = TRUE),
-                   DesviacionMedianaAbsoluta = sd(Valor, na.rm = TRUE), 
+                   MAD = sd(Valor, na.rm = TRUE), 
                    Minimo = min(Valor, na.rm = TRUE), 
                    Maximo = max(Valor, na.rm = TRUE), 
                    IQR = IQR(Valor, na.rm = TRUE)) %>%
@@ -171,7 +173,7 @@ graficos.asociacion <- purrr::map(
   .f = function(region) {
     datos.region <- mpi.subnational %>%
       dplyr::filter(W_Region == region)
-    GGally::ggpairs(data = datos.region, columns = 5:ncol(datos.region)) +
+    grafico.region <- GGally::ggpairs(data = datos.region, columns = 5:ncol(datos.region)) +
       ggplot2::labs(title = "Métricas de pobreza multidimensionales",
                     subtitle = paste0("Medidas de asociación para ", region),
                     x = "", y = "") +
@@ -180,7 +182,8 @@ graficos.asociacion <- purrr::map(
         legend.position = "bottom",
         plot.title = ggplot2::element_text(hjust = 0.5),
         plot.subtitle = ggplot2::element_text(hjust = 0.5)
-      ) 
+      )
+    return(grafico.region) 
   }
 )
 names(graficos.asociacion) <- unique(datos.histogramas$W_Region)
@@ -192,6 +195,7 @@ names(graficos.asociacion) <- unique(datos.histogramas$W_Region)
 rmarkdown::render(
   input       = "LAB01.Rmd",
   output_dir  = paste0(getwd(), "/output"),
-  output_file = "LAB01.pdf"
+  output_file = "LAB01.pdf",
+  clean = TRUE
 )
 # ----------------------------------------------------------------------------------

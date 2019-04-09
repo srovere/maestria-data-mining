@@ -2,16 +2,49 @@
 output: 
    pdf_document:
       toc: true
+classoption: landscape
 title: Práctica de laboratorio I
 subtitle: Conceptos de Estadística Descriptiva & Preprocesamiento
+author: 
+  - Santiago Rovere
 date: "`r Sys.Date()`"
 ---
 \newpage
 
 # Estadística descriptiva
 ## Exploración de datos
-```{r eval=TRUE, echo=TRUE, warning=FALSE, message=FALSE, results='asis'}
-head(mpi.national)
-
+```{r eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=10, fig.height=6, fig.align='center'}
+plot(grafico.ciudades.region)
 ```
+
 \newpage
+## Medidas de posición
+```{r eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=9, fig.height=6, fig.align='center'}
+plot(grafico.medidas.posicion)
+```
+
+\newpage
+```{r eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=12, fig.height=10, fig.align='center'}
+plot(grafico.histogramas)
+```
+
+\newpage
+## Medidas de dispersión
+```{r eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=9, fig.height=6, fig.align='center'}
+plot(grafico.medidas.dispersion)
+```
+
+\newpage
+```{r eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=9, fig.height=6, fig.align='center'}
+plot(graficos.boxplot)
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.align = 'center') 
+```
+
+\newpage
+## Medidas de asociación
+```{r eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+for (region in names(graficos.asociacion)) {
+  print(graficos.asociacion[[region]])
+    cat("\n\n\\newpage\n")
+}
+```
