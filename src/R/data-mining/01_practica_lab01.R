@@ -195,7 +195,9 @@ names(graficos.asociacion) <- unique(datos.histogramas$W_Region)
 rmarkdown::render(
   input       = "LAB01.Rmd",
   output_dir  = paste0(getwd(), "/output"),
+  intermediates_dir = paste0(getwd(), "/output"),
   output_file = "LAB01.pdf",
+  encoding = "UTF-8",
   clean = TRUE
 )
 # ----------------------------------------------------------------------------------
