@@ -44,20 +44,11 @@ temperaturas.lof <- temperaturas %>%
   dplyr::mutate(es.outlier = (lof.values >= umbral.lof)) %>%
   dplyr::select(fecha, es.outlier) %>%
   dplyr::right_join(registros.diarios) %>%
-  dplyr::select(fecha, tmax, tmin, es.outlier)
-
-# iii. Transformar a data frame largo por variable
-datos.grafico.lof <- temperaturas.lof %>%
-  tidyr::gather(key = variable, value = valor, -fecha, -es.outlier) %>%
+  dplyr::mutate(amplitud_termica = tmax - tmin) %>%
   dplyr::mutate(tipo_dato = dplyr::if_else(is.na(es.outlier), "Faltante",
-                                           dplyr::if_else(es.outlier, "Atípico", "Normal")))
-
-# iv. Generar grafico solamente para 2018
-ggplot2::ggplot(data = dplyr::filter(datos.grafico.lof, lubridate::year(fecha) == 2018)) +
-  ggplot2::geom_point(mapping = ggplot2::aes(x = fecha, y = valor, col = tipo_dato)) +
-  ggplot2::facet_wrap(~variable, ncol = 1) +
-  ggplot2::scale_color_manual(name = "Tipo de dato", 
-                              values = c("Normal" = "#000000", "Atípico" = "#ff0000", "Faltante" = "#0000ff"))
+                                           dplyr::if_else(es.outlier, "Atípico", "Normal")),
+                metodo = 'LOF') %>%
+  dplyr::select(fecha, tmax, tmin, amplitud_termica, tipo_dato, metodo)
 # ----------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------#
@@ -76,20 +67,10 @@ temperaturas.maha <- temperaturas %>%
   dplyr::select(fecha, es.outlier) %>%
   dplyr::right_join(registros.diarios) %>% 
   dplyr::mutate(amplitud_termica = tmax - tmin) %>%
-  dplyr::select(fecha, tmax, tmin, amplitud_termica, es.outlier)
-
-# iii. Transformar a data frame largo por variable
-datos.grafico.maha <- temperaturas.maha %>%
-  tidyr::gather(key = variable, value = valor, -fecha, -es.outlier) %>%
   dplyr::mutate(tipo_dato = dplyr::if_else(is.na(es.outlier), "Faltante",
-                                           dplyr::if_else(es.outlier, "Atípico", "Normal")))
-
-# iv. Generar grafico solamente para 2018
-ggplot2::ggplot(data = dplyr::filter(datos.grafico.maha, lubridate::year(fecha) == 2018)) +
-  ggplot2::geom_point(mapping = ggplot2::aes(x = fecha, y = valor, col = tipo_dato)) +
-  ggplot2::facet_wrap(~variable, ncol = 1) +
-  ggplot2::scale_color_manual(name = "Tipo de dato", 
-                              values = c("Normal" = "#000000", "Atípico" = "#ff0000", "Faltante" = "#0000ff"))
+                                           dplyr::if_else(es.outlier, "Atípico", "Normal")),
+                metodo = 'Mahalanobis') %>%
+  dplyr::select(fecha, tmax, tmin, amplitud_termica, tipo_dato, metodo)
 # ----------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------#
@@ -105,18 +86,55 @@ temperaturas.svm <- temperaturas %>%
   dplyr::select(fecha, es.outlier) %>%
   dplyr::right_join(registros.diarios) %>% 
   dplyr::mutate(amplitud_termica = tmax - tmin) %>%
-  dplyr::select(fecha, tmax, tmin, amplitud_termica, es.outlier)
-
-# iii. Transformar a data frame largo por variable
-datos.grafico.svm <- temperaturas.svm %>%
-  tidyr::gather(key = variable, value = valor, -fecha, -es.outlier) %>%
   dplyr::mutate(tipo_dato = dplyr::if_else(is.na(es.outlier), "Faltante",
-                                           dplyr::if_else(es.outlier, "Atípico", "Normal")))
+                                           dplyr::if_else(es.outlier, "Atípico", "Normal")),
+                metodo = 'SVM') %>%
+  dplyr::select(fecha, tmax, tmin, amplitud_termica, tipo_dato, metodo)
+# ----------------------------------------------------------------------------------
 
-# iv. Generar grafico solamente para 2018
-ggplot2::ggplot(data = dplyr::filter(datos.grafico.svm, lubridate::year(fecha) == 2018)) +
+# ---------------------------------------------------------------------------------#
+# ---- Outliers utilizando K-means a partir de tmax y tmin ----
+# ---------------------------------------------------------------------------------#
+# i. Determinar clusters con 2 centros
+km.cluster <- stats::kmeans(x = temperaturas[, c("tmax", "tmin")], centers = 2)
+
+# ii. Predecir outliers
+temperaturas.km <- temperaturas %>%
+  dplyr::mutate(grupo = km.cluster$cluster) %>%
+  dplyr::mutate(tmax_centro = km.cluster$centers[km.cluster$cluster, "tmax"],
+                tmin_centro = km.cluster$centers[km.cluster$cluster, "tmin"]) %>%
+  dplyr::mutate(distancia_centro = sqrt((tmax - tmax_centro) ^ 2) + (tmin - tmin_centro) ^ 2)
+umbral <- stats::quantile(x = temperaturas.km$distancia_centro, probs = 0.75) + 1.5 * stats::IQR(x = temperaturas.km$distancia_centro)
+temperaturas.km <- temperaturas.km %>%
+  dplyr::mutate(es.outlier = (distancia_centro >= umbral)) %>%
+  dplyr::select(fecha, es.outlier) %>%
+  dplyr::right_join(registros.diarios) %>% 
+  dplyr::mutate(amplitud_termica = tmax - tmin) %>%
+  dplyr::mutate(tipo_dato = dplyr::if_else(is.na(es.outlier), "Faltante",
+                                           dplyr::if_else(es.outlier, "Atípico", "Normal")),
+                metodo = 'K-Means') %>%
+  dplyr::select(fecha, tmax, tmin, amplitud_termica, tipo_dato, metodo)
+# ----------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------#
+# ---- Graficar ----
+# ---------------------------------------------------------------------------------#
+# i. Scatterplot de temperaturas
+temperaturas.outliers <- dplyr::bind_rows(
+  temperaturas.lof, temperaturas.maha, temperaturas.svm, temperaturas.km
+)
+ggplot2::ggplot(data = dplyr::filter(temperaturas.outliers, lubridate::year(fecha) == 2018)) +
+  ggplot2::geom_point(mapping = ggplot2::aes(x = tmin, y = tmax, col = tipo_dato)) +
+  ggplot2::facet_wrap(~metodo, ncol = 1) +
+  ggplot2::scale_color_manual(name = "Tipo de dato", 
+                              values = c("Normal" = "#000000", "Atípico" = "#ff0000", "Faltante" = "#0000ff"))
+
+# ii. Series temporales para 2018
+series.temporales.outliers <- temperaturas.outliers %>%
+  tidyr::gather(key = variable, value = valor, -fecha, -tipo_dato, -metodo)
+ggplot2::ggplot(data = dplyr::filter(series.temporales.outliers, lubridate::year(fecha) == 2018)) +
   ggplot2::geom_point(mapping = ggplot2::aes(x = fecha, y = valor, col = tipo_dato)) +
-  ggplot2::facet_wrap(~variable, ncol = 1) +
+  ggplot2::facet_grid(metodo~variable) +
   ggplot2::scale_color_manual(name = "Tipo de dato", 
                               values = c("Normal" = "#000000", "Atípico" = "#ff0000", "Faltante" = "#0000ff"))
 # ----------------------------------------------------------------------------------
