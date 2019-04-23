@@ -98,20 +98,19 @@ DiscretizarPorCuantiles <- function(valores, cantidad.cuantiles) {
   return (etiquetas.valores)
 }
 
-DiscretizarPorIntervalosIguales <- function(valores, longitud.intervalos) {
-  intervalo         <- 1 / cantidad.cuantiles
-  cuantiles         <- seq(from = intervalo, to = 1 - intervalo, by = intervalo)
-  etiquetas         <- as.character(seq_len(cantidad.cuantiles))
-  puntos.corte      <- c(-Inf, stats::quantile(x = valores, probs = cuantiles, na.rm = TRUE), Inf)
+DiscretizarPorIntervalosSturges <- function(valores) {
+  histograma        <- graphics::hist(valores, plot = FALSE)
+  puntos.corte      <- c(-Inf, histograma$breaks[seq(2, length(histograma$breaks)-1)], Inf)
+  etiquetas         <- as.character(seq_len(length(puntos.corte)-1))
   etiquetas.valores <- base::cut(x = valores, breaks = puntos.corte, labels = etiquetas) %>%
     as.integer()
   return (etiquetas.valores)
 }
 
 set.datos.discretizado <- set.datos.filtrado %>%
-  dplyr::mutate(age = DiscretizarVariable(age, 5),
-                height = DiscretizarVariable(height, 5),
-                weight = DiscretizarVariable(weight, 5),
-                ap_hi = DiscretizarVariable(ap_hi, 5),
-                ap_lo = DiscretizarVariable(ap_lo, 5))
+  dplyr::mutate(age = DiscretizarPorCuantiles(age, 5),
+                height = DiscretizarPorCuantiles(height, 10),
+                weight = DiscretizarPorCuantiles(weight, 10),
+                ap_hi = DiscretizarPorIntervalosSturges(ap_hi),
+                ap_lo = DiscretizarPorIntervalosSturges(ap_lo))
 # ---------------------------------------------------------------------------------------
