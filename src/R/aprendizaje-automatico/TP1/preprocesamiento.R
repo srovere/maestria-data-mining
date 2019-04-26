@@ -88,29 +88,67 @@ set.datos.filtrado <- set.datos.convertido %>%
 # porción de la población lo que hace imposible dividir en deciles, cuartiles o quintiles.
 #
 
-DiscretizarPorCuantiles <- function(valores, cantidad.cuantiles) {
+GenerarTablaEtiquetas <- function(puntos.corte, etiquetas) {
+  tabla <- data.frame(Etiqueta = etiquetas, 
+                      ValorDesde = puntos.corte[seq(from = 1, to = length(puntos.corte)-1)],
+                      ValorHasta = puntos.corte[seq(from = 2, to = length(puntos.corte))]) %>%
+    dplyr::mutate(ValorDesde = ifelse(is.infinite(ValorDesde), NA, ValorDesde),
+                  ValorHasta = ifelse(is.infinite(ValorHasta), NA, ValorHasta))
+  return (tabla)
+}
+
+Discretizar <- function(valores, puntos.corte, etiquetas) {
+  etiquetas.valores <- base::cut(x = valores, breaks = puntos.corte, labels = etiquetas) %>%
+    as.integer()
+  return (etiquetas.valores)
+}
+
+DiscretizarPorCuantiles <- function(valores, cantidad.cuantiles, generar.tabla = FALSE) {
   intervalo         <- 1 / cantidad.cuantiles
   cuantiles         <- seq(from = intervalo, to = 1 - intervalo, by = intervalo)
   etiquetas         <- as.character(seq_len(cantidad.cuantiles))
   puntos.corte      <- c(-Inf, stats::quantile(x = valores, probs = cuantiles, na.rm = TRUE), Inf)
-  etiquetas.valores <- base::cut(x = valores, breaks = puntos.corte, labels = etiquetas) %>%
-    as.integer()
-  return (etiquetas.valores)
+  if (generar.tabla) {
+    return (GenerarTablaEtiquetas(puntos.corte, etiquetas))
+  } else {
+    return (Discretizar(valores, puntos.corte, etiquetas))
+  }
 }
 
-DiscretizarPorIntervalosSturges <- function(valores) {
+DiscretizarPorIntervalosSturges <- function(valores, generar.tabla = FALSE) {
   histograma        <- graphics::hist(valores, plot = FALSE)
   puntos.corte      <- c(-Inf, histograma$breaks[seq(2, length(histograma$breaks)-1)], Inf)
   etiquetas         <- as.character(seq_len(length(puntos.corte)-1))
-  etiquetas.valores <- base::cut(x = valores, breaks = puntos.corte, labels = etiquetas) %>%
-    as.integer()
-  return (etiquetas.valores)
+  if (generar.tabla) {
+    return (GenerarTablaEtiquetas(puntos.corte, etiquetas))
+  } else {
+    return (Discretizar(valores, puntos.corte, etiquetas))
+  }
 }
 
+# Generar tablas de referencia
+etiquetas.age    <- DiscretizarPorCuantiles(set.datos.filtrado$age, 5, TRUE)
+etiquetas.height <- DiscretizarPorCuantiles(set.datos.filtrado$height, 10, TRUE)
+etiquetas.weight <- DiscretizarPorCuantiles(set.datos.filtrado$weight, 10, TRUE)
+etiquetas.ap_hi  <- DiscretizarPorIntervalosSturges(set.datos.filtrado$ap_hi, TRUE)
+etiquetas.ap_lo  <- DiscretizarPorIntervalosSturges(set.datos.filtrado$ap_lo, TRUE)
+
+# Generar set de datos discretizado
 set.datos.discretizado <- set.datos.filtrado %>%
   dplyr::mutate(age = DiscretizarPorCuantiles(age, 5),
                 height = DiscretizarPorCuantiles(height, 10),
                 weight = DiscretizarPorCuantiles(weight, 10),
                 ap_hi = DiscretizarPorIntervalosSturges(ap_hi),
                 ap_lo = DiscretizarPorIntervalosSturges(ap_lo))
+# ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
+# ---- V. Almacenamiento de archivo de salida ----                            
+# ---------------------------------------------------------------------------------------#
+readr::write_delim(x = set.datos.discretizado, path = paste0(getwd(), "/output/SetDatosDiscretizado.csv"), delim = "\t")
+readr::write_delim(x = etiquetas.age, path = paste0(getwd(), "/output/EtiquetasAge.csv"), delim = "\t")
+readr::write_delim(x = etiquetas.height, path = paste0(getwd(), "/output/EtiquetasHeight.csv"), delim = "\t")
+readr::write_delim(x = etiquetas.weight, path = paste0(getwd(), "/output/EtiquetasWeight.csv"), delim = "\t")
+readr::write_delim(x = etiquetas.ap_hi, path = paste0(getwd(), "/output/EtiquetasAP_HI.csv"), delim = "\t")
+readr::write_delim(x = etiquetas.ap_lo, path = paste0(getwd(), "/output/EtiquetasAP_LO.csv"), delim = "\t")
 # ----------------------------------------------------------------------------------------
