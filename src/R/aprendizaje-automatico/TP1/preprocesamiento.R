@@ -113,4 +113,4 @@ set.datos.discretizado <- set.datos.filtrado %>%
                 weight = DiscretizarPorCuantiles(weight, 10),
                 ap_hi = DiscretizarPorIntervalosSturges(ap_hi),
                 ap_lo = DiscretizarPorIntervalosSturges(ap_lo))
-# ---------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
