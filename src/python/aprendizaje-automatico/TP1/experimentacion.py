@@ -1,5 +1,4 @@
 # Carga de librerías
-import IPython.display
 import pandas
 import pydotplus
 import sklearn.externals.six
