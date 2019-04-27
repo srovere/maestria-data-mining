@@ -8,6 +8,7 @@
 rm(list = objects())
 
 require(dplyr)
+require(mice)
 require(readr)
 # ----------------------------------------------------------------------------------------
 
@@ -69,7 +70,24 @@ set.datos.filtrado <- set.datos.convertido %>%
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
-# ---- IV. Discretización de variables numéricas ----                            
+# ---- IV. Imputación de datos faltantes ----                            
+# ---------------------------------------------------------------------------------------#
+
+# Exploro la cantidad de faltantes por faltantes por variable
+mice::md.pattern(set.datos.filtrado)
+
+# Dado que los valores faltantes corresponden a las variables ap_hi y ap_lo,
+# realizamos la imputacion de dichos faltantes con el metood MICE
+obj.imputacion     <- mice::mice(set.datos.filtrado, m = 5, maxit = 3, method = 'pmm', seed = 0)
+set.datos.imputado <- mice::complete(obj.imputacion)
+
+# Realizamos nuevamente los boxplots de ap_hi y ap_lo para ver que no haya valores extremos
+boxplot(set.datos.imputado$ap_hi, range = 3)
+boxplot(set.datos.imputado$ap_lo, range = 3)
+# ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
+# ---- V. Discretización de variables numéricas ----                            
 # ---------------------------------------------------------------------------------------#
 
 #
@@ -127,14 +145,14 @@ DiscretizarPorIntervalosSturges <- function(valores, generar.tabla = FALSE) {
 }
 
 # Generar tablas de referencia
-etiquetas.age    <- DiscretizarPorCuantiles(set.datos.filtrado$age, 5, TRUE)
-etiquetas.height <- DiscretizarPorCuantiles(set.datos.filtrado$height, 10, TRUE)
-etiquetas.weight <- DiscretizarPorCuantiles(set.datos.filtrado$weight, 10, TRUE)
-etiquetas.ap_hi  <- DiscretizarPorIntervalosSturges(set.datos.filtrado$ap_hi, TRUE)
-etiquetas.ap_lo  <- DiscretizarPorIntervalosSturges(set.datos.filtrado$ap_lo, TRUE)
+etiquetas.age    <- DiscretizarPorCuantiles(set.datos.imputado$age, 5, TRUE)
+etiquetas.height <- DiscretizarPorCuantiles(set.datos.imputado$height, 10, TRUE)
+etiquetas.weight <- DiscretizarPorCuantiles(set.datos.imputado$weight, 10, TRUE)
+etiquetas.ap_hi  <- DiscretizarPorIntervalosSturges(set.datos.imputado$ap_hi, TRUE)
+etiquetas.ap_lo  <- DiscretizarPorIntervalosSturges(set.datos.imputado$ap_lo, TRUE)
 
 # Generar set de datos discretizado
-set.datos.discretizado <- set.datos.filtrado %>%
+set.datos.discretizado <- set.datos.imputado %>%
   dplyr::mutate(age = DiscretizarPorCuantiles(age, 5),
                 height = DiscretizarPorCuantiles(height, 10),
                 weight = DiscretizarPorCuantiles(weight, 10),
@@ -143,7 +161,7 @@ set.datos.discretizado <- set.datos.filtrado %>%
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
-# ---- V. Almacenamiento de archivo de salida ----                            
+# ---- VI. Almacenamiento de archivo de salida ----                            
 # ---------------------------------------------------------------------------------------#
 readr::write_delim(x = set.datos.discretizado, path = paste0(getwd(), "/output/SetDatosDiscretizado.csv"), delim = "\t")
 readr::write_delim(x = etiquetas.age, path = paste0(getwd(), "/output/EtiquetasAge.csv"), delim = "\t")
