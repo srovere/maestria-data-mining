@@ -48,12 +48,12 @@ set.datos.convertido <- set.datos.original %>%
 # ---- III. Eliminar outliers extremos en atributos numéricos ----                            
 # ---------------------------------------------------------------------------------------#
 
-# Boxplot de variables numéricas con range = 3 (outliers extremos)
-boxplot(set.datos.convertido$age, range = 3)
-boxplot(set.datos.convertido$height, range = 3)
-boxplot(set.datos.convertido$weight, range = 3)
-boxplot(set.datos.convertido$ap_hi, range = 3)
-boxplot(set.datos.convertido$ap_lo, range = 3)
+# Boxplot de variables numéricas con range = 5
+boxplot(set.datos.convertido$age, range = 5)
+boxplot(set.datos.convertido$height, range = 5)
+boxplot(set.datos.convertido$weight, range = 5)
+boxplot(set.datos.convertido$ap_hi, range = 5)
+boxplot(set.datos.convertido$ap_lo, range = 5)
 
 # Por inspeccion, se nota que las presiones tienen valores muy extremos aparentemente por
 # un problema de unidades. Se eliminan esos valores extremos
@@ -65,7 +65,10 @@ FiltrarVariable <- function(valores, outlier.range) {
 }
 
 set.datos.filtrado <- set.datos.convertido %>%
-  dplyr::mutate(ap_hi = FiltrarVariable(ap_hi, 5),
+  dplyr::mutate(age = FiltrarVariable(age, 5),
+                height = FiltrarVariable(height, 5),
+                weight = FiltrarVariable(weight, 5),
+                ap_hi = FiltrarVariable(ap_hi, 5),
                 ap_lo = FiltrarVariable(ap_lo, 5))
 # ----------------------------------------------------------------------------------------
 
@@ -82,6 +85,9 @@ obj.imputacion     <- mice::mice(set.datos.filtrado, m = 5, maxit = 3, method = 
 set.datos.imputado <- mice::complete(obj.imputacion)
 
 # Realizamos nuevamente los boxplots de ap_hi y ap_lo para ver que no haya valores extremos
+boxplot(set.datos.imputado$age, range = 3)
+boxplot(set.datos.imputado$height, range = 3)
+boxplot(set.datos.imputado$weight, range = 3)
 boxplot(set.datos.imputado$ap_hi, range = 3)
 boxplot(set.datos.imputado$ap_lo, range = 3)
 # ----------------------------------------------------------------------------------------
@@ -144,18 +150,31 @@ DiscretizarPorIntervalosSturges <- function(valores, generar.tabla = FALSE) {
   }
 }
 
+# Ahora generamos otro set de datos discretizado al que previamente le calculamos el valor
+# de BMI = weight / height^2 (height = [m]; eliminando posteriormente weight y height)
+set.datos.imputado.bmi <- set.datos.imputado %>%
+  dplyr::mutate(bmi = weight / (height/100) ^ 2) %>%
+  dplyr::select(id, age, gender, bmi, ap_hi, ap_lo, cholesterol, smoke, alco, active, cardio)
+
 # Generar tablas de referencia
 etiquetas.age    <- DiscretizarPorCuantiles(set.datos.imputado$age, 5, TRUE)
 etiquetas.height <- DiscretizarPorCuantiles(set.datos.imputado$height, 10, TRUE)
 etiquetas.weight <- DiscretizarPorCuantiles(set.datos.imputado$weight, 10, TRUE)
 etiquetas.ap_hi  <- DiscretizarPorIntervalosSturges(set.datos.imputado$ap_hi, TRUE)
 etiquetas.ap_lo  <- DiscretizarPorIntervalosSturges(set.datos.imputado$ap_lo, TRUE)
+etiquetas.bmi    <- DiscretizarPorCuantiles(set.datos.discretizado.bmi$bmi, 10, TRUE)
 
-# Generar set de datos discretizado
+# Generar set de datos discretizados
 set.datos.discretizado <- set.datos.imputado %>%
   dplyr::mutate(age = DiscretizarPorCuantiles(age, 5),
                 height = DiscretizarPorCuantiles(height, 10),
                 weight = DiscretizarPorCuantiles(weight, 10),
+                ap_hi = DiscretizarPorIntervalosSturges(ap_hi),
+                ap_lo = DiscretizarPorIntervalosSturges(ap_lo))
+
+set.datos.discretizado.bmi <- set.datos.imputado.bmi %>%
+  dplyr::mutate(age = DiscretizarPorCuantiles(age, 5),
+                bmi = DiscretizarPorCuantiles(bmi, 10),
                 ap_hi = DiscretizarPorIntervalosSturges(ap_hi),
                 ap_lo = DiscretizarPorIntervalosSturges(ap_lo))
 # ----------------------------------------------------------------------------------------
@@ -164,6 +183,7 @@ set.datos.discretizado <- set.datos.imputado %>%
 # ---- VI. Almacenamiento de archivo de salida ----                            
 # ---------------------------------------------------------------------------------------#
 readr::write_delim(x = set.datos.discretizado, path = paste0(getwd(), "/output/SetDatosDiscretizado.csv"), delim = "\t")
+readr::write_delim(x = set.datos.discretizado.bmi, path = paste0(getwd(), "/output/SetDatosDiscretizadoBMI.csv"), delim = "\t")
 readr::write_delim(x = etiquetas.age, path = paste0(getwd(), "/output/EtiquetasAge.csv"), delim = "\t")
 readr::write_delim(x = etiquetas.height, path = paste0(getwd(), "/output/EtiquetasHeight.csv"), delim = "\t")
 readr::write_delim(x = etiquetas.weight, path = paste0(getwd(), "/output/EtiquetasWeight.csv"), delim = "\t")
