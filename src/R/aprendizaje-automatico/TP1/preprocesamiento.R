@@ -162,7 +162,7 @@ etiquetas.height <- DiscretizarPorCuantiles(set.datos.imputado$height, 10, TRUE)
 etiquetas.weight <- DiscretizarPorCuantiles(set.datos.imputado$weight, 10, TRUE)
 etiquetas.ap_hi  <- DiscretizarPorIntervalosSturges(set.datos.imputado$ap_hi, TRUE)
 etiquetas.ap_lo  <- DiscretizarPorIntervalosSturges(set.datos.imputado$ap_lo, TRUE)
-etiquetas.bmi    <- DiscretizarPorCuantiles(set.datos.discretizado.bmi$bmi, 10, TRUE)
+etiquetas.bmi    <- DiscretizarPorCuantiles(set.datos.imputado.bmi$bmi, 10, TRUE)
 
 # Generar set de datos discretizados
 set.datos.discretizado <- set.datos.imputado %>%
@@ -185,6 +185,7 @@ set.datos.discretizado.bmi <- set.datos.imputado.bmi %>%
 readr::write_delim(x = set.datos.discretizado, path = paste0(getwd(), "/output/SetDatosDiscretizado.csv"), delim = "\t")
 readr::write_delim(x = set.datos.discretizado.bmi, path = paste0(getwd(), "/output/SetDatosDiscretizadoBMI.csv"), delim = "\t")
 readr::write_delim(x = etiquetas.age, path = paste0(getwd(), "/output/EtiquetasAge.csv"), delim = "\t")
+readr::write_delim(x = etiquetas.bmi, path = paste0(getwd(), "/output/EtiquetasBMI.csv"), delim = "\t")
 readr::write_delim(x = etiquetas.height, path = paste0(getwd(), "/output/EtiquetasHeight.csv"), delim = "\t")
 readr::write_delim(x = etiquetas.weight, path = paste0(getwd(), "/output/EtiquetasWeight.csv"), delim = "\t")
 readr::write_delim(x = etiquetas.ap_hi, path = paste0(getwd(), "/output/EtiquetasAP_HI.csv"), delim = "\t")
