@@ -157,7 +157,7 @@ set.datos.imputado.bmi <- set.datos.imputado %>%
   dplyr::select(id, age, gender, bmi, ap_hi, ap_lo, cholesterol, smoke, alco, active, cardio)
 
 # Generar tablas de referencia
-etiquetas.age    <- DiscretizarPorCuantiles(set.datos.imputado$age, 5, TRUE)
+etiquetas.age    <- DiscretizarPorCuantiles(set.datos.imputado$age, 10, TRUE)
 etiquetas.height <- DiscretizarPorCuantiles(set.datos.imputado$height, 10, TRUE)
 etiquetas.weight <- DiscretizarPorCuantiles(set.datos.imputado$weight, 10, TRUE)
 etiquetas.ap_hi  <- DiscretizarPorIntervalosSturges(set.datos.imputado$ap_hi, TRUE)
@@ -166,14 +166,14 @@ etiquetas.bmi    <- DiscretizarPorCuantiles(set.datos.imputado.bmi$bmi, 10, TRUE
 
 # Generar set de datos discretizados
 set.datos.discretizado <- set.datos.imputado %>%
-  dplyr::mutate(age = DiscretizarPorCuantiles(age, 5),
+  dplyr::mutate(age = DiscretizarPorCuantiles(age, 10),
                 height = DiscretizarPorCuantiles(height, 10),
                 weight = DiscretizarPorCuantiles(weight, 10),
                 ap_hi = DiscretizarPorIntervalosSturges(ap_hi),
                 ap_lo = DiscretizarPorIntervalosSturges(ap_lo))
 
 set.datos.discretizado.bmi <- set.datos.imputado.bmi %>%
-  dplyr::mutate(age = DiscretizarPorCuantiles(age, 5),
+  dplyr::mutate(age = DiscretizarPorCuantiles(age, 10),
                 bmi = DiscretizarPorCuantiles(bmi, 10),
                 ap_hi = DiscretizarPorIntervalosSturges(ap_hi),
                 ap_lo = DiscretizarPorIntervalosSturges(ap_lo))
