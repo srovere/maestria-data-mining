@@ -3,3 +3,5 @@
 .RData
 .Ruserdata
 src/R/data-mining/TP1/input/PreciosClaros.RData
+src/python/aprendizaje-automatico/TP1/.idea
+src/python/aprendizaje-automatico/TP1/output/*
