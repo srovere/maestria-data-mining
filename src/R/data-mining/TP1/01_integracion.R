@@ -8,6 +8,7 @@
 rm(list = objects())
 
 require(dplyr)
+require(gridExtra)
 require(magrittr)
 require(mongolite)
 require(purrr)
@@ -52,11 +53,13 @@ barrios <- sf::st_read(dsn = paste0(getwd(), "/input"), layer = "barrios_badata"
 
 # Comunas
 comunas <- aggregate(x = dplyr::select(barrios, comuna), by = list(barrios$comuna), FUN = min) %>%
+  sf::st_transform(crs = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs') %>%
   dplyr::select(comuna)
 centroides.comunas <- as.data.frame(sf::st_coordinates(sf::st_centroid(comunas)))
 comunas %<>% 
   dplyr::bind_cols(centroides.comunas) %>%
-  dplyr::rename(centro_x = X, centro_y = Y)
+  dplyr::rename(centro_x = X, centro_y = Y) %>%
+  sf::st_transform(crs = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs')
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -171,7 +174,7 @@ sucursales.por.tipo.comuna <- sf::st_set_geometry(sucursales, NULL) %>%
   tidyr::spread(key = tipo, value = cantidad) %>%
   dplyr::inner_join(comunas, by = c("comuna"))
 
-grafico.sucursales.tipo.comuna <-ggplot2::ggplot() +
+grafico.sucursales.tipo.comuna <- ggplot2::ggplot() +
   ggplot2::geom_sf(data = sucursales.por.tipo.comuna, mapping = ggplot2::aes()) +
   scatterpie::geom_scatterpie(mapping = ggplot2::aes(x = centro_x, y = centro_y, group = comuna, r = 0.01),
                               data = sucursales.por.tipo.comuna, cols = unique(sucursales$tipo)) +
@@ -179,7 +182,7 @@ grafico.sucursales.tipo.comuna <-ggplot2::ggplot() +
                 title = "Proporción de sucursales por tipo y comuna") +
   ggplot2::theme_bw() +
   ggplot2::theme(
-    legend.position = 'right',
+    legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5)
   )
 
@@ -191,7 +194,7 @@ precios.por.barrio <- precios %>%
   dplyr::summarise(cantidad = dplyr::n()) %>%
   dplyr::right_join(barrios, by = c("barrioId"))
 
-grafico.sucursales.barrio <- ggplot2::ggplot(data = precios.por.barrio) +
+grafico.precios.barrio <- ggplot2::ggplot(data = precios.por.barrio) +
   ggplot2::geom_sf(mapping = ggplot2::aes(fill = cantidad)) +
   ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
                                 direction = 1, option = "D", values = NULL, space = "Lab",
@@ -212,7 +215,7 @@ precios.por.comuna <- precios %>%
   dplyr::summarise(cantidad = dplyr::n()) %>%
   dplyr::inner_join(comunas, by = c("comuna"))
 
-grafico.sucursales.comuna <- ggplot2::ggplot(data = precios.por.comuna) +
+grafico.precios.comuna <- ggplot2::ggplot(data = precios.por.comuna) +
   ggplot2::geom_sf(mapping = ggplot2::aes(fill = cantidad)) +
   ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
                                 direction = 1, option = "D", values = NULL, space = "Lab",
@@ -253,5 +256,16 @@ grafico.precios.sucursales.comuna <- ggplot2::ggplot(data = ratio.precios.sucurs
 # ---------------------------------------------------------------------------------------#
 # ---- VI. Almacenamiento de resultados ----                            
 # ---------------------------------------------------------------------------------------#
+
+# i. Graficos de sucursales
+grafico.sucursales <- 
+  gridExtra::grid.arrange(grafico.sucursales.barrio, grafico.sucursales.comuna,
+                                              nrow = 1, ncol = 2)
+
+grafico.precios <- 
+  gridExtra::grid.arrange(grafico.precios.barrio, grafico.precios.comuna,
+                          nrow = 1, ncol = 2)
+
+
 save(barrios, productos, sucursales, precios, file = paste0(getwd(), "/input/PreciosClaros.RData"))
 # ----------------------------------------------------------------------------------------
