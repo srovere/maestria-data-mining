@@ -86,7 +86,6 @@ banderas <- sucursales.original %>%
 #      Las coordenadas estan en Lat-Lon. Hay que convertirlas a planares para que tengan el mismo CRS.
 sucursales <- sucursales.original %>%
   dplyr::as.tbl() %>%
-  dplyr::mutate(sucursalId = as.integer(sucursalId)) %>%
   dplyr::rename(tipo = sucursalTipo, nombre = sucursalNombre,
                 latitud = lat, longitud = lng) %>%
   dplyr::select(comercioId, banderaId, sucursalId, tipo, direccion, latitud, longitud) %>%
@@ -112,8 +111,8 @@ sucursales %<>% sf::st_transform(crs = '+proj=longlat +ellps=WGS84 +datum=WGS84 
 # vi. Precios
 precios <- precios.original %>%
   dplyr::as.tbl() %>%
-  dplyr::mutate(comercioId = stringr::str_match(string = sucursal, pattern = "(\\d+)-(\\d+)-(\\d+)")[, 2],
-                banderaId = stringr::str_match(string = sucursal, pattern = "(\\d+)-(\\d+)-(\\d+)")[, 3],
+  dplyr::mutate(comercioId = as.integer(stringr::str_match(string = sucursal, pattern = "(\\d+)-(\\d+)-(\\d+)")[, 2]),
+                banderaId = as.integer(stringr::str_match(string = sucursal, pattern = "(\\d+)-(\\d+)-(\\d+)")[, 3]),
                 sucursalId = stringr::str_match(string = sucursal, pattern = "(\\d+)-(\\d+)-(\\d+)")[, 4]) %>%
   dplyr::rename(productoId = producto) %>%
   dplyr::select(productoId, comercioId, banderaId, sucursalId, fecha, medicion, precio)
@@ -178,6 +177,72 @@ grafico.sucursales.tipo.comuna <-ggplot2::ggplot() +
                               data = sucursales.por.tipo.comuna, cols = unique(sucursales$tipo)) +
   ggplot2::labs(x = "Longitud", y = "Latitud", fill = "",
                 title = "Proporción de sucursales por tipo y comuna") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'right',
+    plot.title = ggplot2::element_text(hjust = 0.5)
+  )
+
+# IV. Cantidad de precios por barrio
+precios.por.barrio <- precios %>%
+  dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
+  dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
+  dplyr::group_by(barrioId) %>%
+  dplyr::summarise(cantidad = dplyr::n()) %>%
+  dplyr::right_join(barrios, by = c("barrioId"))
+
+grafico.sucursales.barrio <- ggplot2::ggplot(data = precios.por.barrio) +
+  ggplot2::geom_sf(mapping = ggplot2::aes(fill = cantidad)) +
+  ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
+                                direction = 1, option = "D", values = NULL, space = "Lab",
+                                na.value = "white", guide = "colourbar", aesthetics = "fill") +
+  ggplot2::labs(x = "Longitud", y = "Latitud", fill = "",
+                title = "Cantidad de precios relevados por barrio") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'right',
+    plot.title = ggplot2::element_text(hjust = 0.5)
+  )
+
+# V. Cantidad de precios por comuna
+precios.por.comuna <- precios %>%
+  dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
+  dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
+  dplyr::group_by(comuna) %>%
+  dplyr::summarise(cantidad = dplyr::n()) %>%
+  dplyr::inner_join(comunas, by = c("comuna"))
+
+grafico.sucursales.comuna <- ggplot2::ggplot(data = precios.por.comuna) +
+  ggplot2::geom_sf(mapping = ggplot2::aes(fill = cantidad)) +
+  ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
+                                direction = 1, option = "D", values = NULL, space = "Lab",
+                                na.value = "white", guide = "colourbar", aesthetics = "fill") +
+  ggplot2::labs(x = "Longitud", y = "Latitud", fill = "",
+                title = "Cantidad de precios relevados por comuna") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'right',
+    plot.title = ggplot2::element_text(hjust = 0.5)
+  )
+
+# V. Cantidad de precios/sucursales por comuna
+ratio.precios.sucursales.por.comuna <- precios %>%
+  dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
+  dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
+  dplyr::group_by(comuna) %>%
+  dplyr::summarise(cantidad_precios = dplyr::n()) %>%
+  dplyr::inner_join(dplyr::select(sucursales.por.comuna, comuna, cantidad)) %>%
+  dplyr::rename(cantidad_sucursales = cantidad) %>%
+  dplyr::mutate(ratio_precios_sucursales = cantidad_precios / cantidad_sucursales) %>%
+  dplyr::inner_join(comunas, by = c("comuna"))
+
+grafico.precios.sucursales.comuna <- ggplot2::ggplot(data = ratio.precios.sucursales.por.comuna) +
+  ggplot2::geom_sf(mapping = ggplot2::aes(fill = ratio_precios_sucursales)) +
+  ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
+                                direction = 1, option = "D", values = NULL, space = "Lab",
+                                na.value = "white", guide = "colourbar", aesthetics = "fill") +
+  ggplot2::labs(x = "Longitud", y = "Latitud", fill = "",
+                title = "Proporción de precios/sucursales relevados por comuna") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'right',
