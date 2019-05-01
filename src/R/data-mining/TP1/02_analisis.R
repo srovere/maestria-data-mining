@@ -194,11 +194,38 @@ rm(cantidad.datos.relevados)
 # ---------------------------------------------------------------------------------------#
 
 # i. Data frame ancho para analizar evolucion de precios por producto y sucursal
-mediciones        <- sort(unique(precios$medicion))
+mediciones        <- as.character(sort(unique(precios$medicion)))
 evolucion.precios <- precios %>%
   dplyr::select(-fecha) %>%
   tidyr::spread(key = medicion, value = precio)
 
 # ii. Cálculo de evolucion de precios para cada medición
-p
+evolucion.precios %<>%
+  dplyr::bind_cols(
+    purrr::map2_dfc(
+      .x = head(mediciones, n = length(mediciones) - 1),
+      .y = tail(mediciones, n = length(mediciones) - 1),
+      .f = function(medicion.inicial, medicion.final) {
+        columna.evolucion <- paste0("evolucion_", medicion.inicial, "_", medicion.final)
+        return (evolucion.precios %>% 
+                  dplyr::mutate(!! columna.evolucion := 100.0 * (!!rlang::sym(medicion.final) - !!rlang::sym(medicion.inicial)) / !!rlang::sym(medicion.inicial)) %>%
+                  dplyr::select(!! columna.evolucion)
+        )
+      }
+    )
+  )
+
+# iii. Pasar las evoluciones a formato largo
+evoluciones.precio.largo <- evolucion.precios %>%
+  dplyr::select(-mediciones) %>%
+  tidyr::gather(key = nombre_evolucion, value = evolucion_porcentual, -productoId, -comercioId, -banderaId, -sucursalId) %>%
+  tidyr::separate(col = nombre_evolucion, into = c(NA, 'medicion_inicial', 'medicion_final'), sep = '_')
+
+# iv. Eliminacion de outliers (precios que aumentaron y redujeron bruscamente su precio)
+# cuantiles.variacion     < stats::quantile(evoluciones.precio.largo$evolucion_porcentual, probs = c(0.25, 0.75))
+# umbral.maxima.variacion <- 
+
+# iv. Graficar la evolucion porcentual por medicion
+grafico.evolucion <- ggplot2::ggplot(data = evoluciones.precio.largo) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = medicion_final, y = evolucion_porcentual, group = medicion_final))
 # ----------------------------------------------------------------------------------------
