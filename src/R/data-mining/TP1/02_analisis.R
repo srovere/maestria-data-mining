@@ -190,7 +190,7 @@ rm(cantidad.datos.relevados)
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
-# ---- V. Generacion de gráficos de evolución temporal de datos relevados ----                            
+# ---- V. Cálculo de evolución temporal de datos relevados ----                            
 # ---------------------------------------------------------------------------------------#
 
 # i. Data frame ancho para analizar evolucion de precios por producto y sucursal
@@ -219,13 +219,22 @@ evolucion.precios %<>%
 evoluciones.precio.largo <- evolucion.precios %>%
   dplyr::select(-mediciones) %>%
   tidyr::gather(key = nombre_evolucion, value = evolucion_porcentual, -productoId, -comercioId, -banderaId, -sucursalId) %>%
-  tidyr::separate(col = nombre_evolucion, into = c(NA, 'medicion_inicial', 'medicion_final'), sep = '_')
+  tidyr::separate(col = nombre_evolucion, into = c(NA, 'medicion_inicial', 'medicion_final'), sep = '_') %>%
+  dplyr::filter(! is.na(evolucion_porcentual))
 
-# iv. Eliminacion de outliers (precios que aumentaron y redujeron bruscamente su precio)
-# cuantiles.variacion     < stats::quantile(evoluciones.precio.largo$evolucion_porcentual, probs = c(0.25, 0.75))
-# umbral.maxima.variacion <- 
+# iv. Analisis de precios cuyo valor tenemos de punta a punta.
+evolucion.punta.a.punta <- evolucion.precios %>%
+  dplyr::mutate(evolucion_porcentual_total = 100 * (`10` - `1`) / `1`) %>%
+  dplyr::filter(! is.na(evolucion_porcentual_total))
 
-# iv. Graficar la evolucion porcentual por medicion
-grafico.evolucion <- ggplot2::ggplot(data = evoluciones.precio.largo) +
-  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = medicion_final, y = evolucion_porcentual, group = medicion_final))
+# v. Eliminar los outliers
+cuantiles.evolucion.total <- stats::quantile(evolucion.punta.a.punta$evolucion_porcentual_total, probs = c(0.25, 0.75))
+rango.intercuartil        <- cuantiles.evolucion.total[2] - cuantiles.evolucion.total[1]
+rango.outliers            <- 1.5
+umbral.maximo             <- cuantiles.evolucion.total[2] + rango.outliers * rango.intercuartil
+umbral.minimo             <- cuantiles.evolucion.total[1] - rango.outliers * rango.intercuartil
+evolucion.total.filtrada  <- evolucion.punta.a.punta %>%
+  dplyr::filter((evolucion_porcentual_total >= umbral.minimo) & (evolucion_porcentual_total <= umbral.maximo)) %>%
+  dplyr::select(productoId, comercioId, banderaId, sucursalId, evolucion_porcentual_total)
+
 # ----------------------------------------------------------------------------------------
