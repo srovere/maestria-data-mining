@@ -11,6 +11,7 @@ require(dplyr)
 require(ggplot2)
 require(gridExtra)
 require(magrittr)
+require(plotly)
 require(purrr)
 require(scatterpie)
 require(sf)
@@ -236,5 +237,59 @@ umbral.minimo             <- cuantiles.evolucion.total[1] - rango.outliers * ran
 evolucion.total.filtrada  <- evolucion.punta.a.punta %>%
   dplyr::filter((evolucion_porcentual_total >= umbral.minimo) & (evolucion_porcentual_total <= umbral.maximo)) %>%
   dplyr::select(productoId, comercioId, banderaId, sucursalId, evolucion_porcentual_total)
+# ----------------------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------------------#
+# ---- VI. Generación de gráficos de evolución temporal de precios por total/comuna ----                            
+# ---------------------------------------------------------------------------------------#
+
+# i. Boxplot general
+grafico.evolucion.general <- ggplot2::ggplot(data = evolucion.total.filtrada) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = 'C.A.B.A', y = evolucion_porcentual_total)) +
+  ggplot2::labs(x = "", y = "Diferencia porcentual", 
+                title = "Evolución porcentual de precios para C.A.B.A",
+                subtitle = "Diferencia medida entra la última y la primera medición") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+grafico.evolucion.general <- plotly::ggplotly(grafico.evolucion.general)
+
+# ii. Boxplots por comuna
+evolucion.por.comuna <- evolucion.total.filtrada %>%
+  dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
+  dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
+  dplyr::select(productoId, barrioId, comuna, tipo, evolucion_porcentual_total)
+grafico.boxplots.evolucion.por.comuna <- ggplot2::ggplot(data = evolucion.por.comuna) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = as.factor(comuna), y = evolucion_porcentual_total, 
+                                               group = as.factor(comuna), fill = as.factor(comuna))) +
+  ggplot2::labs(x = "", y = "Diferencia porcentual", fill = "Comuna de C.A.B.A.",
+                title = "Evolución porcentual de precios por comuna",
+                subtitle = "Diferencia medida entra la última y la primera medición") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+
+# iii. Medianas por comuna
+medianas.por.comuna <- comunas %>%
+  dplyr::inner_join(dplyr::group_by(evolucion.por.comuna, comuna) %>% 
+                      dplyr::summarize(mediana_evolucion_porcentual_total = median(evolucion_porcentual_total)), 
+                    by = c("comuna"))
+grafico.mapa.evolucion.por.comuna <- ggplot2::ggplot(data = medianas.por.comuna) +
+  ggplot2::geom_sf(mapping = ggplot2::aes(fill = mediana_evolucion_porcentual_total)) +
+  ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
+                                direction = 1, option = "D", values = NULL, space = "Lab",
+                                na.value = "white", guide = "colourbar", aesthetics = "fill") +
+  ggplot2::labs(x = "Longitud", y = "Latitud", fill = "Diferencia porcentual",
+                title = "Evolución porcentual de precios por comuna",
+                subtitle = "Diferencia medida entra la última y la primera medición") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
 # ----------------------------------------------------------------------------------------
