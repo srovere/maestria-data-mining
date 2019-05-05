@@ -88,6 +88,7 @@ banderas <- sucursales.original %>%
 #      Las coordenadas estan en Lat-Lon. Hay que convertirlas a planares para que tengan el mismo CRS.
 sucursales <- sucursales.original %>%
   dplyr::as.tbl() %>%
+  dplyr::filter(id %in% precios.original$sucursal) %>%
   dplyr::rename(tipo = sucursalTipo, nombre = sucursalNombre,
                 latitud = lat, longitud = lng) %>%
   dplyr::select(comercioId, banderaId, sucursalId, tipo, direccion, latitud, longitud) %>%
