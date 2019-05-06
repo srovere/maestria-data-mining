@@ -59,7 +59,9 @@ def EntrenarYEvaluarPerformance(atributos, objetivo, parametros, metricas, k=5):
     columnas.extend(parametros.keys())
     groupcols = ["conjunto", "metrica" ]
     groupcols.extend(parametros.keys())
-    resultadosDF = pandas.DataFrame.from_records(resultadosDF, columns=columnas)
+    resultadosDF = pandas.DataFrame.from_records(resultadosDF, columns=columnas)\
+        .groupby(groupcols)\
+        .aggregate({'valor':{'media':'mean', 'desvio':'std'}})
 
     return (resultadosDF)
 
