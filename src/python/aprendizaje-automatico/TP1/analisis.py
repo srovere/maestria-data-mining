@@ -3,6 +3,7 @@
 ########################################################################################################################
 
 # Carga de librerías
+import numpy
 import pandas
 import pydotplus
 import sklearn.externals.six
@@ -10,9 +11,21 @@ import sklearn.metrics
 import sklearn.model_selection
 import sklearn.tree
 
+# Definicion de funcion para discretizar variables por cuantiles
+def DiscretizarPorCuantiles(datos, columnas, intervalos):
+    datosNuevos = datos.copy()
+    for columna in columnas:
+        paso                 = 1 / intervalos
+        cuantiles            = numpy.arange(0, 1.0 + paso, paso)
+        etiquetas            = list(map(str, numpy.arange(1, intervalos + 1)))
+        categorias           = pandas.qcut(x=datos[columna], q=cuantiles, labels=etiquetas)
+        datosNuevos[columna] = categorias
+    return datosNuevos
+
 # Lectura de set de datos discretizado
-setDatosDiscretizado = pandas.read_csv(filepath_or_buffer = "input/SetDatosDiscretizado.csv",
-                                       sep = "\t", na_values = "NA")
+setDatosOriginal     = pandas.read_csv(filepath_or_buffer = "input/SetDatosDiscretizado.csv", sep = "\t",
+                                       na_values = "NA")
+setDatosDiscretizado = DiscretizarPorCuantiles(datos=setDatosOriginal, columnas=['age','height','weight'], intervalos=10)
 
 # Separo los features del data frame del target a aprender
 atributos = setDatosDiscretizado.drop(columns = [ "id", "cardio" ])
@@ -28,11 +41,11 @@ atributosDesarrollo, atributosTest, objetivoDesarrollo, objetivoTest = \
 
 # 2.1 Entrenamiento de árbol con altura 3 y estimacion de performance con 5-fold cross validation
 
-def EntrenarYEvaluarPerformance(atributos, objetivo, parametros, metricas, k=5):
+def EntrenarYEvaluarPerformance(atributos, objetivo, parametros, metricas, metrica_mejor_ajuste, k=5):
     # Entrenar y calcular metricas
     gridSearch = sklearn.model_selection.GridSearchCV(estimator=sklearn.tree.DecisionTreeClassifier(),
                                                       param_grid=parametros, cv=k, n_jobs=2, scoring=metricas,
-                                                      return_train_score=True, refit=False)
+                                                      return_train_score=True, refit=metrica_mejor_ajuste)
     gridSearch.fit(X=atributos, y=objetivo)
 
     # Generar DataFrame de resultados
@@ -60,38 +73,38 @@ def EntrenarYEvaluarPerformance(atributos, objetivo, parametros, metricas, k=5):
     groupcols = ["conjunto", "metrica" ]
     groupcols.extend(parametros.keys())
     resultadosDF = pandas.DataFrame.from_records(resultadosDF, columns=columnas)\
-        .groupby(groupcols)\
+        .groupby(groupcols, as_index=False)\
         .aggregate({'valor':{'media':'mean', 'desvio':'std'}})
 
-    return (resultadosDF)
+    return [gridSearch, resultadosDF]
 
-parametros = {
-    "max_depth": [ 3, 6 ],
-    "criterion": [ "gini", "entropy" ]
-}
-metricas   = [ "accuracy", "roc_auc" ]
-resultados = EntrenarYEvaluarPerformance(atributosDesarrollo, objetivoDesarrollo, parametros, metricas)
-
-#crossValidation             = {}
-#crossValidation["Accuracy"] = sklearn.model_selection.cross_validate(decisionTree, developmentFeatures, developmentTarget,
-#                                                                 cv = 5, scoring = 'accuracy', return_train_score = True)
-#crossValidation["ROC AUC"]  = sklearn.model_selection.cross_validate(decisionTree, developmentFeatures, developmentTarget,
-#                                                                     cv = 5, scoring = 'roc_auc', return_train_score = True)
-#crossValidationData         = []
-#for scoringMethod in crossValidation.keys():
-#    cvTrainScores = crossValidation[scoringMethod]["train_score"]
-#    cvTestScores  = crossValidation[scoringMethod]["test_score"]
-#    crossValidationData.append([ scoringMethod, "Entrenamiento", cvTrainScores.mean(), cvTrainScores.std() ])
-#    crossValidationData.append([ scoringMethod, "Validación", cvTestScores.mean(), cvTestScores.std() ])
-
-#crossValidationDataFrame = pandas.DataFrame.from_records(crossValidationData,
-#                                                         columns = [ "Métrica", "Conjunto", "Media", "Desvío" ])
+parametros             = { "max_depth": [ 3 ] }
+metricas               = [ "accuracy", "roc_auc" ]
+gridSearch, resultados = EntrenarYEvaluarPerformance(atributos=atributosDesarrollo, objetivo=objetivoDesarrollo,
+                                                     parametros=parametros, metricas=metricas,
+                                                     metrica_mejor_ajuste='roc_auc', k=5)
+print(resultados)
 
 # 2.2 Entrenamiento de árboles con las siguientes combinaciones:
 #     Altura máxima: { 3, 6, Inf }
 #     Criterio: { 'gini', 'entropy' }
 #     Métricas de performance: { 'accuracy', 'roc_auc' }
 
+parametros             = { "max_depth": [ 3, 6 ], "criterion": [ 'gini', 'entropy' ] }
+metricas               = [ "accuracy", "roc_auc" ]
+gridSearch, resultados = EntrenarYEvaluarPerformance(atributos=atributosDesarrollo, objetivo=objetivoDesarrollo,
+                                                     parametros=parametros, metricas=metricas,
+                                                     metrica_mejor_ajuste='roc_auc', k=5)
+print(resultados)
+print("Parámetros del mejor árbol: " + str(gridSearch.best_params_))
+
+parametros             = { "criterion": [ 'gini', 'entropy' ] }
+metricas               = [ "accuracy", "roc_auc" ]
+gridSearch, resultados = EntrenarYEvaluarPerformance(atributos=atributosDesarrollo, objetivo=objetivoDesarrollo,
+                                                     parametros=parametros, metricas=metricas,
+                                                     metrica_mejor_ajuste='roc_auc', k=5)
+print(resultados)
+print("Profundidad del mejor árbol: " + str(gridSearch.best_estimator_.tree_.max_depth))
 
 # Ajustar set de entrenamiento
 # decisionTree = sklearn.tree.DecisionTreeClassifier(max_depth = 5, criterion = "gini", random_state = 0)

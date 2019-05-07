@@ -111,6 +111,9 @@ boxplot(set.datos.imputado$ap_lo, range = 3)
 # a valores de presión (ap_hi, ap_lo) donde hay valores discretos muy frecuentes que representa una significativa
 # porción de la población lo que hace imposible dividir en deciles, cuartiles o quintiles.
 #
+# NOTA (2019-05-07): A efectos de poder agregar ruido, se dejan sin discretizar las variables
+#                    age, height y weight. La discretizacion se hara con el metodo descripto
+#                    dentro del script de analisis (python)  
 
 GenerarTablaEtiquetas <- function(puntos.corte, etiquetas) {
   tabla <- data.frame(Etiqueta = etiquetas, 
@@ -157,37 +160,37 @@ set.datos.imputado.bmi <- set.datos.imputado %>%
   dplyr::select(id, age, gender, bmi, ap_hi, ap_lo, cholesterol, smoke, alco, active, cardio)
 
 # Generar tablas de referencia
-etiquetas.age    <- DiscretizarPorCuantiles(set.datos.imputado$age, 10, TRUE)
-etiquetas.height <- DiscretizarPorCuantiles(set.datos.imputado$height, 10, TRUE)
-etiquetas.weight <- DiscretizarPorCuantiles(set.datos.imputado$weight, 10, TRUE)
+#etiquetas.age    <- DiscretizarPorCuantiles(set.datos.imputado$age, 10, TRUE)
+#etiquetas.height <- DiscretizarPorCuantiles(set.datos.imputado$height, 10, TRUE)
+#etiquetas.weight <- DiscretizarPorCuantiles(set.datos.imputado$weight, 10, TRUE)
 etiquetas.ap_hi  <- DiscretizarPorIntervalosSturges(set.datos.imputado$ap_hi, TRUE)
 etiquetas.ap_lo  <- DiscretizarPorIntervalosSturges(set.datos.imputado$ap_lo, TRUE)
-etiquetas.bmi    <- DiscretizarPorCuantiles(set.datos.imputado.bmi$bmi, 10, TRUE)
+#etiquetas.bmi    <- DiscretizarPorCuantiles(set.datos.imputado.bmi$bmi, 10, TRUE)
 
 # Generar set de datos discretizados
 set.datos.discretizado <- set.datos.imputado %>%
-  dplyr::mutate(age = DiscretizarPorCuantiles(age, 10),
-                height = DiscretizarPorCuantiles(height, 10),
-                weight = DiscretizarPorCuantiles(weight, 10),
+  dplyr::mutate(#age = DiscretizarPorCuantiles(age, 10),
+                #height = DiscretizarPorCuantiles(height, 10),
+                #weight = DiscretizarPorCuantiles(weight, 10),
                 ap_hi = DiscretizarPorIntervalosSturges(ap_hi),
                 ap_lo = DiscretizarPorIntervalosSturges(ap_lo))
 
-set.datos.discretizado.bmi <- set.datos.imputado.bmi %>%
-  dplyr::mutate(age = DiscretizarPorCuantiles(age, 10),
-                bmi = DiscretizarPorCuantiles(bmi, 10),
-                ap_hi = DiscretizarPorIntervalosSturges(ap_hi),
-                ap_lo = DiscretizarPorIntervalosSturges(ap_lo))
+# set.datos.discretizado.bmi <- set.datos.imputado.bmi %>%
+#   dplyr::mutate(age = DiscretizarPorCuantiles(age, 10),
+#                 bmi = DiscretizarPorCuantiles(bmi, 10),
+#                 ap_hi = DiscretizarPorIntervalosSturges(ap_hi),
+#                 ap_lo = DiscretizarPorIntervalosSturges(ap_lo))
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
 # ---- VI. Almacenamiento de archivo de salida ----                            
 # ---------------------------------------------------------------------------------------#
 readr::write_delim(x = set.datos.discretizado, path = paste0(getwd(), "/output/SetDatosDiscretizado.csv"), delim = "\t")
-readr::write_delim(x = set.datos.discretizado.bmi, path = paste0(getwd(), "/output/SetDatosDiscretizadoBMI.csv"), delim = "\t")
-readr::write_delim(x = etiquetas.age, path = paste0(getwd(), "/output/EtiquetasAge.csv"), delim = "\t")
-readr::write_delim(x = etiquetas.bmi, path = paste0(getwd(), "/output/EtiquetasBMI.csv"), delim = "\t")
-readr::write_delim(x = etiquetas.height, path = paste0(getwd(), "/output/EtiquetasHeight.csv"), delim = "\t")
-readr::write_delim(x = etiquetas.weight, path = paste0(getwd(), "/output/EtiquetasWeight.csv"), delim = "\t")
+#readr::write_delim(x = set.datos.discretizado.bmi, path = paste0(getwd(), "/output/SetDatosDiscretizadoBMI.csv"), delim = "\t")
+#readr::write_delim(x = etiquetas.age, path = paste0(getwd(), "/output/EtiquetasAge.csv"), delim = "\t")
+#readr::write_delim(x = etiquetas.bmi, path = paste0(getwd(), "/output/EtiquetasBMI.csv"), delim = "\t")
+#readr::write_delim(x = etiquetas.height, path = paste0(getwd(), "/output/EtiquetasHeight.csv"), delim = "\t")
+#readr::write_delim(x = etiquetas.weight, path = paste0(getwd(), "/output/EtiquetasWeight.csv"), delim = "\t")
 readr::write_delim(x = etiquetas.ap_hi, path = paste0(getwd(), "/output/EtiquetasAP_HI.csv"), delim = "\t")
 readr::write_delim(x = etiquetas.ap_lo, path = paste0(getwd(), "/output/EtiquetasAP_LO.csv"), delim = "\t")
 # ----------------------------------------------------------------------------------------
