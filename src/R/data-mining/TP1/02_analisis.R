@@ -272,6 +272,7 @@ grafico.boxplots.evolucion.por.comuna <- ggplot2::ggplot(data = evolucion.por.co
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
   )
+grafico.boxplots.evolucion.por.comuna <- plotly::ggplotly(grafico.boxplots.evolucion.por.comuna)
 
 # iii. Medianas por comuna
 medianas.por.comuna <- comunas %>%
@@ -292,4 +293,30 @@ grafico.mapa.evolucion.por.comuna <- ggplot2::ggplot(data = medianas.por.comuna)
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
   )
+grafico.mapa.evolucion.por.comuna <- plotly::ggplotly(grafico.mapa.evolucion.por.comuna)
+
+# ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
+# ---- VII. Comparación de precios por comuna ----                            
+# ---------------------------------------------------------------------------------------#
+
+# i. Para cada medicion se calcula un precio de referencia para cada producto (mediana)
+#    Calculo los umbrales para eliminar outliers con range = 5
+rango.outliers.precios <- 3
+estadisticas.precios <- precios %>%
+  dplyr::group_by(productoId, medicion) %>%
+  dplyr::summarize(mediana = median(precio, na.rm = TRUE),
+                   q1 = quantile(precio, 0.25, na.rm = TRUE),
+                   q3 = quantile(precio, 0.75, na.rm = TRUE),
+                   iqr = IQR(precio, na.rm = TRUE),
+                   mad = mad(precio, na.rm = TRUE),
+                   maximo = max(precio, na.rm = TRUE),
+                   minimo = min(precio, na.rm = TRUE)) %>%
+  dplyr::mutate(umbral_maximo = q3 + rango.outliers.precios * iqr,
+                umbral_minimo = q1 - rango.outliers.precios * iqr)
+
+# ii. Eliminacion de outliers por producto y medicion
+
+
 # ----------------------------------------------------------------------------------------
