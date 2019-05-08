@@ -125,7 +125,7 @@ precios <- precios.original %>%
 # ---- V. Eliminación de outliers de precios y almacenamiento de resultados ----                            
 # ---------------------------------------------------------------------------------------#
 
-# i. Calculamos estadisticas de precios pro producto y medicion
+# i. Calculamos estadisticas de precios por producto y medicion
 estadisticas.precios <- precios %>%
   dplyr::group_by(productoId, medicion) %>%
   dplyr::summarize(media = mean(precio, na.rm = TRUE),
@@ -134,22 +134,42 @@ estadisticas.precios <- precios %>%
                    minimo = min(precio, na.rm = TRUE),
                    cantidad = dplyr::n())
 
-# ii. Calculamos scores de precios para llevarlos a unidades comunes a todos los productos y mediciones
+# ii. Calculamos scores de precios por producto y medición para llevarlos a unidades comunes
+#     que nos permitan detectar valores atípicos
 precios.scores <- precios %>%
   dplyr::inner_join(estadisticas.precios, by = c("productoId", "medicion")) %>%
   dplyr::mutate(score = dplyr::if_else(std > 0, (precio - media)/std, 0))
 
-# iii. Buscamos outliers
+# iii. Buscamos outliers con rango = 3.
 rango.outliers   <- 3
 scores           <- dplyr::pull(precios.scores, score)
 score.maximo     <- quantile(scores, 0.75, na.rm = TRUE) + rango.outliers * IQR(scores, na.rm = TRUE)
 score.minimo     <- quantile(scores, 0.25, na.rm = TRUE) - rango.outliers * IQR(scores, na.rm = TRUE)
 
-# iv. Eliminamos esos outliers
+# iv. Eliminamos esos outliers. Nos quedan datos en abundancia para seguir haciendo los análisis.
+#     Por tal motivo, no es necesario realizar imputaciones de datos faltantes.
 precios.filtrados <- precios.scores %>%
-  dplyr::filter((score >= score.minimo) & (score <= score.maximo))
-precios           <- precios.filtrados %>%
+  dplyr::filter((score >= score.minimo) & (score <= score.maximo)) %>%
   dplyr::select(productoId, comercioId, banderaId, sucursalId, fecha, medicion, precio)
+
+# v. Finalmente, reconstruimos la tabla de precios y agregamos scores por producto y por producto/medición
+#    Los scores se recalculan nuevamente sin los outliers iniciales.
+estadisticas.precios.productos <- precios %>%
+  dplyr::group_by(productoId) %>%
+  dplyr::summarize(media_producto = mean(precio, na.rm = TRUE),
+                   std_producto = sd(precio, na.rm = TRUE))
+estadisticas.precios.productos.medicion <- precios %>%
+  dplyr::group_by(productoId, medicion) %>%
+  dplyr::summarize(media_producto_medicion = mean(precio, na.rm = TRUE),
+                   std_producto_medicion = sd(precio, na.rm = TRUE))
+
+precios <- precios.filtrados %>%
+  dplyr::inner_join(estadisticas.precios.productos, by = c("productoId")) %>%
+  dplyr::inner_join(estadisticas.precios.productos.medicion, by = c("productoId", "medicion")) %>%
+  dplyr::mutate(score_producto = dplyr::if_else(std_producto > 0, (precio - media_producto)/std_producto, 0),
+                score_producto_medicion = dplyr::if_else(std_producto_medicion > 0, 
+                                                         (precio - media_producto_medicion)/std_producto_medicion, 0)) %>%
+  dplyr::select(productoId, comercioId, banderaId, sucursalId, fecha, medicion, precio, score_producto, score_producto_medicion)
 
 save(barrios, comunas, productos, sucursales, precios, file = paste0(getwd(), "/input/PreciosClaros.RData"))
 # ----------------------------------------------------------------------------------------

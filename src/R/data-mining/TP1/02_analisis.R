@@ -197,7 +197,7 @@ rm(cantidad.datos.relevados)
 # i. Data frame ancho para analizar evolucion de precios por producto y sucursal
 mediciones        <- as.character(sort(unique(precios$medicion)))
 evolucion.precios <- precios %>%
-  dplyr::select(-fecha) %>%
+  dplyr::select(-fecha, -score_producto, -score_producto_medicion) %>%
   tidyr::spread(key = medicion, value = precio)
 
 # ii. Cálculo de evolucion de precios para cada medición
@@ -227,16 +227,6 @@ evoluciones.precio.largo <- evolucion.precios %>%
 evolucion.punta.a.punta <- evolucion.precios %>%
   dplyr::mutate(evolucion_porcentual_total = 100 * (`10` - `1`) / `1`) %>%
   dplyr::filter(! is.na(evolucion_porcentual_total))
-
-# v. Eliminar los outliers
-cuantiles.evolucion.total <- stats::quantile(evolucion.punta.a.punta$evolucion_porcentual_total, probs = c(0.25, 0.75))
-rango.intercuartil        <- cuantiles.evolucion.total[2] - cuantiles.evolucion.total[1]
-rango.outliers            <- 1.5
-umbral.maximo             <- cuantiles.evolucion.total[2] + rango.outliers * rango.intercuartil
-umbral.minimo             <- cuantiles.evolucion.total[1] - rango.outliers * rango.intercuartil
-evolucion.total.filtrada  <- evolucion.punta.a.punta %>%
-  dplyr::filter((evolucion_porcentual_total >= umbral.minimo) & (evolucion_porcentual_total <= umbral.maximo)) %>%
-  dplyr::select(productoId, comercioId, banderaId, sucursalId, evolucion_porcentual_total)
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -244,7 +234,7 @@ evolucion.total.filtrada  <- evolucion.punta.a.punta %>%
 # ---------------------------------------------------------------------------------------#
 
 # i. Boxplot general
-grafico.evolucion.general <- ggplot2::ggplot(data = evolucion.total.filtrada) +
+grafico.evolucion.general <- ggplot2::ggplot(data = evolucion.punta.a.punta) +
   ggplot2::geom_boxplot(mapping = ggplot2::aes(x = 'C.A.B.A', y = evolucion_porcentual_total)) +
   ggplot2::labs(x = "", y = "Diferencia porcentual", 
                 title = "Evolución porcentual de precios para C.A.B.A",
@@ -257,10 +247,15 @@ grafico.evolucion.general <- ggplot2::ggplot(data = evolucion.total.filtrada) +
 grafico.evolucion.general <- plotly::ggplotly(grafico.evolucion.general)
 
 # ii. Boxplots por comuna
-evolucion.por.comuna <- evolucion.total.filtrada %>%
+evolucion.por.comuna <- evolucion.punta.a.punta %>%
   dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
   dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
   dplyr::select(productoId, barrioId, comuna, tipo, evolucion_porcentual_total)
+estadisticas.por.comuna <- comunas %>%
+  dplyr::inner_join(dplyr::group_by(evolucion.por.comuna, comuna) %>% 
+                      dplyr::summarize(mediana_evolucion_porcentual_total = median(evolucion_porcentual_total),
+                                       media_evolucion_porcentual_total = mean(evolucion_porcentual_total)), 
+                    by = c("comuna"))
 grafico.boxplots.evolucion.por.comuna <- ggplot2::ggplot(data = evolucion.por.comuna) +
   ggplot2::geom_boxplot(mapping = ggplot2::aes(x = as.factor(comuna), y = evolucion_porcentual_total, 
                                                group = as.factor(comuna), fill = as.factor(comuna))) +
@@ -274,12 +269,8 @@ grafico.boxplots.evolucion.por.comuna <- ggplot2::ggplot(data = evolucion.por.co
   )
 grafico.boxplots.evolucion.por.comuna <- plotly::ggplotly(grafico.boxplots.evolucion.por.comuna)
 
-# iii. Medianas por comuna
-medianas.por.comuna <- comunas %>%
-  dplyr::inner_join(dplyr::group_by(evolucion.por.comuna, comuna) %>% 
-                      dplyr::summarize(mediana_evolucion_porcentual_total = median(evolucion_porcentual_total)), 
-                    by = c("comuna"))
-grafico.mapa.evolucion.por.comuna <- ggplot2::ggplot(data = medianas.por.comuna) +
+# iii. Mapa por comuna
+grafico.mapa.evolucion.por.comuna <- ggplot2::ggplot(data = estadisticas.por.comuna) +
   ggplot2::geom_sf(mapping = ggplot2::aes(fill = mediana_evolucion_porcentual_total)) +
   ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
                                 direction = 1, option = "D", values = NULL, space = "Lab",
@@ -294,29 +285,37 @@ grafico.mapa.evolucion.por.comuna <- ggplot2::ggplot(data = medianas.por.comuna)
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
   )
 grafico.mapa.evolucion.por.comuna <- plotly::ggplotly(grafico.mapa.evolucion.por.comuna)
-
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
 # ---- VII. Comparación de precios por comuna ----                            
 # ---------------------------------------------------------------------------------------#
 
-# i. Para cada medicion se calcula un precio de referencia para cada producto (mediana)
-#    Calculo los umbrales para eliminar outliers con range = 5
-rango.outliers.precios <- 3
-estadisticas.precios <- precios %>%
-  dplyr::group_by(productoId, medicion) %>%
-  dplyr::summarize(mediana = median(precio, na.rm = TRUE),
-                   q1 = quantile(precio, 0.25, na.rm = TRUE),
-                   q3 = quantile(precio, 0.75, na.rm = TRUE),
-                   iqr = IQR(precio, na.rm = TRUE),
-                   mad = mad(precio, na.rm = TRUE),
-                   maximo = max(precio, na.rm = TRUE),
-                   minimo = min(precio, na.rm = TRUE)) %>%
-  dplyr::mutate(umbral_maximo = q3 + rango.outliers.precios * iqr,
-                umbral_minimo = q1 - rango.outliers.precios * iqr)
-
-# ii. Eliminacion de outliers por producto y medicion
-
-
+precios.comuna <- precios %>%
+  dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
+  dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId"))
+estadisticas.comuna.medicion <- precios.comuna %>%
+  dplyr::group_by(comuna, medicion) %>%
+  dplyr::summarise(mediana = median(score_producto_medicion), media = mean(score_producto_medicion)) %>%
+  dplyr::right_join(comunas, by = c("comuna"))
+ 
+grafico.scores.precios.comunas <- ggplot2::ggplot(data = estadisticas.comuna.medicion) +
+  ggplot2::geom_sf(mapping = ggplot2::aes(fill = media)) +
+  ggplot2::facet_wrap(~medicion, ncol = 4) +
+  ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
+                                direction = 1, option = "D", values = NULL, space = "Lab",
+                                na.value = "white", guide = "colourbar", aesthetics = "fill") +
+  ggplot2::labs(x = "", y = "", fill = "Score de precios",
+                title = "Score de precios relevados por comuna",
+                subtitle = "Evolución a lo largo de las mediciones") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    axis.text.x = ggplot2::element_blank(),
+    axis.ticks.x = ggplot2::element_blank(),
+    axis.text.y = ggplot2::element_blank(),
+    axis.ticks.y = ggplot2::element_blank()
+  )
 # ----------------------------------------------------------------------------------------
