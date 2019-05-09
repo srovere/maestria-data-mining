@@ -18,12 +18,13 @@ def DiscretizarPorCuantiles(datos, columnas, intervalos):
     datosNuevos = datos.copy()
     informacion = {}
     for columna in columnas:
-        paso                 = 1 / intervalos
-        cuantiles            = numpy.arange(0, 1.0 + paso, paso)
-        etiquetas            = list(map(str, numpy.arange(1, intervalos + 1)))
-        categorias           = pandas.qcut(x=datos[columna], q=cuantiles, labels=etiquetas)
-        datosNuevos[columna] = categorias
-        informacion[columna] = { "cuantiles": cuantiles, "etiquetas": etiquetas }
+        paso      = 1 / intervalos
+        cuantiles = numpy.arange(0, 1.0 + paso, paso)
+        etiquetas = list(map(str, numpy.arange(1, intervalos + 1)))
+        
+        (nuevosDatos, intervalosEtiquetas) = pandas.qcut(x=datos[columna], q=cuantiles, labels=etiquetas, retbins=True)
+        datosNuevos[columna] = nuevosDatos
+        informacion[columna] = { "cuantiles": cuantiles, "etiquetas": etiquetas, "intervalos": intervalosEtiquetas }
     return [datosNuevos, informacion ]
 
 # Lectura de set de datos discretizado
@@ -32,7 +33,7 @@ setDatosOriginal = pandas.read_csv(filepath_or_buffer = "input/SetDatosDiscretiz
 setDatosDiscretizado, informacion = DiscretizarPorCuantiles(datos=setDatosOriginal, columnas=['age','height','weight'], intervalos=10)
 
 # Separo los features del data frame del target a aprender
-atributos = setDatosDiscretizado.drop(columns = [ "id", "cardio" ])
+atributos = setDatosDiscretizado.drop(columns = [ "cardio" ])
 objetivo  = setDatosDiscretizado['cardio']
 
 # Separar en sets de desarrollo (entrenamiento + validacion) y testeo
@@ -46,12 +47,15 @@ atributosDesarrollo, atributosTest, objetivoDesarrollo, objetivoTest = \
 # 2.1 Entrenamiento de árbol con altura 3 y estimacion de performance con 5-fold cross validation
 
 def EntrenarYEvaluarPerformance(atributos, objetivo, parametros, metricas, metrica_mejor_ajuste, k=5):
+    # Eliminar id a efectos de entrerar dado que no es un dato que deba tenerse en cuenta
+    atributosSinId = atributos.drop(columns = [ "id" ])
+    
     # Entrenar y calcular metricas
     random.seed(0)
     gridSearch = sklearn.model_selection.GridSearchCV(estimator=sklearn.tree.DecisionTreeClassifier(),
                                                       param_grid=parametros, cv=k, n_jobs=2, scoring=metricas,
                                                       return_train_score=True, refit=metrica_mejor_ajuste)
-    gridSearch.fit(X=atributos, y=objetivo)
+    gridSearch.fit(X=atributosSinId, y=objetivo)
 
     # Generar DataFrame de resultados
     resultados    = gridSearch.cv_results_
@@ -112,7 +116,7 @@ gridSearch, resultados = EntrenarYEvaluarPerformance(atributos=atributosDesarrol
 print(resultados)
 print("Profundidad del mejor árbol: " + str(gridSearch.best_estimator_.tree_.max_depth))
 
-# 2.3 Tomando el mejor árbol del punto 2.2 (criterio = Gini) para hacer algunos
+# 2.3 Tomando el mejor método del punto 2.2 (criterio = Gini) para hacer algunos
 #     experimentos que permitan testear la tolerancia a faltantes.
 
 # Definicion de función para calcular la moda de una lista de valores
@@ -166,7 +170,7 @@ atributosEntrenamiento, atributosValidacion, objetivoEntrenamiento, objetivoVali
 
 # Generar sets de datos con tasas de faltantes de 0 a 0.8 con un paso de 0.05
 # Reemplazarlos por la moda y moda de clase.
-# Ajustar el árbol de decisión con Gini y altura 6 (el mejor árbol de 2.2)
+# Ajustar el árbol de decisión con Gini (el mejor árbol de 2.2)
 analisisSensibilidadFaltantes = []
 for clase in [ 'Moda', 'Moda de clase' ]:
     for tasaFaltantes in [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8]:
@@ -184,47 +188,91 @@ for clase in [ 'Moda', 'Moda de clase' ]:
                                                                          columna="weight",
                                                                          objetivo=objetivoEntrenamiento)
 
-        arbolDecision   = sklearn.tree.DecisionTreeClassifier(criterion = "gini", random_state = 0)
+        # Eliminar id a efectos de entrerar dado que no es un dato que deba tenerse en cuenta
+        atributosEntrenamientoSinFaltantes = atributosEntrenamientoSinFaltantes.drop(columns = [ "id" ])
+        atributosValidacionSinId           = atributosValidacion.drop(columns = [ "id" ])
+        
+        # Ajustar el árbol y obtener la profundidad del mismo y el accuracy
+        arbolDecision = sklearn.tree.DecisionTreeClassifier(criterion = "gini", random_state = 0)
         arbolDecision.fit(atributosEntrenamientoSinFaltantes, objetivoEntrenamiento)
-        predicciones    = arbolDecision.predict(atributosValidacion)
-        accuracy        = sklearn.metrics.accuracy_score(objetivoValidacion, predicciones)
-        profundidad     = arbolDecision.tree_.max_depth
+        predicciones  = arbolDecision.predict(atributosValidacionSinId)
+        accuracy      = sklearn.metrics.accuracy_score(objetivoValidacion, predicciones)
+        profundidad   = arbolDecision.tree_.max_depth
         analisisSensibilidadFaltantes.append([ tasaFaltantes, clase, profundidad, accuracy ])
 
 analisisSensibilidadFaltantes = pandas.DataFrame.from_records(analisisSensibilidadFaltantes,
                                                               columns=["faltantes", "relleno", "profundidad", "accuracy"])
 
-# def EntrenarYEvaluarPerformance(atributos, objetivo, parametros, metricas, metrica_mejor_ajuste, k=5):
+# 2.4 Tomando el mejor método del punto 2.2 (criterio = Gini) para hacer algunos
+#     experimentos que permitan testear la tolerancia a ruido. Para ello se definirá
+#     una tasa porcentual de ruido (TPR) de forma de alterar el valor original 
+#     modificando aleatoriamente el valor del siguiente modo:
+#     ruido           = random.uniform(-TPR, TPR) * valorOriginal
+#     valorModificado = valorOriginal + ruido
+def AlterarValorPorRuido(valorOriginal, tasaPorcentualRuido = 0.2):
+    ruido           = random.uniform(-tasaPorcentualRuido, tasaPorcentualRuido) * valorOriginal
+    valorModificado = valorOriginal + ruido
+    return valorModificado
 
-# Ajustar set de entrenamiento
-# decisionTree = sklearn.tree.DecisionTreeClassifier(max_depth = 5, criterion = "gini", random_state = 0)
-# decisionTree.fit(trainFeatures, trainTarget)
+def AgregarRuido(datosOriginales, atributosDiscretizados, informacionDiscretizacion, tasaDatosRuidosos, columna):
+    # Determinar el tamano de la población y de la muestra
+    tamanoPoblacion = atributosDiscretizados.shape[0]
+    tamanoMuestra   = round(tasaDatosRuidosos * tamanoPoblacion)
 
-# Evaluar precisión
-# predictions = decisionTree.predict(validationFeatures)
-# confusionMatrix = sklearn.metrics.confusion_matrix(validationTarget, predictions)
-# print(confusionMatrix)
-# accuracy = sklearn.metrics.accuracy_score(validationTarget, predictions)
-# print(accuracy)
+    # Seleccionar al azar una cantidad filas
+    random.seed(0)
+    filas   = list(numpy.arange(0, tamanoPoblacion))
+    muestra = random.sample(filas, tamanoMuestra)
+    
+    # Buscar los valores originales de los datos de la columna haciendo join por ID    
+    atributosReducidos = atributosDiscretizados.iloc[muestra][["id"]]
+    setDatosReducido   = setDatosOriginal.merge(atributosReducidos, how = "inner", on = "id")
+    
+    # Agregar ruido
+    setDatosReducido["conRuido"] = list(setDatosReducido.apply(lambda row: AlterarValorPorRuido(row[columna]), axis = 1))
+    
+    # Volver a discretizar
+    setDatosReducido["conRuidoDiscretizado"] = pandas.cut(x = setDatosReducido["conRuido"],
+                                   labels = informacionDiscretizacion[columna]["etiquetas"],
+                                   bins = informacionDiscretizacion[columna]["intervalos"])
+    
+    # Hacer join nuevamente para obtener el set de atributos modificado
+    setDatosReducido           = setDatosReducido[["id", "conRuidoDiscretizado"]]
+    atributosConRuido          = atributosDiscretizados.merge(setDatosReducido, how = "left")
+    atributosConRuido[columna] = list(atributosConRuido.apply(lambda row: row[columna] if pandas.isnull(row["conRuidoDiscretizado"]) 
+    else row["conRuidoDiscretizado"], axis = 1))
+    atributosConRuido          = atributosConRuido.drop(columns = [ "conRuidoDiscretizado" ])
+    
+    return atributosConRuido
 
-# Graficado del árbol
-# dotFile = sklearn.externals.six.StringIO()
-# sklearn.tree.export_graphviz(decisionTree, out_file = dotFile, filled = True, rounded = True, special_characters = True)
-# graph = pydotplus.graph_from_dot_data(dotFile.getvalue())
-# graph.write_png("output/DT.png")
-
-# Ahora hago una exploración de parámetros para optimizar el árbol
-# parameters = { 'max_depth': range(1, 9), 'criterion':  [ 'entropy', 'gini' ] }
-# gridSearch = sklearn.model_selection.GridSearchCV(sklearn.tree.DecisionTreeClassifier(), parameters, n_jobs = 4)
-# gridSearch.fit(X = trainValidationFeatures, y = trainValidationTarget)
-# treeModel  = gridSearch.best_estimator_
-# print (gridSearch.best_score_, gridSearch.best_params_)
-
-# Evaluar precisión con set de testeo
-# predictions = treeModel.predict(testFeatures)
-# accuracy = sklearn.metrics.accuracy_score(testTarget, predictions)
-# print(accuracy)
-
+# Generar sets de datos con tasas de ruido de 0 a 0.35 con un paso de 0.05
+# Ajustar el árbol de decisión con Gini (el mejor árbol de 2.2)
+analisisSensibilidadRuido = []
+for tasaDatosRuidosos in [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35 ]:
+    print("Experimentando con", str(tasaDatosRuidosos))
+    atributosEntrenamientoRuidosos = atributosEntrenamiento
+    if (tasaDatosRuidosos > 0):
+        atributosEntrenamientoRuidosos = AgregarRuido(datosOriginales=setDatosOriginal,
+                                                      atributosDiscretizados=atributosEntrenamiento,
+                                                      informacionDiscretizacion=informacion,
+                                                      tasaDatosRuidosos=tasaDatosRuidosos,
+                                                      columna="weight")
+        
+    # Eliminar id a efectos de entrerar dado que no es un dato que deba tenerse en cuenta
+    atributosEntrenamientoRuidosos = atributosEntrenamientoRuidosos.drop(columns = [ "id" ])
+    atributosValidacionSinId       = atributosValidacion.drop(columns = [ "id" ])
+        
+    # Ajustar el árbol y obtener la profundidad del mismo y el accuracy
+    arbolDecision = sklearn.tree.DecisionTreeClassifier(criterion = "gini", random_state = 0)
+    arbolDecision.fit(atributosEntrenamientoRuidosos, objetivoEntrenamiento)
+    predicciones  = arbolDecision.predict(atributosValidacionSinId)
+    accuracy      = sklearn.metrics.accuracy_score(objetivoValidacion, predicciones)
+    profundidad   = arbolDecision.tree_.max_depth
+    analisisSensibilidadRuido.append([ tasaDatosRuidosos, profundidad, accuracy ])
+    
+analisisSensibilidadRuido = pandas.DataFrame.from_records(analisisSensibilidadRuido,
+                                                              columns=["ruido", "profundidad", "accuracy"])    
+        
 # Graficado del árbol óptimo
 # dotFile = sklearn.externals.six.StringIO()
 # sklearn.tree.export_graphviz(decisionTree, out_file = dotFile, filled = True, rounded = True, special_characters = True)
