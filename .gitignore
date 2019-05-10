@@ -2,6 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
-src/R/data-mining/TP1/input/PreciosClaros.RData
+src/R/data-mining/TP1/input/*.RData
+src/R/data-mining/TP1/output/*.RData
+src/R/data-mining/TP1/*.html
+src/R/data-mining/TP1/*.pdf
 src/python/aprendizaje-automatico/TP1/.idea
 src/python/aprendizaje-automatico/TP1/output/*
