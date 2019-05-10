@@ -77,7 +77,7 @@ grafico.comunas <- ggplot2::ggplot(data = comunas) +
   ggplot2::geom_text(mapping = ggplot2::aes(x = centro_x, y = centro_y, label = comuna)) +
   ggplot2::scale_fill_distiller(type = "div", palette = "Spectral") +
   ggplot2::labs(x = "Longitud", y = "Latitud", fill = "",
-                title = "Barrios de C.A.B.A") +
+                title = "Comunas de C.A.B.A") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'none',
@@ -195,6 +195,32 @@ precios <- precios.filtrados %>%
                                                          (precio - media_producto_medicion)/std_producto_medicion, 0)) %>%
   dplyr::select(productoId, comercioId, banderaId, sucursalId, fecha, medicion, precio, score_producto, score_producto_medicion)
 
+# vi. Gráficos
+grafico.outliers.inicial <- ggplot2::ggplot(data = precios.scores) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = "", y = score), na.rm=TRUE) +
+  ggplot2::coord_flip() +
+  ggplot2::labs(x = "", y = "", title = "Scores por producto y medición",
+                subtitle = "Boxplot de acuerdo a datos originales") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'none',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+  )
+grafico.outliers.final <- ggplot2::ggplot(data = precios) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = "", y = score_producto_medicion), na.rm=TRUE) +
+  ggplot2::coord_flip() +
+  ggplot2::labs(x = "", y = "", title = "",
+                subtitle = "Boxplot de acuerdo a datos filtrados") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'none',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+  )  
+
+# vii. Almacenamiento de variables de interés para realizar el análisis exploratorio y el informe
 save(barrios, comunas, productos, sucursales, precios, file = paste0(getwd(), "/input/PreciosClaros.RData"))
-save(grafico.barrios, grafico.comunas, file = paste0(getwd(), "/output/GraficosBarriosComunas.RData"))
+save(grafico.barrios, grafico.comunas, grafico.outliers.inicial, grafico.outliers.final,
+     file = paste0(getwd(), "/output/GraficosPreparacion.RData"))
 # ----------------------------------------------------------------------------------------

@@ -22,25 +22,56 @@ rm(list = objects())
 require(Cairo)
 require(ggplot2)
 require(gridExtra)
+require(plotly)
 require(sf)
 
 # Uso de Cairo para renderizar los gráficos
 options(bitmapType = "cairo")
 
 # Carga de variables necesarias para realizar el informe
-load(file = paste0("output/GraficosBarriosComunas.RData"))
+load(file = paste0("input/PreciosClaros.RData"))
+load(file = paste0("output/GraficosPreparacion.RData"))
 load(file = paste0("output/Informe.RData"))
 ```
 
 # Introducción
 
+El presente trabajo se basa en la exploración y análisis de un conjunto de datos extraído del la aplicación **Precios Claros** [https://www.preciosclaros.gob.ar]. Dichos datos fueron extraídos mediante un proceso de relevamiento automático utilizando la técnica de web crawling. Este proceso consistió en la en la generación de consultas a la página web mediante un script programado en *Python*. Cada medición tomó 3 semanas aproximadamente debido a la gran cantidad de datos disponibles y la cantidad máxima de consultas por día que se pueden hacer al sitio sin ser bloqueado. Sea realizaron un total de 10 mediciones.
+
+Posteriormente, este conjunto de datos fue introducido en una base de datos MongoDB a fin de poder manejar más cómodamente las consultas. El set de datos inicial es el siguiente:
+
+   tabla      | descripción                                                       | cantidad de datos
+   -----------|-------------------------------------------------------------------|------------------
+    productos | productos relevados por la aplicación                             | 1.000
+   sucursales | sucursales relevadas en los distintos barrios de CABA             | 837
+      precios | precios por producto y sucursal para cada una de las mediciones   | + 1,5 millones
+      
+Este documento se organiza de la siguiente manera: en la sección *2* se presentarán los objetivos de este estudio en forma de preguntas a responder; en la sección *3* se detallará el proceso de preparación de datos que se realizó a fin de poder iniciar el análisis exploratorio de la sección *4*; a continuación, se presentarán los resultados de los análisis de las preguntas planteadas en los objetivos *5*; finalmente, en la sección *6* se elaborarán las conclusiones finales del trabajo proponiendo algunas posibles líneas de trabajo futuro.
+
 # Objetivo
+      
+# Preparación de datos
 
-# Preparación de los datos
+En primer lugar, se extrajeron los datos de las 3 tablas originales y se efectuó una normalización de sus atributos a fin de trabajar con tablas que permitan fácilmente hacer join entre ellas y agrupar eficientemente por *ids*. También se eliminaron los datos de provincia y localidad de la tabla de sucursales dado que no era eficiente extraer el barrio o la comuna por estar dicha información no estructurada (es decir, por figurar como texto libre).
 
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center'}
+Sin embargo, dado que para cada sucursal se cuenta con el dato de longitud y latitud, se descargaron los *shapes* de los barrios de la página del Gobierno de la Ciudad de Buenos Aires [https://data.buenosaires.gob.ar/dataset/barrios]. Estos datos fueron integrados con los datos de sucursales, y mediante operaciones espaciales, se logró ubicar cada sucursal en un barrio de la Ciudad Autónoma de Buenos. A su vez, se construyeron los polígonos correspondientes a las comunas uniendo los polígonos de los barrios que las componen.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Barrios y comunas de la Ciudad Autónoma de Buenos Aires"}
 plot(gridExtra::arrangeGrob(grafico.barrios, grafico.comunas, nrow = 1))
 ```
+
+Posteriormente, se analizó la tabla de *precios* a fin de detectar si había datos atípicos que pudieran entorpecer en análisis. Dado que los precios varían con los productos y con las mediciones, lo que se hizo para evitar esta complicación fue estandarizar los datos mediante el uso de *z-score*. Se calculó un *z-score* por porducto y otro por producto y medición. 
+
+Tomando como base el *z-score* de los precios por producto y medición, se buscaron aquellos datos que resultaran ser *outliers extremos* mediante el método univariado basado en cuartiles (Q1 y Q3) y rango intercualtil. Se consideraron datos atípicos aqullos que estuvieran a una distancia de 3 rangos intercuartiles de Q1 o Q3. Con este sencillo método se eliminaron datos muy distorsivos que representaban aproximadamente el 0,4% de la muestra. Debido a que la cantidad de datos restante resultó ser muy elevada, no se efectuó ningún proceso de imputación de datos faltantes por considerarse innecesario.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Boxplots de scores de precios por producto y medición"}
+plot(gridExtra::arrangeGrob(grafico.outliers.inicial, grafico.outliers.final, ncol = 1))
+```
+
+Finalmente, se procedió a dar inicio a un análisis exploratorio inicial a partir de este conjunto de datos normalizado, geolocalizado y con precios estandarizados sin valores ruidosos.
+
+# Análisis exploratorio inicial
+
 
 # Análisis realizados
 
