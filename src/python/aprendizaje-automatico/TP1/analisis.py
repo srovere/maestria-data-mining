@@ -5,13 +5,13 @@
 # Carga de librerías
 import numpy
 import pandas
-import pydotplus
+#import pydotplus
 import random
 import sklearn.externals.six
 import sklearn.metrics
 import sklearn.model_selection
+import sklearn.naive_bayes
 import sklearn.tree
-import sys
 
 # Definicion de funcion para discretizar variables por cuantiles
 def DiscretizarPorCuantiles(datos, columnas, intervalos):
@@ -278,3 +278,17 @@ analisisSensibilidadRuido = pandas.DataFrame.from_records(analisisSensibilidadRu
 # sklearn.tree.export_graphviz(decisionTree, out_file = dotFile, filled = True, rounded = True, special_characters = True)
 # graph = pydotplus.graph_from_dot_data(dotFile.getvalue())
 # graph.write_png("output/DT-optimal.png")
+
+########################################################################################################################
+# 3. Naive Bayes
+########################################################################################################################
+
+# Eliminar id a efectos de entrerar dado que no es un dato que deba tenerse en cuenta
+atributosDesarrolloSinId = atributosDesarrollo.drop(columns = [ "id" ])
+atributosTestSinId       = atributosTest.drop(columns = [ "id" ])
+ 
+# Ajustar estacion bayesiana       
+naiveBayes        = sklearn.naive_bayes.GaussianNB()
+naiveBayes.fit(atributosDesarrolloSinId, objetivoDesarrollo)
+prediccionesBayes = naiveBayes.predict(atributosTestSinId)
+accuracy          = sklearn.metrics.accuracy_score(objetivoTest, prediccionesBayes)
