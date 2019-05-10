@@ -59,6 +59,30 @@ comunas %<>%
   dplyr::bind_cols(centroides.comunas) %>%
   dplyr::rename(centro_x = X, centro_y = Y) %>%
   sf::st_transform(crs = '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs')
+
+# Graficos
+grafico.barrios <- ggplot2::ggplot(data = barrios) +
+  ggplot2::geom_sf(mapping = ggplot2::aes(fill = barrioId)) +
+  ggplot2::scale_fill_distiller(type = "div", palette = "Spectral") +
+  ggplot2::labs(x = "Longitud", y = "Latitud", fill = "",
+                title = "Barrios de C.A.B.A") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'none',
+    plot.title = ggplot2::element_text(hjust = 0.5)
+  )
+
+grafico.comunas <- ggplot2::ggplot(data = comunas) +
+  ggplot2::geom_sf(mapping = ggplot2::aes(fill = comuna)) +
+  ggplot2::geom_text(mapping = ggplot2::aes(x = centro_x, y = centro_y, label = comuna)) +
+  ggplot2::scale_fill_distiller(type = "div", palette = "Spectral") +
+  ggplot2::labs(x = "Longitud", y = "Latitud", fill = "",
+                title = "Barrios de C.A.B.A") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'none',
+    plot.title = ggplot2::element_text(hjust = 0.5)
+  )
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -172,4 +196,5 @@ precios <- precios.filtrados %>%
   dplyr::select(productoId, comercioId, banderaId, sucursalId, fecha, medicion, precio, score_producto, score_producto_medicion)
 
 save(barrios, comunas, productos, sucursales, precios, file = paste0(getwd(), "/input/PreciosClaros.RData"))
+save(grafico.barrios, grafico.comunas, file = paste0(getwd(), "/output/GraficosBarriosComunas.RData"))
 # ----------------------------------------------------------------------------------------

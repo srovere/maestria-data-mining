@@ -1,0 +1,47 @@
+---
+title: "Data Mining: Trabajo Práctico nº 1"
+subtitle: "Análisis de set de datos de Precios Claros"
+author:
+- Santiago Rovere (srovere@gmail.com), Facultad de Ingeniería, Universidad de Buenos Aires
+- Javier Quinteros (jaqbase-dmkm@yahoo.com.ar), Universidad Argentina de la Empresa
+date: '`r format(Sys.Date(), "%d de %B de %Y")`'
+output:
+  html_document:
+    number_sections: yes
+  pdf_document:
+    number_sections: yes
+  html_notebook:
+    number_sections: yes
+---
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Borrar bariables del ambiente
+rm(list = objects())
+
+# Carga de paquetes necesarios para hacer los gráficos
+require(Cairo)
+require(ggplot2)
+require(gridExtra)
+require(sf)
+
+# Uso de Cairo para renderizar los gráficos
+options(bitmapType = "cairo")
+
+# Carga de variables necesarias para realizar el informe
+load(file = paste0("output/GraficosBarriosComunas.RData"))
+load(file = paste0("output/Informe.RData"))
+```
+
+# Introducción
+
+# Objetivo
+
+# Preparación de los datos
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center'}
+plot(gridExtra::arrangeGrob(grafico.barrios, grafico.comunas, nrow = 1))
+```
+
+# Análisis realizados
+
+# Conclusiones
