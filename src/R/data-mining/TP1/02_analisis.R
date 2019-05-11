@@ -324,4 +324,7 @@ grafico.scores.precios.comunas <- ggplot2::ggplot(data = estadisticas.comuna.med
 # ---- ??. Almacenamiento de variables necesarias para el informe ----                            
 # ---------------------------------------------------------------------------------------#
 
+save(grafico.sucursales.barrio, grafico.sucursales.comuna, grafico.sucursales.tipo.comuna,
+     grafico.cantidad.datos.relevados, grafico.evolucion.general, grafico.boxplots.evolucion.por.comuna,
+     file = paste0(getwd(), "/output/Informe.RData"))
 # ----------------------------------------------------------------------------------------
