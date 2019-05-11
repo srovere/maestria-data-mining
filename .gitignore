@@ -2,6 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+src/R/data-mining/TP1/03_informe_files/*
 src/R/data-mining/TP1/input/*.RData
 src/R/data-mining/TP1/output/*.RData
 src/R/data-mining/TP1/*.html
