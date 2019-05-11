@@ -1,0 +1,10 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/495310/2667c42931f74d73b4418ce2f98fe9bf
+bundleId: https://api.rpubs.com/api/v1/document/495310/2667c42931f74d73b4418ce2f98fe9bf
+url: http://rpubs.com/srovere/495310
+when: 1557601001.57233
