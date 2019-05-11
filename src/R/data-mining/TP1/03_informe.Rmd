@@ -6,9 +6,9 @@ author:
 - Javier Quinteros (jaqbase-dmkm@yahoo.com.ar), Universidad Argentina de la Empresa
 date: '`r format(Sys.Date(), "%d de %B de %Y")`'
 output:
-  pdf_document:
-    number_sections: yes
   html_document:
+    number_sections: yes
+  pdf_document:
     number_sections: yes
   html_notebook:
     number_sections: yes
@@ -57,7 +57,8 @@ En primer lugar, se extrajeron los datos de las 3 tablas originales y se efectu�
 Sin embargo, dado que para cada sucursal se cuenta con el dato de longitud y latitud, se descargaron los *shapes* de los barrios de la página del Gobierno de la Ciudad de Buenos Aires [https://data.buenosaires.gob.ar/dataset/barrios]. Estos datos fueron integrados con los datos de sucursales, y mediante operaciones espaciales, se logró ubicar cada sucursal en un barrio de la Ciudad Autónoma de Buenos. A su vez, se construyeron los polígonos correspondientes a las comunas uniendo los polígonos de los barrios que las componen.
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Barrios y comunas de la Ciudad Autónoma de Buenos Aires"}
-plot(gridExtra::arrangeGrob(grafico.barrios, grafico.comunas, nrow = 1))
+#plot(gridExtra::arrangeGrob(grafico.barrios, grafico.comunas, nrow = 1))
+gridExtra::grid.arrange(grafico.barrios, grafico.comunas, nrow = 1)
 ```
 
 Posteriormente, se analizó la tabla de *precios* a fin de detectar si había datos atípicos que pudieran entorpecer en análisis. Dado que los precios varían con los productos y con las mediciones, lo que se hizo para evitar esta complicación fue estandarizar los datos mediante el uso de *z-score*. Se calculó un *z-score* por porducto y otro por producto y medición. 
