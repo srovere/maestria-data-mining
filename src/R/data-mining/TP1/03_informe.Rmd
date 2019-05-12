@@ -49,7 +49,24 @@ Posteriormente, este conjunto de datos fue introducido en una base de datos Mong
 Este documento se organiza de la siguiente manera: en la sección *2* se presentarán los objetivos de este estudio en forma de preguntas a responder; en la sección *3* se detallará el proceso de preparación de datos que se realizó a fin de poder iniciar el análisis exploratorio de la sección *4*; a continuación, se presentarán los resultados de los análisis de las preguntas planteadas en los objetivos *5*; finalmente, en la sección *6* se elaborarán las conclusiones finales del trabajo proponiendo algunas posibles líneas de trabajo futuro.
 
 # Objetivo
-      
+
+En presente trabajo se propone responder una serie de preguntas organizadas en 3 categorías:
+
+* Análisis exploratorio inicial
+  - ¿Cómo es la distribución espacial de sucursales de acuerdo a la cantidad y tipo de sucursal?
+  - ¿Cuál es la cantidad de datos relevados por barrio/comuna? ¿Existe alguna relación con la cantidad de sucursales relevadas?
+  - ¿Son uniformes en cuanto a duración los períodos de medición? ¿Y con respecto a la cantidad de datos?
+
+* Comparación estática de precios por barrio/comuna
+  - ¿Cuáles son las sucursales con precios más altos y más bajos a lo largo de todo el período?
+  - ¿Cuáles son los barrios y/o comunas con precios más altos y más bajos? ¿Varía este ranking a lo largo del tiempo?
+  
+* Evolución temporal de precios
+  - ¿Cuál es la evolución porcentual de precios por comuna?
+  - ¿Cuál es la evolución porcentual de precios por tipo de sucursal?
+  - ¿Cuáles fueron las marcas cuya evolución fue máxima y mínima?
+  - ¿La evolución de precios es consistente con el IPC informado por el Gobierno de la Ciudad de Buenos Aires?
+  
 # Preparación de datos
 
 En primer lugar, se extrajeron los datos de las 3 tablas originales y se efectuó una normalización de sus atributos a fin de trabajar con tablas que permitan fácilmente hacer join entre ellas y agrupar eficientemente por *ids*. También se eliminaron los datos de provincia y localidad de la tabla de sucursales dado que no era eficiente extraer el barrio o la comuna por estar dicha información no estructurada (es decir, por figurar como texto libre).
@@ -71,9 +88,12 @@ plot(gridExtra::arrangeGrob(grafico.outliers.inicial, grafico.outliers.final, nc
 
 Finalmente, se procedió a dar inicio a un análisis exploratorio inicial a partir de este conjunto de datos normalizado, geolocalizado y con precios estandarizados sin valores ruidosos.
 
-# Análisis exploratorio inicial
-
-
 # Análisis realizados
+
+## Análisis exploratorio inicial
+
+## Comparación estática de precios por barrio/comuna
+
+## Evolución temporal de precios
 
 # Conclusiones
