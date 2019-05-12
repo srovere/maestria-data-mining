@@ -86,7 +86,7 @@ Tomando como base el *z-score* de los precios por producto y medición, se busca
 plot(gridExtra::arrangeGrob(grafico.outliers.inicial, grafico.outliers.final, ncol = 1))
 ```
 
-Finalmente, se procedió a dar inicio a un análisis exploratorio inicial a partir de este conjunto de datos normalizado, geolocalizado y con precios estandarizados sin valores ruidosos.
+Finalmente, se procedió a dar inicio a los análisis propuestos en los objetivos a partir de este conjunto de datos normalizado, geolocalizado y con precios estandarizados sin valores ruidosos.
 
 # Análisis realizados
 
