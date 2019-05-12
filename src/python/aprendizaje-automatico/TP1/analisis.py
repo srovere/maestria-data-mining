@@ -121,7 +121,7 @@ gridSearch, resultados = EntrenarYEvaluarPerformance(atributos=atributosDesarrol
 print(resultados)
 print("Profundidad del mejor árbol: " + str(gridSearch.best_estimator_.tree_.max_depth))
 
-# 2.3 Tomando el mejor método del punto 2.2 (criterio = Gini) para hacer algunos
+# 2.3 Tomando el mejor método del punto 2.2 (criterio = Gini, max_depth = 6) para hacer algunos
 #     experimentos que permitan testear la tolerancia a faltantes.
 
 # Definicion de función para calcular la moda de una lista de valores
@@ -170,7 +170,7 @@ def ReemplazarFaltantes(atributos, columna, objetivo=None):
 
 # Generar sets de datos con tasas de faltantes de 0 a 0.8 con un paso de 0.05
 # Reemplazarlos por la moda y moda de clase.
-# Ajustar el árbol de decisión con Gini (el mejor árbol de 2.2)
+# Ajustar el árbol de decisión con Gini y altura 6(el mejor árbol de 2.2)
 analisisSensibilidadFaltantes = []
 for clase in [ 'Moda', 'Moda de clase' ]:
     for tasaFaltantes in [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8]:
@@ -193,17 +193,17 @@ for clase in [ 'Moda', 'Moda de clase' ]:
         atributosValidacionSinId           = atributosValidacion.drop(columns = [ "id" ])
         
         # Ajustar el árbol y obtener la profundidad del mismo y el accuracy
-        arbolDecision = sklearn.tree.DecisionTreeClassifier(criterion = "gini", random_state = 0)
+        arbolDecision = sklearn.tree.DecisionTreeClassifier(criterion = "gini", max_depth = 6, random_state = 0)
         arbolDecision.fit(atributosEntrenamientoSinFaltantes, objetivoEntrenamiento)
         predicciones  = arbolDecision.predict(atributosValidacionSinId)
         accuracy      = sklearn.metrics.accuracy_score(objetivoValidacion, predicciones)
-        profundidad   = arbolDecision.tree_.max_depth
-        analisisSensibilidadFaltantes.append([ tasaFaltantes, clase, profundidad, accuracy ])
+        cantidadNodos = arbolDecision.tree_.node_count
+        analisisSensibilidadFaltantes.append([ tasaFaltantes, clase, cantidadNodos, accuracy ])
 
 analisisSensibilidadFaltantes = pandas.DataFrame.from_records(analisisSensibilidadFaltantes,
-                                                              columns=["faltantes", "relleno", "profundidad", "accuracy"])
-
-# 2.4 Tomando el mejor método del punto 2.2 (criterio = Gini) para hacer algunos
+                                                              columns=["faltantes", "relleno", "cantidadNodos", "accuracy"])
+    
+# 2.4 Tomando el mejor método del punto 2.2 (criterio = Gini, altura = 6) para hacer algunos
 #     experimentos que permitan testear la tolerancia a ruido. Para ello se definirá
 #     una tasa porcentual de ruido (TPR) de forma de alterar el valor original 
 #     modificando aleatoriamente el valor del siguiente modo:
@@ -246,7 +246,7 @@ def AgregarRuido(datosOriginales, atributosDiscretizados, informacionDiscretizac
     return atributosConRuido
 
 # Generar sets de datos con tasas de ruido de 0 a 0.35 con un paso de 0.05
-# Ajustar el árbol de decisión con Gini (el mejor árbol de 2.2)
+# Ajustar el árbol de decisión con Gini y altura 6 (el mejor árbol de 2.2)
 analisisSensibilidadRuido = []
 for tasaDatosRuidosos in [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35 ]:
     print("Experimentando con", str(tasaDatosRuidosos))
@@ -263,15 +263,15 @@ for tasaDatosRuidosos in [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35 ]:
     atributosValidacionSinId       = atributosValidacion.drop(columns = [ "id" ])
         
     # Ajustar el árbol y obtener la profundidad del mismo y el accuracy
-    arbolDecision = sklearn.tree.DecisionTreeClassifier(criterion = "gini", random_state = 0)
+    arbolDecision = sklearn.tree.DecisionTreeClassifier(criterion = "gini", max_depth = 6, random_state = 0)
     arbolDecision.fit(atributosEntrenamientoRuidosos, objetivoEntrenamiento)
     predicciones  = arbolDecision.predict(atributosValidacionSinId)
     accuracy      = sklearn.metrics.accuracy_score(objetivoValidacion, predicciones)
-    profundidad   = arbolDecision.tree_.max_depth
-    analisisSensibilidadRuido.append([ tasaDatosRuidosos, profundidad, accuracy ])
+    cantidadNodos = arbolDecision.tree_.node_count
+    analisisSensibilidadRuido.append([ tasaDatosRuidosos, cantidadNodos, accuracy ])
     
 analisisSensibilidadRuido = pandas.DataFrame.from_records(analisisSensibilidadRuido,
-                                                              columns=["ruido", "profundidad", "accuracy"])    
+                                                              columns=["ruido", "cantidadNodos", "accuracy"])
         
 # Graficado del árbol óptimo
 # dotFile = sklearn.externals.six.StringIO()
@@ -288,7 +288,7 @@ atributosDesarrolloSinId = atributosDesarrollo.drop(columns = [ "id" ])
 atributosTestSinId       = atributosTest.drop(columns = [ "id" ])
  
 # Ajustar estacion bayesiana       
-naiveBayes        = sklearn.naive_bayes.ComplementNB()
+naiveBayes        = sklearn.naive_bayes.MultinomialNB()
 naiveBayes.fit(atributosDesarrolloSinId, objetivoDesarrollo)
 prediccionesBayes = naiveBayes.predict(atributosTestSinId)
 accuracy          = sklearn.metrics.accuracy_score(objetivoTest, prediccionesBayes)
