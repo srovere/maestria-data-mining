@@ -39,6 +39,11 @@ objetivo  = setDatosDiscretizado['cardio']
 # Separar en sets de desarrollo (entrenamiento + validacion) y testeo
 atributosDesarrollo, atributosTest, objetivoDesarrollo, objetivoTest = \
     sklearn.model_selection.train_test_split(atributos, objetivo, train_size = 0.8, test_size = 0.2, random_state = 0)
+    
+    # Separar el set de desarrollo en sets de entrenamiento y validacion
+atributosEntrenamiento, atributosValidacion, objetivoEntrenamiento, objetivoValidacion = \
+    sklearn.model_selection.train_test_split(atributosDesarrollo, objetivoDesarrollo,
+                                             train_size = 0.8, test_size = 0.2, random_state = 0)
 
 ########################################################################################################################
 # 2. Árboles de decisión
@@ -163,11 +168,6 @@ def ReemplazarFaltantes(atributos, columna, objetivo=None):
             atributosNuevo.loc[filasNaNClase, columna] = modaColumna
         return atributosNuevo
 
-# Separar el set de desarrollo en sets de entrenamiento y validacion
-atributosEntrenamiento, atributosValidacion, objetivoEntrenamiento, objetivoValidacion = \
-    sklearn.model_selection.train_test_split(atributosDesarrollo, objetivoDesarrollo,
-                                             train_size = 0.8, test_size = 0.2, random_state = 0)
-
 # Generar sets de datos con tasas de faltantes de 0 a 0.8 con un paso de 0.05
 # Reemplazarlos por la moda y moda de clase.
 # Ajustar el árbol de decisión con Gini (el mejor árbol de 2.2)
@@ -288,7 +288,8 @@ atributosDesarrolloSinId = atributosDesarrollo.drop(columns = [ "id" ])
 atributosTestSinId       = atributosTest.drop(columns = [ "id" ])
  
 # Ajustar estacion bayesiana       
-naiveBayes        = sklearn.naive_bayes.GaussianNB()
+naiveBayes        = sklearn.naive_bayes.ComplementNB()
 naiveBayes.fit(atributosDesarrolloSinId, objetivoDesarrollo)
 prediccionesBayes = naiveBayes.predict(atributosTestSinId)
 accuracy          = sklearn.metrics.accuracy_score(objetivoTest, prediccionesBayes)
+roc_auc           = sklearn.metrics.roc_auc_score(objetivoTest, prediccionesBayes)
