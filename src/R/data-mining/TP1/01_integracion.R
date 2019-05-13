@@ -220,7 +220,8 @@ grafico.outliers.final <- ggplot2::ggplot(data = precios) +
   )  
 
 # vii. Almacenamiento de variables de interés para realizar el análisis exploratorio y el informe
-save(barrios, comunas, productos, sucursales, precios, file = paste0(getwd(), "/input/PreciosClaros.RData"))
+save(comercios, banderas, barrios, comunas, productos, sucursales, precios, 
+     file = paste0(getwd(), "/input/PreciosClaros.RData"))
 save(grafico.barrios, grafico.comunas, grafico.outliers.inicial, grafico.outliers.final,
      file = paste0(getwd(), "/output/GraficosPreparacion.RData"))
 # ----------------------------------------------------------------------------------------

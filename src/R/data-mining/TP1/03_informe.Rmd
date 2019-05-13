@@ -57,14 +57,16 @@ En presente trabajo se propone responder una serie de preguntas organizadas en 3
   - ¿Cuál es la cantidad de datos relevados por barrio/comuna? ¿Existe alguna relación con la cantidad de sucursales relevadas?
   - ¿Son uniformes en cuanto a duración los períodos de medición? ¿Y con respecto a la cantidad de datos?
 
-* Comparación estática de precios por barrio/comuna
+* Comparación estática de precios 
   - ¿Cuáles son las sucursales con precios más altos y más bajos a lo largo de todo el período?
   - ¿Cuáles son los barrios y/o comunas con precios más altos y más bajos? ¿Varía este ranking a lo largo del tiempo?
+  - ¿Cuáles son las empresas con precios más altos y más bajos?
   
 * Evolución temporal de precios
   - ¿Cuál es la evolución porcentual de precios por comuna?
   - ¿Cuál es la evolución porcentual de precios por tipo de sucursal?
   - ¿Cuáles fueron las marcas cuya evolución fue máxima y mínima?
+  - ¿Cuáles fueron las empresas cuya evolución fue máxima y mínima?
   - ¿La evolución de precios es consistente con el IPC informado por el Gobierno de la Ciudad de Buenos Aires?
   
 # Preparación de datos
