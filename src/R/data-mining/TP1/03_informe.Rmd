@@ -92,6 +92,36 @@ Finalmente, se procedió a dar inicio a los análisis propuestos en los objetivo
 
 ## Análisis exploratorio inicial
 
+### ¿Cómo es la distribución espacial de sucursales de acuerdo a la cantidad y tipo de sucursal?
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.cap="Cantidad de sucursales relevadas de la Ciudad Autónoma de Buenos Aires. Los barrios que aparecen en blanco son aquellos donde no hubo relevamiento de precios."}
+gridExtra::grid.arrange(grafico.sucursales.barrio, grafico.sucursales.comuna, nrow = 1)
+```
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=5, fig.cap="Proporción de sucursales por tipo para cada comuna de la Ciudad Autónoma de Buenos Aires."}
+plot(grafico.sucursales.tipo.comuna)
+```
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=5, fig.cap="Proporción de sucursales por tipo para la Ciudad Autónoma de Buenos Aires."}
+plot(grafico.sucursales.tipo)
+```
+
+### ¿Cuál es la cantidad de datos relevados por barrio/comuna? ¿Existe alguna relación con la cantidad de sucursales relevadas?
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Cantidad de datos relevados para la Ciudad Autónoma de Buenos Aires. Los barrios que aparecen en blanco son aquellos donde no hubo relevamiento de precios."}
+gridExtra::grid.arrange(grafico.precios.barrio, grafico.precios.comuna, nrow = 1)
+```
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=5, fig.cap="Proporción de sucursales por tipo para cada comuna de la Ciudad Autónoma de Buenos Aires."}
+plot(grafico.precios.sucursales.comuna)
+```
+
+### ¿Son uniformes en cuanto a duración los períodos de medición? ¿Y con respecto a la cantidad de datos?
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.cap="Duración de períodos de medición y cantidad de datos relevados en cada uno de ellos."}
+plot(grafico.cantidad.datos.relevados)
+```
+
 ## Comparación estática de precios por barrio/comuna
 
 ## Evolución temporal de precios

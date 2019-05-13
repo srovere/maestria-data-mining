@@ -36,7 +36,7 @@ grafico.sucursales.barrio <- ggplot2::ggplot(data = sucursales.por.barrio) +
   ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
                                 direction = 1, option = "D", values = NULL, space = "Lab",
                                 na.value = "grey50", guide = "colourbar", aesthetics = "fill") +
-  ggplot2::labs(x = "Longitud", y = "Latitud", fill = "",
+  ggplot2::labs(x = "", y = "", fill = "",
                 title = "Cantidad de sucursales por barrio") +
   ggplot2::theme_bw() +
   ggplot2::theme(
@@ -57,7 +57,7 @@ grafico.sucursales.comuna <- ggplot2::ggplot(data = sucursales.por.comuna) +
   ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
                                 direction = 1, option = "D", values = NULL, space = "Lab",
                                 na.value = "grey50", guide = "colourbar", aesthetics = "fill") +
-  ggplot2::labs(x = "Longitud", y = "Latitud", fill = "",
+  ggplot2::labs(x = "", y = "", fill = "",
                 title = "Cantidad de sucursales por comuna") +
   ggplot2::theme_bw() +
   ggplot2::theme(
@@ -77,12 +77,32 @@ grafico.sucursales.tipo.comuna <- ggplot2::ggplot() +
   ggplot2::geom_sf(data = sucursales.por.tipo.comuna, mapping = ggplot2::aes()) +
   scatterpie::geom_scatterpie(mapping = ggplot2::aes(x = centro_x, y = centro_y, group = comuna, r = 0.01),
                               data = sucursales.por.tipo.comuna, cols = unique(sucursales$tipo)) +
-  ggplot2::labs(x = "Longitud", y = "Latitud", fill = "",
+  ggplot2::labs(x = "", y = "", fill = "",
                 title = "Proporción de sucursales por tipo y comuna") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5)
+  )
+
+tipo.sucursales         <- sucursales %>%
+  sf::st_set_geometry(NULL) %>%
+  dplyr::group_by(tipo) %>%
+  dplyr::summarise(cantidad = dplyr::n()) %>%
+  dplyr::mutate(porcentaje = cantidad / sum(cantidad))
+grafico.sucursales.tipo <- ggplot2::ggplot(data = tipo.sucursales) +
+  ggplot2::geom_bar(mapping = ggplot2::aes(x = "", y = porcentaje, fill = tipo), stat = 'identity', width = 1) + 
+  ggplot2::coord_polar("y", 0) +
+  ggplot2::labs(x = "", y = "", fill = "",
+                title = "Proporción de sucursales por tipo") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    axis.text.x = ggplot2::element_blank(),
+    axis.ticks.x = ggplot2::element_blank(),
+    axis.text.y = ggplot2::element_blank(),
+    axis.ticks.y = ggplot2::element_blank()
   )
 
 rm(sucursales.por.barrio, sucursales.por.tipo.comuna)
@@ -105,7 +125,7 @@ grafico.precios.barrio <- ggplot2::ggplot(data = precios.por.barrio) +
   ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
                                 direction = 1, option = "D", values = NULL, space = "Lab",
                                 na.value = "white", guide = "colourbar", aesthetics = "fill") +
-  ggplot2::labs(x = "Longitud", y = "Latitud", fill = "",
+  ggplot2::labs(x = "", y = "", fill = "",
                 title = "Cantidad de precios relevados por barrio") +
   ggplot2::theme_bw() +
   ggplot2::theme(
@@ -126,7 +146,7 @@ grafico.precios.comuna <- ggplot2::ggplot(data = precios.por.comuna) +
   ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
                                 direction = 1, option = "D", values = NULL, space = "Lab",
                                 na.value = "white", guide = "colourbar", aesthetics = "fill") +
-  ggplot2::labs(x = "Longitud", y = "Latitud", fill = "",
+  ggplot2::labs(x = "", y = "", fill = "",
                 title = "Cantidad de precios relevados por comuna") +
   ggplot2::theme_bw() +
   ggplot2::theme(
@@ -150,7 +170,7 @@ grafico.precios.sucursales.comuna <- ggplot2::ggplot(data = ratio.precios.sucurs
   ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
                                 direction = 1, option = "D", values = NULL, space = "Lab",
                                 na.value = "white", guide = "colourbar", aesthetics = "fill") +
-  ggplot2::labs(x = "Longitud", y = "Latitud", fill = "",
+  ggplot2::labs(x = "", y = "", fill = "",
                 title = "Proporción de precios/sucursales relevados por comuna") +
   ggplot2::theme_bw() +
   ggplot2::theme(
@@ -324,7 +344,8 @@ grafico.scores.precios.comunas <- ggplot2::ggplot(data = estadisticas.comuna.med
 # ---- ??. Almacenamiento de variables necesarias para el informe ----                            
 # ---------------------------------------------------------------------------------------#
 
-save(grafico.sucursales.barrio, grafico.sucursales.comuna, grafico.sucursales.tipo.comuna,
+save(grafico.sucursales.barrio, grafico.sucursales.comuna, grafico.sucursales.tipo.comuna, grafico.sucursales.tipo,
+     grafico.precios.barrio, grafico.precios.comuna, grafico.precios.sucursales.comuna,
      grafico.cantidad.datos.relevados, grafico.evolucion.general, grafico.boxplots.evolucion.por.comuna,
      file = paste0(getwd(), "/output/Informe.RData"))
 # ----------------------------------------------------------------------------------------
