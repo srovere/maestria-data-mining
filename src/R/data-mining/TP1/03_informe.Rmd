@@ -36,7 +36,7 @@ load(file = paste0("output/Informe.RData"))
 
 # Introducción
 
-El presente trabajo se basa en la exploración y análisis de un conjunto de datos extraído del la aplicación **Precios Claros** [https://www.preciosclaros.gob.ar]. Dichos datos fueron extraídos mediante un proceso de relevamiento automático utilizando la técnica de web crawling. Este proceso consistió en la en la generación de consultas a la página web mediante un script programado en *Python*. Cada medición tomó 3 semanas aproximadamente debido a la gran cantidad de datos disponibles y la cantidad máxima de consultas por día que se pueden hacer al sitio sin ser bloqueado. Sea realizaron un total de 10 mediciones.
+El presente trabajo se basa en la exploración y análisis de un conjunto de datos extraído del la aplicación **Precios Claros** [1]. Dichos datos fueron extraídos mediante un proceso de relevamiento automático utilizando la técnica de web crawling [2]. Este proceso consistió en la en la generación de consultas a la página web mediante un script programado en *Python*. Cada medición tomó 3 semanas aproximadamente debido a la gran cantidad de datos disponibles y la cantidad máxima de consultas por día que se pueden hacer al sitio sin ser bloqueado. Sea realizaron un total de 10 mediciones.
 
 Posteriormente, este conjunto de datos fue introducido en una base de datos MongoDB a fin de poder manejar más cómodamente las consultas. El set de datos inicial es el siguiente:
 
@@ -73,7 +73,7 @@ En presente trabajo se propone responder una serie de preguntas organizadas en 3
 
 En primer lugar, se extrajeron los datos de las 3 tablas originales y se efectuó una normalización de sus atributos a fin de trabajar con tablas que permitan fácilmente hacer join entre ellas y agrupar eficientemente por *ids*. También se eliminaron los datos de provincia y localidad de la tabla de sucursales dado que no era eficiente extraer el barrio o la comuna por estar dicha información no estructurada (es decir, por figurar como texto libre).
 
-Sin embargo, dado que para cada sucursal se cuenta con el dato de longitud y latitud, se descargaron los *shapes* de los barrios de la página del Gobierno de la Ciudad de Buenos Aires [https://data.buenosaires.gob.ar/dataset/barrios]. Estos datos fueron integrados con los datos de sucursales, y mediante operaciones espaciales, se logró ubicar cada sucursal en un barrio de la Ciudad Autónoma de Buenos. A su vez, se construyeron los polígonos correspondientes a las comunas uniendo los polígonos de los barrios que las componen.
+Sin embargo, dado que para cada sucursal se cuenta con el dato de longitud y latitud, se descargaron los *shapes* de los barrios de la página del Gobierno de la Ciudad de Buenos Aires [3]. Estos datos fueron integrados con los datos de sucursales, y mediante operaciones espaciales, se logró ubicar cada sucursal en un barrio de la Ciudad Autónoma de Buenos. A su vez, se construyeron los polígonos correspondientes a las comunas uniendo los polígonos de los barrios que las componen.
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Barrios y comunas de la Ciudad Autónoma de Buenos Aires"}
 #plot(gridExtra::arrangeGrob(grafico.barrios, grafico.comunas, nrow = 1))
@@ -129,3 +129,11 @@ plot(grafico.cantidad.datos.relevados)
 ## Evolución temporal de precios
 
 # Conclusiones
+
+# Referencias
+
+[1]   Precios Claros (https://www.preciosclaros.gob.ar)
+
+[2]   Patil Y, Patil S. Review of Web Crawlers with Specification and Working, 2016 (https://www.ijarcce.com/upload/2016/january-16/IJARCCE%2052.pdf)
+
+[3]   Límites y ubicación geográfica de los barrios de la Ciudad, Buenos Aires Ciudad (https://data.buenosaires.gob.ar/dataset/barrios)
