@@ -22,7 +22,7 @@ rm(list = objects())
 require(Cairo)
 require(ggplot2)
 require(gridExtra)
-require(plotly)
+require(knitr)
 require(sf)
 
 # Uso de Cairo para renderizar los gráficos
@@ -125,6 +125,44 @@ plot(grafico.cantidad.datos.relevados)
 ```
 
 ## Comparación estática de precios por barrio/comuna
+
+### ¿Cuáles son las sucursales con precios más altos y más bajos a lo largo de todo el período?
+
+* Sucursales con precios más bajos
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, }
+sucursales.mas.baratas <- sf::st_set_geometry(zscore.precios.sucursal, NULL)
+knitr::kable(
+  x = sucursales.mas.baratas[1:10,] %>%
+    dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
+    dplyr::rename(barrio = nombre) %>%
+    dplyr::inner_join(banderas, by = c("comercioId", "banderaId")) %>%
+    dplyr::rename(bandera = descripcion) %>%
+    dplyr::inner_join(comercios, by = c("comercioId")) %>%
+    dplyr::rename(razon_social = razonSocial) %>%
+    dplyr::select(razon_social, bandera, direccion, barrio, zscore_precio_mediana),
+  col.names = c("Razón social", "Bandera", "Domicilio", "Barrio", "Mediana de precio (z-score)")
+)
+```
+
+* Sucursales con precios más elevados
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, }
+sucursales.mas.caras <- sf::st_set_geometry(zscore.precios.sucursal, NULL) %>%
+  dplyr::arrange(dplyr::desc(zscore_precio_mediana))
+knitr::kable(
+  x = sucursales.mas.caras[1:10,] %>%
+    dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
+    dplyr::rename(barrio = nombre) %>%
+    dplyr::inner_join(banderas, by = c("comercioId", "banderaId")) %>%
+    dplyr::rename(bandera = descripcion) %>%
+    dplyr::inner_join(comercios, by = c("comercioId")) %>%
+    dplyr::rename(razon_social = razonSocial) %>%
+    dplyr::select(razon_social, bandera, direccion, barrio, zscore_precio_mediana),
+  col.names = c("Razón social", "Bandera", "Domicilio", "Barrio", "Mediana de precio (z-score)")
+)
+```
+
 
 ## Evolución temporal de precios
 

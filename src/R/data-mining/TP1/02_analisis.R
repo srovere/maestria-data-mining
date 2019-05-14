@@ -341,11 +341,27 @@ grafico.scores.precios.comunas <- ggplot2::ggplot(data = estadisticas.comuna.med
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
+# ---- VIII. Comparación estática de precios ----                            
+# ---------------------------------------------------------------------------------------#
+
+# i. z-score de precios por sucursal
+zscore.precios.sucursal <- sucursales %>%
+  dplyr::inner_join(
+    precios %>%
+    dplyr::group_by(comercioId, banderaId, sucursalId) %>%
+    dplyr::summarise(zscore_precio_mediana = median(score_producto)),
+  by = c("comercioId", "banderaId", "sucursalId")) %>%
+  dplyr::arrange(zscore_precio_mediana)
+
+# ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
 # ---- ??. Almacenamiento de variables necesarias para el informe ----                            
 # ---------------------------------------------------------------------------------------#
 
 save(grafico.sucursales.barrio, grafico.sucursales.comuna, grafico.sucursales.tipo.comuna, grafico.sucursales.tipo,
      grafico.precios.barrio, grafico.precios.comuna, grafico.precios.sucursales.comuna,
+     zscore.precios.sucursal,
      grafico.cantidad.datos.relevados, grafico.evolucion.general, grafico.boxplots.evolucion.por.comuna,
      file = paste0(getwd(), "/output/Informe.RData"))
 # ----------------------------------------------------------------------------------------
