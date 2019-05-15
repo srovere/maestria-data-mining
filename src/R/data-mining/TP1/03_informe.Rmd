@@ -57,9 +57,9 @@ En presente trabajo se propone responder una serie de preguntas organizadas en 3
   - ¿Cuál es la cantidad de datos relevados por barrio/comuna? ¿Existe alguna relación con la cantidad de sucursales relevadas?
   - ¿Son uniformes en cuanto a duración los períodos de medición? ¿Y con respecto a la cantidad de datos?
 
-* Comparación estática de precios 
+* Ranking de precios 
   - ¿Cuáles son las sucursales con precios más altos y más bajos a lo largo de todo el período?
-  - ¿Cuáles son los barrios y/o comunas con precios más altos y más bajos? ¿Varía este ranking a lo largo del tiempo?
+  - ¿Cuáles son los barrios y/o comunas con precios más altos y más bajos?
   - ¿Cuáles son las empresas con precios más altos y más bajos?
   
 * Evolución temporal de precios
@@ -124,7 +124,7 @@ plot(grafico.precios.sucursales.comuna)
 plot(grafico.cantidad.datos.relevados)
 ```
 
-## Comparación estática de precios por barrio/comuna
+## Ranking de precios
 
 ### ¿Cuáles son las sucursales con precios más altos y más bajos a lo largo de todo el período?
 
@@ -162,7 +162,6 @@ knitr::kable(
   col.names = c("Razón social", "Bandera", "Domicilio", "Barrio", "Mediana de precio (z-score)")
 )
 ```
-
 
 ## Evolución temporal de precios
 
