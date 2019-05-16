@@ -12,6 +12,7 @@ output:
     number_sections: yes
   html_notebook:
     number_sections: yes
+header-includes: \usepackage{float}
 ---
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE }
@@ -27,6 +28,9 @@ require(sf)
 
 # Uso de Cairo para renderizar los gráficos
 options(bitmapType = "cairo")
+
+# Ubicar los gráficos en el lugar donde aparece el código
+knitr::opts_chunk$set(fig.pos = "H", collapse = TRUE)
 
 # Carga de variables necesarias para realizar el informe
 load(file = paste0("input/PreciosClaros.RData"))
@@ -76,7 +80,6 @@ En primer lugar, se extrajeron los datos de las 3 tablas originales y se efectu�
 Sin embargo, dado que para cada sucursal se cuenta con el dato de longitud y latitud, se descargaron los *shapes* de los barrios de la página del Gobierno de la Ciudad de Buenos Aires [3]. Estos datos fueron integrados con los datos de sucursales, y mediante operaciones espaciales, se logró ubicar cada sucursal en un barrio de la Ciudad Autónoma de Buenos. A su vez, se construyeron los polígonos correspondientes a las comunas uniendo los polígonos de los barrios que las componen.
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Barrios y comunas de la Ciudad Autónoma de Buenos Aires"}
-#plot(gridExtra::arrangeGrob(grafico.barrios, grafico.comunas, nrow = 1))
 gridExtra::grid.arrange(grafico.barrios, grafico.comunas, nrow = 1)
 ```
 
@@ -85,7 +88,7 @@ Posteriormente, se analizó la tabla de *precios* a fin de detectar si había da
 Tomando como base el *z-score* de los precios por producto y medición, se buscaron aquellos datos que resultaran ser *outliers extremos* mediante el método univariado basado en cuartiles (Q1 y Q3) y rango intercualtil. Se consideraron datos atípicos aqullos que estuvieran a una distancia de 3 rangos intercuartiles de Q1 o Q3. Con este sencillo método se eliminaron datos muy distorsivos que representaban aproximadamente el 0,4% de la muestra. Debido a que la cantidad de datos restante resultó ser muy elevada, no se efectuó ningún proceso de imputación de datos faltantes por considerarse innecesario.
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Boxplots de scores de precios por producto y medición"}
-plot(gridExtra::arrangeGrob(grafico.outliers.inicial, grafico.outliers.final, ncol = 1))
+gridExtra::grid.arrange(grafico.outliers.inicial, grafico.outliers.final, ncol = 1)
 ```
 
 Finalmente, se procedió a dar inicio a los análisis propuestos en los objetivos a partir de este conjunto de datos normalizado, geolocalizado y con precios estandarizados sin valores ruidosos.
@@ -96,71 +99,81 @@ Finalmente, se procedió a dar inicio a los análisis propuestos en los objetivo
 
 ### ¿Cómo es la distribución espacial de sucursales de acuerdo a la cantidad y tipo de sucursal?
 
+TODO
+
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.cap="Cantidad de sucursales relevadas de la Ciudad Autónoma de Buenos Aires. Los barrios que aparecen en blanco son aquellos donde no hubo relevamiento de precios."}
 gridExtra::grid.arrange(grafico.sucursales.barrio, grafico.sucursales.comuna, nrow = 1)
 ```
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=5, fig.cap="Proporción de sucursales por tipo para cada comuna de la Ciudad Autónoma de Buenos Aires."}
-plot(grafico.sucursales.tipo.comuna)
-```
-
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=5, fig.cap="Proporción de sucursales por tipo para la Ciudad Autónoma de Buenos Aires."}
-plot(grafico.sucursales.tipo)
+gridExtra::grid.arrange(grafico.sucursales.tipo.comuna)
 ```
 
 ### ¿Cuál es la cantidad de datos relevados por barrio/comuna? ¿Existe alguna relación con la cantidad de sucursales relevadas?
+
+TODO
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Cantidad de datos relevados para la Ciudad Autónoma de Buenos Aires. Los barrios que aparecen en blanco son aquellos donde no hubo relevamiento de precios."}
 gridExtra::grid.arrange(grafico.precios.barrio, grafico.precios.comuna, nrow = 1)
 ```
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=5, fig.cap="Proporción de sucursales por tipo para cada comuna de la Ciudad Autónoma de Buenos Aires."}
-plot(grafico.precios.sucursales.comuna)
+gridExtra::grid.arrange(grafico.precios.sucursales.comuna)
 ```
 
 ### ¿Son uniformes en cuanto a duración los períodos de medición? ¿Y con respecto a la cantidad de datos?
 
+TODO
+
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.cap="Duración de períodos de medición y cantidad de datos relevados en cada uno de ellos."}
-plot(grafico.cantidad.datos.relevados)
+gridExtra::grid.arrange(grafico.cantidad.datos.relevados)
 ```
 
 ## Ranking de precios
 
 ### ¿Cuáles son las sucursales con precios más altos y más bajos a lo largo de todo el período?
 
-* Sucursales con precios más bajos
+Sucursales con precios más bajos
 
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, }
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
 sucursales.mas.baratas <- sf::st_set_geometry(zscore.precios.sucursal, NULL)
 knitr::kable(
-  x = sucursales.mas.baratas[1:10,] %>%
+  x = sucursales.mas.baratas[1:5,] %>%
     dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
     dplyr::rename(barrio = nombre) %>%
     dplyr::inner_join(banderas, by = c("comercioId", "banderaId")) %>%
     dplyr::rename(bandera = descripcion) %>%
     dplyr::inner_join(comercios, by = c("comercioId")) %>%
     dplyr::rename(razon_social = razonSocial) %>%
-    dplyr::select(razon_social, bandera, direccion, barrio, zscore_precio_mediana),
-  col.names = c("Razón social", "Bandera", "Domicilio", "Barrio", "Mediana de precio (z-score)")
+    dplyr::select(razon_social, bandera, direccion, zscore_precio_mediana),
+  col.names = c("Razón social", "Bandera", "Domicilio", "Z-score (mediana)"),
+  digits = 3
 )
 ```
 
-* Sucursales con precios más elevados
+Sucursales con precios más elevados
 
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, }
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
 sucursales.mas.caras <- sf::st_set_geometry(zscore.precios.sucursal, NULL) %>%
   dplyr::arrange(dplyr::desc(zscore_precio_mediana))
 knitr::kable(
-  x = sucursales.mas.caras[1:10,] %>%
+  x = sucursales.mas.caras[1:5,] %>%
     dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
     dplyr::rename(barrio = nombre) %>%
     dplyr::inner_join(banderas, by = c("comercioId", "banderaId")) %>%
     dplyr::rename(bandera = descripcion) %>%
     dplyr::inner_join(comercios, by = c("comercioId")) %>%
     dplyr::rename(razon_social = razonSocial) %>%
-    dplyr::select(razon_social, bandera, direccion, barrio, zscore_precio_mediana),
-  col.names = c("Razón social", "Bandera", "Domicilio", "Barrio", "Mediana de precio (z-score)")
+    dplyr::select(razon_social, bandera, direccion, zscore_precio_mediana),
+  col.names = c("Razón social", "Bandera", "Domicilio", "Z-score (mediana)"),
+  digits = 3
 )
+```
+
+### ¿Cuáles son los barrios y/o comunas con precios más altos y más bajos? 
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=6, fig.cap="Scores de precios por comuna a lo largo del período de relevamiento"}
+plot(grafico.scores.precios.comunas)
 ```
 
 ## Evolución temporal de precios

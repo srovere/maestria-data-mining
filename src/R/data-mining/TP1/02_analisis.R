@@ -321,7 +321,7 @@ estadisticas.comuna.medicion <- precios.comuna %>%
  
 grafico.scores.precios.comunas <- ggplot2::ggplot(data = estadisticas.comuna.medicion) +
   ggplot2::geom_sf(mapping = ggplot2::aes(fill = media)) +
-  ggplot2::facet_wrap(~medicion, ncol = 4) +
+  ggplot2::facet_wrap(~medicion, ncol = 5) +
   ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
                                 direction = 1, option = "D", values = NULL, space = "Lab",
                                 na.value = "white", guide = "colourbar", aesthetics = "fill") +
@@ -361,7 +361,7 @@ zscore.precios.sucursal <- sucursales %>%
 
 save(grafico.sucursales.barrio, grafico.sucursales.comuna, grafico.sucursales.tipo.comuna, grafico.sucursales.tipo,
      grafico.precios.barrio, grafico.precios.comuna, grafico.precios.sucursales.comuna,
-     zscore.precios.sucursal,
+     zscore.precios.sucursal, grafico.scores.precios.comunas,
      grafico.cantidad.datos.relevados, grafico.evolucion.general, grafico.boxplots.evolucion.por.comuna,
      file = paste0(getwd(), "/output/Informe.RData"))
 # ----------------------------------------------------------------------------------------
