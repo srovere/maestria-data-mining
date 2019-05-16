@@ -6,9 +6,9 @@ author:
 - Javier Quinteros (jaqbase-dmkm@yahoo.com.ar), Universidad Argentina de la Empresa
 date: '`r format(Sys.Date(), "%d de %B de %Y")`'
 output:
-  html_document:
-    number_sections: yes
   pdf_document:
+    number_sections: yes
+  html_document:
     number_sections: yes
   html_notebook:
     number_sections: yes
@@ -174,6 +174,12 @@ knitr::kable(
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=6, fig.cap="Scores de precios por comuna a lo largo del período de relevamiento"}
 plot(grafico.scores.precios.comunas)
+```
+
+### ¿Cuáles son las empresas con precios más altos y más bajos?
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=6, fig.cap="Ranking de precios por comercios a lo largo del período de relevamiento (valores más bajos de ranking indican comercios con precios más baratos)"}
+plot(grafico.ranking.precios.comercio)
 ```
 
 ## Evolución temporal de precios

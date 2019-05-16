@@ -308,9 +308,19 @@ grafico.mapa.evolucion.por.comuna <- plotly::ggplotly(grafico.mapa.evolucion.por
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
-# ---- VII. Comparación de precios por comuna ----                            
+# ---- VII. Comparación de precios por sucursal, comuna y tipo de sucursal ----                            
 # ---------------------------------------------------------------------------------------#
 
+# i. Precios por sucursal
+zscore.precios.sucursal <- sucursales %>%
+  dplyr::inner_join(
+    precios %>%
+      dplyr::group_by(comercioId, banderaId, sucursalId) %>%
+      dplyr::summarise(zscore_precio_mediana = median(score_producto)),
+    by = c("comercioId", "banderaId", "sucursalId")) %>%
+  dplyr::arrange(zscore_precio_mediana)
+
+# ii. Precios por comuna
 precios.comuna <- precios %>%
   dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
   dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId"))
@@ -325,7 +335,7 @@ grafico.scores.precios.comunas <- ggplot2::ggplot(data = estadisticas.comuna.med
   ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
                                 direction = 1, option = "D", values = NULL, space = "Lab",
                                 na.value = "white", guide = "colourbar", aesthetics = "fill") +
-  ggplot2::labs(x = "", y = "", fill = "Score de precios",
+  ggplot2::labs(x = "", y = "", fill = "",
                 title = "Score de precios relevados por comuna",
                 subtitle = "Evolución a lo largo de las mediciones") +
   ggplot2::theme_bw() +
@@ -337,22 +347,39 @@ grafico.scores.precios.comunas <- ggplot2::ggplot(data = estadisticas.comuna.med
     axis.ticks.x = ggplot2::element_blank(),
     axis.text.y = ggplot2::element_blank(),
     axis.ticks.y = ggplot2::element_blank()
-  )
-# ----------------------------------------------------------------------------------------
+  ) +
+  ggplot2::guides(fill = ggplot2::guide_colourbar(barwidth = 10 , label.position = "bottom"))
 
-# ---------------------------------------------------------------------------------------#
-# ---- VIII. Comparación estática de precios ----                            
-# ---------------------------------------------------------------------------------------#
+# iii. Precios por comercio
+precios.comercio <- precios %>%
+  dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
+  dplyr::group_by(comercioId, banderaId, medicion) %>%
+  dplyr::summarise(score_mediana_comercio_medicion = median(score_producto_medicion)) %>%
+  dplyr::group_by(medicion) %>%
+  dplyr::mutate(ranking = rank(score_mediana_comercio_medicion)) %>%
+  dplyr::select(comercioId, banderaId, medicion, ranking) %>%
+  dplyr::inner_join(banderas, by = c("comercioId", "banderaId")) %>%
+  dplyr::rename(bandera = descripcion) %>%
+  dplyr::inner_join(comercios, by = c("comercioId")) %>%
+  dplyr::mutate(comercio = paste0(razonSocial, " - ", bandera))
 
-# i. z-score de precios por sucursal
-zscore.precios.sucursal <- sucursales %>%
-  dplyr::inner_join(
-    precios %>%
-    dplyr::group_by(comercioId, banderaId, sucursalId) %>%
-    dplyr::summarise(zscore_precio_mediana = median(score_producto)),
-  by = c("comercioId", "banderaId", "sucursalId")) %>%
-  dplyr::arrange(zscore_precio_mediana)
-
+grafico.ranking.precios.comercio <- ggplot2::ggplot(data = precios.comercio) +
+  ggplot2::geom_tile(mapping = ggplot2::aes(x = medicion, y = comercio, fill = ranking)) +
+  ggplot2::geom_text(mapping = ggplot2::aes(x = medicion, y = comercio, label = ranking)) +
+  ggplot2::scale_x_continuous(breaks = sort(unique(precios.comercio$medicion))) +
+  ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1, breaks = sort(unique(precios.comercio$ranking)),
+                                direction = 1, option = "D", values = NULL, space = "Lab",
+                                na.value = "white", guide = "colourbar", aesthetics = "fill") +
+  ggplot2::labs(x = "Medición", y = "Empresa", fill = "",
+                title = "Ranking de precios por comercio y medición",
+                subtitle = "Evolución a lo largo de las mediciones") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  ) +
+  ggplot2::guides(fill = ggplot2::guide_colourbar(barwidth = 20 , label.position = "bottom"))
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -361,7 +388,7 @@ zscore.precios.sucursal <- sucursales %>%
 
 save(grafico.sucursales.barrio, grafico.sucursales.comuna, grafico.sucursales.tipo.comuna, grafico.sucursales.tipo,
      grafico.precios.barrio, grafico.precios.comuna, grafico.precios.sucursales.comuna,
-     zscore.precios.sucursal, grafico.scores.precios.comunas,
+     zscore.precios.sucursal, grafico.scores.precios.comunas, grafico.ranking.precios.comercio,
      grafico.cantidad.datos.relevados, grafico.evolucion.general, grafico.boxplots.evolucion.por.comuna,
      file = paste0(getwd(), "/output/Informe.RData"))
 # ----------------------------------------------------------------------------------------
