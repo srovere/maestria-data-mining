@@ -9,6 +9,7 @@ rm(list = objects())
 
 require(dplyr)
 require(ggplot2)
+require(ggrepel)
 require(gridExtra)
 require(magrittr)
 require(plotly)
@@ -247,15 +248,43 @@ evoluciones.precio.largo <- evolucion.precios %>%
 evolucion.punta.a.punta <- evolucion.precios %>%
   dplyr::mutate(evolucion_porcentual_total = 100 * (`10` - `1`) / `1`) %>%
   dplyr::filter(! is.na(evolucion_porcentual_total))
+
+# v. Variacion segun IPC GCBA
+canasta.mediciones <- canasta %>%
+  dplyr::filter((fecha >= as.Date("2018-10-01")) & (fecha <= as.Date("2019-02-01"))) %>%
+  dplyr::mutate(total_anterior = dplyr::lag(total, n = 1)) %>%
+  dplyr::mutate(diferencia_relativa = (total - total_anterior)/total_anterior) %>%
+  dplyr::filter(! is.na(diferencia_relativa))
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
-# ---- VI. Generación de gráficos de evolución temporal de precios por total/comuna ----                            
+# ---- VI. Generación de gráficos de evolución temporal de precios ----                            
 # ---------------------------------------------------------------------------------------#
 
 # i. Boxplot general
+media.alimentos           <- 100 * (tail(cumprod(canasta.mediciones$diferencia_relativa+1), n = 1) - 1)
+media.ipc.gcba            <- 100 * (tail(cumprod(c(2.8, 2.4, 3.8, 3.4)/100 + 1), n = 1) - 1)
+media.evolucion           <- mean(evolucion.punta.a.punta$evolucion_porcentual_total, na.rm = TRUE)
+mediana.evolucion         <- median(evolucion.punta.a.punta$evolucion_porcentual_total, na.rm = TRUE)
 grafico.evolucion.general <- ggplot2::ggplot(data = evolucion.punta.a.punta) +
   ggplot2::geom_boxplot(mapping = ggplot2::aes(x = 'C.A.B.A', y = evolucion_porcentual_total)) +
+  ggrepel::geom_label_repel(data = data.frame(media = media.evolucion),
+                            mapping = ggplot2::aes(x = 'C.A.B.A', y = media, 
+                                                   label = sprintf("Media (Precios Claros): %.2f%%", media)),
+                            nudge_x = 0.5, nudge_y = 10) +
+  ggrepel::geom_label_repel(data = data.frame(mediana = mediana.evolucion),
+                            mapping = ggplot2::aes(x = 'C.A.B.A', y = mediana, 
+                                                   label = sprintf("Mediana (Precios Claros): %.2f%%", mediana)),
+                            nudge_x = -0.5, nudge_y = 10) +
+  ggrepel::geom_label_repel(data = data.frame(alimentos = media.alimentos),
+                            mapping = ggplot2::aes(x = 'C.A.B.A', y = alimentos, 
+                                                   label = sprintf("Alimentos (IPC GCBA): %.2f%%", alimentos)),
+                            nudge_x = 0.25, nudge_y = 50) +
+  ggrepel::geom_label_repel(data = data.frame(bienes_servicios = media.ipc.gcba),
+                            mapping = ggplot2::aes(x = 'C.A.B.A', y = bienes_servicios, 
+                                                   label = sprintf("Bienes y servicios (IPC GCBA): %.2f%%", bienes_servicios)),
+                            nudge_x = -0.25, nudge_y = 50) +
+  ggplot2::coord_flip() +
   ggplot2::labs(x = "", y = "Diferencia porcentual", 
                 title = "Evolución porcentual de precios para C.A.B.A",
                 subtitle = "Diferencia medida entra la última y la primera medición") +
@@ -264,7 +293,6 @@ grafico.evolucion.general <- ggplot2::ggplot(data = evolucion.punta.a.punta) +
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
   )
-grafico.evolucion.general <- plotly::ggplotly(grafico.evolucion.general)
 
 # ii. Boxplots por comuna
 evolucion.por.comuna <- evolucion.punta.a.punta %>%
@@ -287,24 +315,37 @@ grafico.boxplots.evolucion.por.comuna <- ggplot2::ggplot(data = evolucion.por.co
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
   )
-grafico.boxplots.evolucion.por.comuna <- plotly::ggplotly(grafico.boxplots.evolucion.por.comuna)
 
-# iii. Mapa por comuna
-grafico.mapa.evolucion.por.comuna <- ggplot2::ggplot(data = estadisticas.por.comuna) +
+# iii. Mapas por comuna
+grafico.mediana.evolucion.por.comuna <- ggplot2::ggplot(data = estadisticas.por.comuna) +
   ggplot2::geom_sf(mapping = ggplot2::aes(fill = mediana_evolucion_porcentual_total)) +
   ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
                                 direction = 1, option = "D", values = NULL, space = "Lab",
                                 na.value = "white", guide = "colourbar", aesthetics = "fill") +
-  ggplot2::labs(x = "Longitud", y = "Latitud", fill = "Diferencia porcentual",
-                title = "Evolución porcentual de precios por comuna",
+  ggplot2::labs(x = "", y = "", fill = "",
+                title = "Mediana de evolución porcentual de precios",
                 subtitle = "Diferencia medida entra la última y la primera medición") +
   ggplot2::theme_bw() +
   ggplot2::theme(
-    legend.position = 'bottom',
+    legend.position = 'right',
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
   )
-grafico.mapa.evolucion.por.comuna <- plotly::ggplotly(grafico.mapa.evolucion.por.comuna)
+
+grafico.media.evolucion.por.comuna <- ggplot2::ggplot(data = estadisticas.por.comuna) +
+  ggplot2::geom_sf(mapping = ggplot2::aes(fill = media_evolucion_porcentual_total)) +
+  ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
+                                direction = 1, option = "D", values = NULL, space = "Lab",
+                                na.value = "white", guide = "colourbar", aesthetics = "fill") +
+  ggplot2::labs(x = "", y = "", fill = "",
+                title = "Media de evolución porcentual de precios",
+                subtitle = "Diferencia medida entra la última y la primera medición") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'right',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -387,8 +428,8 @@ grafico.ranking.precios.comercio <- ggplot2::ggplot(data = precios.comercio) +
 # ---------------------------------------------------------------------------------------#
 
 save(grafico.sucursales.barrio, grafico.sucursales.comuna, grafico.sucursales.tipo.comuna, grafico.sucursales.tipo,
-     grafico.precios.barrio, grafico.precios.comuna, grafico.precios.sucursales.comuna,
+     grafico.precios.barrio, grafico.precios.comuna, grafico.precios.sucursales.comuna, grafico.cantidad.datos.relevados,
      zscore.precios.sucursal, grafico.scores.precios.comunas, grafico.ranking.precios.comercio,
-     grafico.cantidad.datos.relevados, grafico.evolucion.general, grafico.boxplots.evolucion.por.comuna,
+     grafico.evolucion.general, grafico.media.evolucion.por.comuna, grafico.mediana.evolucion.por.comuna,
      file = paste0(getwd(), "/output/Informe.RData"))
 # ----------------------------------------------------------------------------------------

@@ -11,8 +11,10 @@ require(dplyr)
 require(magrittr)
 require(mongolite)
 require(purrr)
+require(readxl)
 require(scatterpie)
 require(sf)
+require(tidyr)
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -39,7 +41,26 @@ rm(precios.conn)
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
-# ---- III. Lectura de shapes de barrios de Capital Federal ----                            
+# ---- IV. Lectura de datos de precios del Gobierno de la Ciudad ----                            
+# ---------------------------------------------------------------------------------------#
+
+# i. Lectura de datos de precios
+# Fuente: https://www.estadisticaciudad.gob.ar/eyc/?p=28444
+precios.alimentos <- readxl::read_xlsx(path = paste0(getwd(), "/input/precios_medios_alim.xlsx"),
+                                       col_types = c("text")) %>%
+  tidyr::gather(key = fecha_string, value = precio, -c(1, 2)) %>%
+  dplyr::mutate(fecha = as.Date(fecha_string),
+                precio = as.double(precio)) %>%
+  dplyr::select(descripcion, unidad_medida, fecha, precio)
+
+# ii. Elaboracion de precios de canasta de productos por mes.
+canasta <- precios.alimentos %>%
+  dplyr::group_by(fecha) %>%
+  dplyr::summarise(total = sum(precio))
+# ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
+# ---- IV. Lectura de shapes de barrios de Capital Federal ----                            
 # ---------------------------------------------------------------------------------------#
 
 # URL: https://data.buenosaires.gob.ar/dataset/barrios
@@ -86,7 +107,7 @@ grafico.comunas <- ggplot2::ggplot(data = comunas) +
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
-# ---- IV. Transformación de datos ----                            
+# ---- V. Transformación de datos ----                            
 # ---------------------------------------------------------------------------------------#
 
 # i. Productos
@@ -146,7 +167,7 @@ precios <- precios.original %>%
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
-# ---- V. Eliminación de outliers de precios y almacenamiento de resultados ----                            
+# ---- VI. Eliminación de outliers de precios y almacenamiento de resultados ----                            
 # ---------------------------------------------------------------------------------------#
 
 # i. Calculamos estadisticas de precios por producto y medicion
@@ -220,7 +241,7 @@ grafico.outliers.final <- ggplot2::ggplot(data = precios) +
   )  
 
 # vii. Almacenamiento de variables de interés para realizar el análisis exploratorio y el informe
-save(comercios, banderas, barrios, comunas, productos, sucursales, precios, 
+save(comercios, banderas, barrios, comunas, productos, sucursales, precios, canasta,
      file = paste0(getwd(), "/input/PreciosClaros.RData"))
 save(grafico.barrios, grafico.comunas, grafico.outliers.inicial, grafico.outliers.final,
      file = paste0(getwd(), "/output/GraficosPreparacion.RData"))
