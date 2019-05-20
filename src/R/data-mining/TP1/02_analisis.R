@@ -314,7 +314,7 @@ grafico.boxplots.evolucion.por.tipo.sucursal <- ggplot2::ggplot(data = evolucion
                                                    label = sprintf("Mediana (Precios Claros): %.2f%%", mediana_evolucion_porcentual_total)),
                             nudge_x = -0.25, nudge_y = 50) +
   ggplot2::coord_flip() +
-  ggplot2::labs(x = "Tipo de sucursal", y = "Diferencia porcentual", fill = "",
+  ggplot2::labs(x = "", y = "Diferencia porcentual", fill = "",
                 title = "Evolución porcentual de precios por tipo de sucursal",
                 subtitle = "Diferencia medida entra la última y la primera medición") +
   ggplot2::theme_bw() +
@@ -325,6 +325,15 @@ grafico.boxplots.evolucion.por.tipo.sucursal <- ggplot2::ggplot(data = evolucion
   )
 
 # iii. Mapas por comuna
+evolucion.por.comuna <- evolucion.punta.a.punta %>%
+  dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
+  dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
+  dplyr::select(productoId, barrioId, comuna, evolucion_porcentual_total)
+estadisticas.por.comuna <- comunas %>%
+  dplyr::inner_join(dplyr::group_by(evolucion.por.comuna, comuna) %>% 
+                      dplyr::summarize(mediana_evolucion_porcentual_total = median(evolucion_porcentual_total),
+                                       media_evolucion_porcentual_total = mean(evolucion_porcentual_total)), 
+                    by = c("comuna"))
 grafico.mediana.evolucion.por.comuna <- ggplot2::ggplot(data = estadisticas.por.comuna) +
   ggplot2::geom_sf(mapping = ggplot2::aes(fill = mediana_evolucion_porcentual_total)) +
   ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
@@ -466,7 +475,7 @@ grafico.ranking.precios.comercio <- ggplot2::ggplot(data = precios.comercio) +
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
-# ---- ??. Almacenamiento de variables necesarias para el informe ----                            
+# ---- VIII. Almacenamiento de variables necesarias para el informe ----                            
 # ---------------------------------------------------------------------------------------#
 
 save(grafico.sucursales.barrio, grafico.sucursales.comuna, grafico.sucursales.tipo.comuna, grafico.sucursales.tipo,

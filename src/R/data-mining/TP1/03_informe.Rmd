@@ -6,9 +6,9 @@ author:
 - Javier Quinteros (jaqbase-dmkm@yahoo.com.ar), Universidad Argentina de la Empresa
 date: '`r format(Sys.Date(), "%d de %B de %Y")`'
 output:
-  pdf_document:
-    number_sections: yes
   html_document:
+    number_sections: yes
+  pdf_document:
     number_sections: yes
   html_notebook:
     number_sections: yes
@@ -51,7 +51,7 @@ Posteriormente, este conjunto de datos fue introducido en una base de datos Mong
    sucursales | sucursales relevadas en los distintos barrios de CABA             | 837
       precios | precios por producto y sucursal para cada una de las mediciones   | + 1,5 millones
       
-Este documento se organiza de la siguiente manera: en la sección *2* se presentarán los objetivos de este estudio en forma de preguntas a responder; en la sección *3* se detallará el proceso de preparación de datos que se realizó a fin de poder iniciar el análisis exploratorio de la sección *4*; a continuación, se presentarán los resultados de los análisis de las preguntas planteadas en los objetivos *5*; finalmente, en la sección *6* se elaborarán las conclusiones finales del trabajo proponiendo algunas posibles líneas de trabajo futuro.
+Este documento se organiza de la siguiente manera: en la sección *2* se presentarán los objetivos de este estudio en forma de preguntas a responder; en la sección *3* se detallará el proceso de preparación de datos que se realizó a fin de poder llevar a cabo los análisis de la sección *4*; finalmente, en la sección *5* se elaborarán las conclusiones finales del trabajo proponiendo algunas posibles líneas de trabajo futuro.
 
 # Objetivo
 
@@ -64,7 +64,7 @@ En presente trabajo se propone responder una serie de preguntas organizadas en 3
 
 * Ranking de precios 
   - ¿Cuáles son las sucursales con precios más altos y más bajos a lo largo de todo el período?
-  - ¿Cuáles son los barrios y/o comunas con precios más altos y más bajos?
+  - ¿Cuáles son las comunas con precios más altos y más bajos?
   - ¿Cuáles son las empresas con precios más altos y más bajos?
   
 * Evolución temporal de precios
@@ -72,7 +72,6 @@ En presente trabajo se propone responder una serie de preguntas organizadas en 3
   - ¿Cuál es la evolución porcentual de precios por comuna?
   - ¿Cuál es la evolución porcentual de precios por tipo de sucursal?
   - ¿Cuáles fueron las empresas cuya evolución fue máxima y mínima?
-  - ¿Cuáles fueron las marcas cuya evolución fue máxima y mínima?
   
 # Preparación de datos
 
@@ -165,7 +164,7 @@ knitr::kable(
 )
 ```
 
-### ¿Cuáles son los barrios y/o comunas con precios más altos y más bajos? 
+### ¿Cuáles son las comunas con precios más altos y más bajos? 
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=6, fig.cap="Scores de precios por comuna a lo largo del período de relevamiento"}
 plot(grafico.scores.precios.comunas)
@@ -202,8 +201,6 @@ gridExtra::grid.arrange(grafico.boxplots.evolucion.por.tipo.sucursal)
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Incrementos  porcentuales registrados en los productos relevados agrupados por comercio. Se ha comparado la variación de precio de cada producto en cada sucursal tomando entre la primera y la última medición. Se presentan los valores de media y mediana para cada comercio."}
 gridExtra::grid.arrange(grafico.evolucion.por.comercio)
 ```
-
-### ¿Cuáles fueron las marcas cuya evolución fue máxima y mínima?
 
 # Conclusiones
 
