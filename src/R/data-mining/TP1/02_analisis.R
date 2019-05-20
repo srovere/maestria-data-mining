@@ -294,24 +294,32 @@ grafico.evolucion.general <- ggplot2::ggplot(data = evolucion.punta.a.punta) +
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
   )
 
-# ii. Boxplots por comuna
-evolucion.por.comuna <- evolucion.punta.a.punta %>%
+# ii. Boxplots por tipo de sucursal
+evolucion.por.tipo.sucursal <- evolucion.punta.a.punta %>%
   dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
-  dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
-  dplyr::select(productoId, barrioId, comuna, tipo, evolucion_porcentual_total)
-estadisticas.por.comuna <- comunas %>%
-  dplyr::inner_join(dplyr::group_by(evolucion.por.comuna, comuna) %>% 
-                      dplyr::summarize(mediana_evolucion_porcentual_total = median(evolucion_porcentual_total),
-                                       media_evolucion_porcentual_total = mean(evolucion_porcentual_total)), 
-                    by = c("comuna"))
-grafico.boxplots.evolucion.por.comuna <- ggplot2::ggplot(data = evolucion.por.comuna) +
-  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = as.factor(comuna), y = evolucion_porcentual_total, 
-                                               group = as.factor(comuna), fill = as.factor(comuna))) +
-  ggplot2::labs(x = "", y = "Diferencia porcentual", fill = "Comuna de C.A.B.A.",
-                title = "Evolución porcentual de precios por comuna",
+  dplyr::select(tipo, evolucion_porcentual_total)
+estadisticas.por.tipo.sucursal <- evolucion.por.tipo.sucursal %>%
+  dplyr::group_by(tipo) %>% 
+  dplyr::summarize(mediana_evolucion_porcentual_total = median(evolucion_porcentual_total),
+                   media_evolucion_porcentual_total = mean(evolucion_porcentual_total))
+grafico.boxplots.evolucion.por.tipo.sucursal <- ggplot2::ggplot(data = evolucion.por.tipo.sucursal) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = as.factor(tipo), y = evolucion_porcentual_total, 
+                                               group = as.factor(tipo), fill = as.factor(tipo))) +
+  ggrepel::geom_label_repel(data = estadisticas.por.tipo.sucursal,
+                            mapping = ggplot2::aes(x = tipo, y = media_evolucion_porcentual_total, 
+                                                   label = sprintf("Media (Precios Claros): %.2f%%", media_evolucion_porcentual_total)),
+                            nudge_x = 0.25, nudge_y = 50) +
+  ggrepel::geom_label_repel(data = estadisticas.por.tipo.sucursal,
+                            mapping = ggplot2::aes(x = tipo, y = mediana_evolucion_porcentual_total, 
+                                                   label = sprintf("Mediana (Precios Claros): %.2f%%", mediana_evolucion_porcentual_total)),
+                            nudge_x = -0.25, nudge_y = 50) +
+  ggplot2::coord_flip() +
+  ggplot2::labs(x = "Tipo de sucursal", y = "Diferencia porcentual", fill = "",
+                title = "Evolución porcentual de precios por tipo de sucursal",
                 subtitle = "Diferencia medida entra la última y la primera medición") +
   ggplot2::theme_bw() +
   ggplot2::theme(
+    legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
   )
@@ -343,6 +351,40 @@ grafico.media.evolucion.por.comuna <- ggplot2::ggplot(data = estadisticas.por.co
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'right',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+
+# iv. Boxplots por comercio
+evolucion.por.comercio <- evolucion.punta.a.punta %>%
+  dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
+  dplyr::inner_join(banderas, by = c("comercioId", "banderaId")) %>%
+  dplyr::rename(bandera = descripcion) %>%
+  dplyr::inner_join(comercios, by = c("comercioId")) %>%
+  dplyr::mutate(comercio = paste0(razonSocial, " - ", bandera)) %>%
+  dplyr::group_by(comercio) %>%
+  dplyr::summarize(Mediana = median(evolucion_porcentual_total),
+                   Media = mean(evolucion_porcentual_total)) %>%
+  dplyr::arrange(Mediana)
+evolucion.por.comercio$comercio <- factor(evolucion.por.comercio$comercio, levels = evolucion.por.comercio$comercio)
+grafico.evolucion.por.comercio <- ggplot2::ggplot(data = tidyr::gather(evolucion.por.comercio, key = metrica, value = valor, -comercio)) +
+  ggplot2::geom_bar(mapping = ggplot2::aes(x = comercio, y = valor, group = metrica, fill = metrica), 
+                    stat = 'identity', position = 'dodge') +
+  ggplot2::geom_text(data = evolucion.por.comercio,
+                     mapping = ggplot2::aes(x = comercio, y = Mediana,
+                                            label = sprintf("%0.2f%%", round(Mediana, digits = 2))), 
+                     color = "black", size = 3.5, hjust = 2, vjust = -0.5) +
+  ggplot2::geom_text(data = evolucion.por.comercio,
+                     mapping = ggplot2::aes(x = comercio, y = Media,
+                                            label = sprintf("%0.2f%%", round(Media, digits = 2))), 
+                     color = "black", size = 3.5, hjust = 2, vjust = +1.5) +
+  ggplot2::coord_flip() +
+  ggplot2::labs(x = "", y = "Diferencia porcentual", fill = "Métrica",
+                title = "Evolución porcentual de precios por tipo de sucursal",
+                subtitle = "Diferencia medida entra la última y la primera medición") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
   )
@@ -431,5 +473,6 @@ save(grafico.sucursales.barrio, grafico.sucursales.comuna, grafico.sucursales.ti
      grafico.precios.barrio, grafico.precios.comuna, grafico.precios.sucursales.comuna, grafico.cantidad.datos.relevados,
      zscore.precios.sucursal, grafico.scores.precios.comunas, grafico.ranking.precios.comercio,
      grafico.evolucion.general, grafico.media.evolucion.por.comuna, grafico.mediana.evolucion.por.comuna,
+     grafico.boxplots.evolucion.por.tipo.sucursal, grafico.evolucion.por.comercio,
      file = paste0(getwd(), "/output/Informe.RData"))
 # ----------------------------------------------------------------------------------------
