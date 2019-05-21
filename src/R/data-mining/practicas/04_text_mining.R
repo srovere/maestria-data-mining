@@ -11,7 +11,7 @@ require(wordcloud)
 # Cargar tweets
 coleccion <- mongolite::mongo(db = "TextMining", collection = "tweets")
 tweets    <- coleccion$find() %>%
-  dplyr::select(created_at, screen_name, lng, lat, text)
+  dplyr::select(created_at, screen_name, lng, lat, hashtags, text)
 coleccion$disconnect()
 rm(coleccion)
 
