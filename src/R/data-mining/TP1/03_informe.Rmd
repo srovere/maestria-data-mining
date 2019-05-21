@@ -83,7 +83,9 @@ Sin embargo, dado que para cada sucursal se cuenta con el dato de longitud y lat
 gridExtra::grid.arrange(grafico.barrios, grafico.comunas, nrow = 1)
 ```
 
-Posteriormente, se analizó la tabla de *precios* a fin de detectar si había datos atípicos que pudieran entorpecer en análisis. Dado que los precios varían con los productos y con las mediciones, lo que se hizo para evitar esta complicación fue estandarizar los datos mediante el uso de *z-score*. Se calculó un *z-score* por porducto y otro por producto y medición. 
+Cabe destacar que por un lado se encontraron 3 sucursales que están fuera del polígono de la Ciudad de Buenos Aires, dado que sus domicilios forman parte de partidos aledaños de la Provicia de Buenos Aires. Con dichas sucursales se procedió a buscar el polígono del barrio más cercano para resolver este conflicto. Otro detalle que es importante resaltar es que de las 837 sucursales, solamente 175 de ellas presentan datos de precios en este set de datos analizado.
+
+A continuación, se analizó la tabla de *precios* a fin de detectar si había datos atípicos que pudieran entorpecer en análisis. Dado que los precios varían con los productos y con las mediciones, lo que se hizo para evitar esta complicación fue estandarizar los datos mediante el uso de *z-score*. Se calculó un *z-score* por porducto y otro por producto y medición. 
 
 Tomando como base el *z-score* de los precios por producto y medición, se buscaron aquellos datos que resultaran ser *outliers extremos* mediante el método univariado basado en cuartiles (Q1 y Q3) y rango intercualtil. Se consideraron datos atípicos aqullos que estuvieran a una distancia de 3 rangos intercuartiles de Q1 o Q3. Con este sencillo método se eliminaron datos muy distorsivos que representaban aproximadamente el 0,4% de la muestra. Debido a que la cantidad de datos restante resultó ser muy elevada, no se efectuó ningún proceso de imputación de datos faltantes por considerarse innecesario.
 
