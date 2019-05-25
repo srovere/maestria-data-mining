@@ -119,7 +119,8 @@ gridSearch, resultados = EntrenarYEvaluarPerformance(atributos=atributosDesarrol
                                                      parametros=parametros, metricas=metricas,
                                                      metrica_mejor_ajuste='roc_auc', k=5)
 print(resultados)
-print("Profundidad del mejor árbol: " + str(gridSearch.best_estimator_.tree_.max_depth))
+profundidadCorteAutomatico = gridSearch.best_estimator_.tree_.max_depth
+print("Profundidad con corte automático: " + str(profundidadCorteAutomatico))
 
 # 2.3 Tomando el mejor método del punto 2.2 (criterio = Gini, max_depth = 6) para hacer algunos
 #     experimentos que permitan testear la tolerancia a faltantes.
@@ -293,3 +294,67 @@ naiveBayes.fit(atributosDesarrolloSinId, objetivoDesarrollo)
 prediccionesBayes = naiveBayes.predict(atributosTestSinId)
 accuracy          = sklearn.metrics.accuracy_score(objetivoTest, prediccionesBayes)
 roc_auc           = sklearn.metrics.roc_auc_score(objetivoTest, prediccionesBayes)
+
+# Obtener probabilidades a priori
+clases      = objetivoDesarrollo.unique()
+clases.sort() 
+probAPriori = []
+for clase in clases:
+    probabilidadValor = (objetivoDesarrollo == clase).sum() / objetivoDesarrollo.count()
+    probAPriori.append([ clase, probabilidadValor ])
+probAPriori = pandas.DataFrame.from_records(probAPriori, columns=["clase", "probabilidad"]) 
+
+# Obtener las probabilidades condicionales
+probCondicionales = []
+features          = atributosDesarrolloSinId.columns
+for clase in clases:
+    filasClase    = objetivoDesarrollo == clase
+    cantidadClase = (filasClase == True).sum()
+    for feature in features:
+       valores = atributosDesarrolloSinId[feature].unique().tolist()
+       valores.sort()    
+       for valor in valores:                 
+           filasValor         = atributosDesarrolloSinId[feature] == valor
+           filasValorClase    = filasClase & filasValor
+           cantidadValorClase = (filasValorClase == True).sum()
+           probValorClase     = cantidadValorClase / cantidadClase
+           probCondicionales.append([ feature, valor, clase, probValorClase ])           
+probCondicionales = pandas.DataFrame.from_records(probCondicionales, columns=["atributo", "valor", "clase", "probabilidad"]) 
+
+########################################################################################################################
+# 4. Comparación de algoritmos
+########################################################################################################################
+
+# Mejor árbol de decisión. Usamos todo el conjunto de desarrollo para ajustar.
+parametros             = { "criterion": [ 'gini', 'entropy' ], 'max_depth': numpy.arange(1, profundidadCorteAutomatico) }
+metricas               = [ "roc_auc" ]
+gridSearch, resultados = EntrenarYEvaluarPerformance(atributos=atributosDesarrollo, objetivo=objetivoDesarrollo,
+                                                     parametros=parametros, metricas=metricas,
+                                                     metrica_mejor_ajuste='roc_auc', k=5)
+
+# Encontramos que el mejor árbol es el de altura 6 con Gini Gain (aunque hay muy poca diferencia con Information Gain)
+mejorArbolDecision     = sklearn.tree.DecisionTreeClassifier(criterion = "gini", max_depth = 6, random_state = 0)
+mejorArbolDecision.fit(atributosDesarrolloSinId, objetivoDesarrollo)
+mejorArbolPredicciones = mejorArbolDecision.predict(atributosTestSinId)
+mejorArbolRocAuc       = sklearn.metrics.accuracy_score(objetivoTest, mejorArbolPredicciones)
+
+# Mejor estimador bayesiano. Acá no hay hiperparámetros para testear.
+# Solamente se pueden probar con los 4 algoritmos que provee la librería para
+# calcular las probabilidades condicionales: Bernoulli, Multinomial, Complement y Gaussian.
+# El algoritmo apropiado sería el multinomial (o su variante, Complement). De todos modos
+# probamos con todos los algoritmos para ver cuál da mejor para este set de datos.
+mejorRocAuc         = 0
+mejorAlgoritmoBayes = None
+for naiveBayes in [ sklearn.naive_bayes.BernoulliNB(), sklearn.naive_bayes.ComplementNB(),
+                    sklearn.naive_bayes.MultinomialNB(), sklearn.naive_bayes.GaussianNB() ]:
+    naiveBayes.fit(atributosDesarrolloSinId, objetivoDesarrollo)
+    prediccionesBayes = naiveBayes.predict(atributosTestSinId)
+    rocAuc            = sklearn.metrics.roc_auc_score(objetivoTest, prediccionesBayes)
+    if ((mejorAlgoritmoBayes == None) | (rocAuc > mejorRocAuc)):
+        mejorAlgoritmoBayes = naiveBayes
+        mejorRocAuc         = rocAuc    
+        
+# Encontramos que el mejor algoritmo es el Gaussiano. Sin embargo, sigue siendo mejor la clasificación 
+# con árboles de decisión. Esto se debe a que la estimación bayesiana naive se ve severamente afectada por
+# la no independencia de los atributos del set de datos (por ejemplo, es sabido que las personas obesas tiende
+# a tener presión alta y valores de glucosa y colesterol elevados).    
