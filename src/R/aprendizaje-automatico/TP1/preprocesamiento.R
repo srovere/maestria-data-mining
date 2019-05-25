@@ -7,9 +7,14 @@
 # ---------------------------------------------------------------------------------------#
 rm(list = objects())
 
+require(Cairo)
 require(dplyr)
+require(ggplot2)
 require(mice)
 require(readr)
+require(tidyr)
+
+options(bitmapType = "cairo")
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -55,6 +60,16 @@ boxplot(set.datos.convertido$weight, range = 5)
 boxplot(set.datos.convertido$ap_hi, range = 5)
 boxplot(set.datos.convertido$ap_lo, range = 5)
 
+datos.boxplot <- set.datos.convertido %>%
+  dplyr::select(age, height, weight, ap_hi, ap_lo) %>%
+  tidyr::gather(key = variable, value = valor)
+ggplot2::ggplot(data = datos.boxplot) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = "", y = valor), coef = 5) +
+  ggplot2::facet_wrap(~variable, nrow = 1, scales = "free") +
+  ggplot2::labs(x = "Variable", y = "Valor") +
+  ggplot2::theme_bw() +
+  ggplot2::ggsave(filename = "output/Boxplot-pre-filtrado.png", device = "png", width = 9, height = 5)
+
 # Por inspeccion, se nota que las presiones tienen valores muy extremos aparentemente por
 # un problema de unidades. Se eliminan esos valores extremos
 FiltrarVariable <- function(valores, outlier.range) {
@@ -70,6 +85,16 @@ set.datos.filtrado <- set.datos.convertido %>%
                 weight = FiltrarVariable(weight, 5),
                 ap_hi = FiltrarVariable(ap_hi, 5),
                 ap_lo = FiltrarVariable(ap_lo, 5))
+
+datos.filtrados.boxplot <- set.datos.filtrado %>%
+  dplyr::select(age, height, weight, ap_hi, ap_lo) %>%
+  tidyr::gather(key = variable, value = valor)
+ggplot2::ggplot(data = datos.filtrados.boxplot) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = "", y = valor)) +
+  ggplot2::facet_wrap(~variable, nrow = 1, scales = "free") +
+  ggplot2::labs(x = "Variable", y = "Valor") +
+  ggplot2::theme_bw() +
+  ggplot2::ggsave(filename = "output/Boxplot-post-filtrado.png", device = "png", width = 9, height = 5)
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
