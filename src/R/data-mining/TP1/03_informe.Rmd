@@ -99,11 +99,17 @@ Finalmente, se procedió a dar inicio a los análisis propuestos en los objetivo
 
 ## Análisis exploratorio inicial
 
+En esta subsección se explora la distribución de los datos relevados, tanto a nivel espacial como a nivel temporal. El propósito es poder determinar si todos los barrios/comunas fueron relevados de forma homogénea y si dichos relevamientos también fueron homogéneos en el tiempo. Tal como se explicó previamente, sabemos que solamente 175 de las 837 sucursales poseen datos relevados para estas 10 mediciones. Este dato nos hace inferir a priori que pueden existir inhomogeneidades en cuanto a las sucursales y cantidad de precios relevados por barrio. Conocer esta información nos permitirá sacar mejores conclusiones posteriormente.
+
 ### ¿Cómo es la distribución espacial de sucursales de acuerdo a la cantidad y tipo de sucursal?
+
+En la figura siguiente se muetran coloreados los barrios y comunas de acuerdo a la cantidad de sucursales relevadas en cada una de las zonas. Es notable observar que hay barrios que no poseen sucursales relevadas. En líneas generales, son barrios del sur de la Ciudad de Buenos Aires. Los barrios que cuentas con mayor cantidad de sucursales relevadas con Palermo y Caballito. A su vez, si agrupamos las sucursales por comuna, ser observa claramente que las comunas del norte tiene mayor cantidad de sucursales relevadas que las comunas del sur.
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.cap="Cantidad de sucursales relevadas de la Ciudad Autónoma de Buenos Aires. Los barrios que aparecen en blanco son aquellos donde no hubo relevamiento de precios."}
 gridExtra::grid.arrange(grafico.sucursales.barrio, grafico.sucursales.comuna, nrow = 1)
 ```
+
+También podemos observar que para todas las comunas, la mayoría de las sucursales relevadas corresponden a *supermercados*. En general, hay un 74% de sucursales que son *supermercados* y 26% que son *hipermercados*. Es notable que ninguna de las sucursales relevadas es *autoservicio* (la tercer tipificación de sucursales según el conjunto de datos provisto). Esa proporción varía por comuna sin patrón aparente, aunque en general la mayoría de las comunas mantiene una relación aoximada de 3 a 1 en cuanto a la cantidad de supermercados por hipermercado relevado.
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=5, fig.cap="Proporción de sucursales por tipo para cada comuna de la Ciudad Autónoma de Buenos Aires."}
 gridExtra::grid.arrange(grafico.sucursales.tipo.comuna)
@@ -111,9 +117,13 @@ gridExtra::grid.arrange(grafico.sucursales.tipo.comuna)
 
 ### ¿Cuál es la cantidad de datos relevados por barrio/comuna? ¿Existe alguna relación con la cantidad de sucursales relevadas?
 
+A continuación se analizó la cantidad de datos relevados por barrio y comuna con el objetivo de ver si se encontraba el mismo patrón que con la cantidad de sucursales o si se había intentado equiparar esta inhomogeneidad relevando más productos en barrios con menor cantidad de sucursales. En la figura siguiente se observa que el patrón de datos relevados es consistentente con el de sucursales relevadas.
+
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Cantidad de datos relevados para la Ciudad Autónoma de Buenos Aires. Los barrios que aparecen en blanco son aquellos donde no hubo relevamiento de precios."}
 gridExtra::grid.arrange(grafico.precios.barrio, grafico.precios.comuna, nrow = 1)
 ```
+
+Para reforzar este argumento, también se calculó la proporción de precios relevados sobre la cantidad de sucursales. Se observa que en general esa proporción es más o menos constante, excepto en dos comunas del sur de la Ciudad de Buenos Aires, donde es menor. De todos modos, este patrón es mucho más regular y no parece haber un gradiente notorio con en los casos anteriores (para sucursales y precios).
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=5, fig.cap="Proporción de sucursales por tipo para cada comuna de la Ciudad Autónoma de Buenos Aires."}
 gridExtra::grid.arrange(grafico.precios.sucursales.comuna)
@@ -121,9 +131,13 @@ gridExtra::grid.arrange(grafico.precios.sucursales.comuna)
 
 ### ¿Son uniformes en cuanto a duración los períodos de medición? ¿Y con respecto a la cantidad de datos?
 
+Finalmente, para cerrar la etapa de análisis exploratorio, se analizó la distribución temporal de mediciones. El período completo abarca casi 4 meses completos, iniciándose el 5 de Noviembre de 2018 y finalizando el 2 de Marzo de 2019. Esto nos permite realizar una aproximación razonable y considerar los meses completos desde Noviembre de 2018 a Febrero de 2019 para realizar una comparación contra estadísticas oficiales.
+
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.cap="Duración de períodos de medición y cantidad de datos relevados en cada uno de ellos."}
 gridExtra::grid.arrange(grafico.cantidad.datos.relevados)
 ```
+
+En la figura anterior se presentan barras correspondientes a cada medición. Se observan que en general cada medición tiene aproximadamente la misma cantidad de precios relevados, a excepción de la sexta. El ancho de cada barra es proporcional al tiempo de duración de la medición asociada. En este caso se observa que la duración de las mediciones es bastante inhomogénea y que además a los intervalos de tiempo entre ellas también es inhomogéneo. Por ejemplo, entre el inicio de la quinta y la séptima medición, hay casi un mes de diferencia, lo que representa el 25% del intervalo relevado. Esto puede deberse probablemente al período vacacional. Esta información será de considerada al momento de analizar variaciones de precios o comparaciones con estadísticas oficiales.
 
 ## Ranking de precios
 
