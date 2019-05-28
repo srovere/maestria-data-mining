@@ -172,7 +172,7 @@ grafico.precios.sucursales.comuna <- ggplot2::ggplot(data = ratio.precios.sucurs
                                 direction = 1, option = "D", values = NULL, space = "Lab",
                                 na.value = "white", guide = "colourbar", aesthetics = "fill") +
   ggplot2::labs(x = "", y = "", fill = "",
-                title = "Proporción de datos sobre sucursales relevadas por comuna") +
+                title = "Proporción de datos sobre sucursales relevadas") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'right',
