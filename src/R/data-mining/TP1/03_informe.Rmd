@@ -68,10 +68,10 @@ En presente trabajo se propone responder una serie de preguntas organizadas en 3
   - ¿Cuáles son las empresas con precios más altos y más bajos?
   
 * Evolución temporal de precios
-  - ¿Es consistente la evolución de precios con los datos del IPC informado por el Gobierno de la Ciudad de Buenos Aires?
+  - ¿Es consistente la evolución de precios con los datos del IPC informado por el Gobierno de la Ciudad de Buenos Aires? ¿Hay alguna diferencia según el tipo de sucursal?
   - ¿Cuál es la evolución porcentual de precios por comuna?
-  - ¿Cuál es la evolución porcentual de precios por tipo de sucursal?
-  - ¿Cuáles fueron las empresas cuya evolución fue máxima y mínima?
+  - ¿Cuál fue le evolución de precios según la empresa?
+  - ¿Cuáles fueron los productos cuya evolución fue máxima y mínima? ¿Y los que fueron más estables?
   
 # Preparación de datos
 
@@ -194,28 +194,32 @@ plot(grafico.ranking.precios.comercio)
 
 ## Evolución temporal de precios
 
-### ¿Es consistente la evolución de precios con los datos del IPC informado por el Gobierno de la Ciudad de Buenos Aires?
+### ¿Es consistente la evolución de precios con los datos del IPC informado por el Gobierno de la Ciudad de Buenos Aires? ¿Hay alguna diferencia según el tipo de sucursal?
 
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.cap="Comparación de incrementos  porcentuales registrados en los productos relevados contra valores de IPC (GCBA) publicados para el período Noviembre-2018 a Febrero de 2019. Se ha comparado la variación de precio de cada producto en cada sucursal tomando entre la primera y la última medición."}
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.cap="Comparación de incrementos porcentuales registrados en los productos relevados contra valores de IPC (GCBA) publicados para el período Noviembre-2018 a Febrero de 2019. Se ha comparado la variación de precio de cada producto en cada sucursal tomando entre la primera y la última medición."}
 gridExtra::grid.arrange(grafico.evolucion.general)
+```
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Incrementos porcentuales registrados en los productos relevados agrupados por tipo de sucursal. Se ha comparado la variación de precio de cada producto en cada sucursal tomando entre la primera y la última medición."}
+gridExtra::grid.arrange(grafico.boxplots.evolucion.por.tipo.sucursal)
 ```
 
 ### ¿Cuál es la evolución porcentual de precios por comuna?
 
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Incrementos  porcentuales registrados en los productos relevados agrupados por comuna. Se ha comparado la variación de precio de cada producto en cada sucursal tomando entre la primera y la última medición. Se presentan los valores de media y mediana para cada comuna."}
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Incrementos porcentuales registrados en los productos relevados agrupados por comuna. Se ha comparado la variación de precio de cada producto en cada sucursal tomando entre la primera y la última medición. Se presentan los valores de media y mediana para cada comuna."}
 gridExtra::grid.arrange(grafico.mediana.evolucion.por.comuna, grafico.media.evolucion.por.comuna, ncol = 2)
 ```
 
-### ¿Cuál es la evolución porcentual de precios por tipo de sucursal?
+### ¿Cuál fue le evolución de precios según la empresa?
 
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Incrementos  porcentuales registrados en los productos relevados agrupados por tipo de sucursal. Se ha comparado la variación de precio de cada producto en cada sucursal tomando entre la primera y la última medición."}
-gridExtra::grid.arrange(grafico.boxplots.evolucion.por.tipo.sucursal)
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Incrementos porcentuales registrados en los productos relevados agrupados por comercio. Se ha comparado la variación de precio de cada producto en cada sucursal tomando entre la primera y la última medición. Se presentan los valores de media y mediana para cada comercio."}
+gridExtra::grid.arrange(grafico.evolucion.por.comercio)
 ```
 
-### ¿Cuáles fueron las empresas cuya evolución fue máxima y mínima?
+### ¿Cuáles fueron los productos cuya evolución fue máxima y mínima? ¿Y los que fueron más estables?
 
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Incrementos  porcentuales registrados en los productos relevados agrupados por comercio. Se ha comparado la variación de precio de cada producto en cada sucursal tomando entre la primera y la última medición. Se presentan los valores de media y mediana para cada comercio."}
-gridExtra::grid.arrange(grafico.evolucion.por.comercio)
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=10, fig.height=6, fig.cap="Incrementos porcentuales registrados en los productos. Se muestran 3 categorías y 5 productos por cada una de ellas: productos con máxima o mayor variación, productos más estables (con variación más cercana a 0) y productos con mínima o menor variación."}
+gridExtra::grid.arrange(grafico.evolucion.por.producto)
 ```
 
 # Conclusiones

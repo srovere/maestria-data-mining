@@ -172,7 +172,7 @@ grafico.precios.sucursales.comuna <- ggplot2::ggplot(data = ratio.precios.sucurs
                                 direction = 1, option = "D", values = NULL, space = "Lab",
                                 na.value = "white", guide = "colourbar", aesthetics = "fill") +
   ggplot2::labs(x = "", y = "", fill = "",
-                title = "Proporción de precios/sucursales relevados por comuna") +
+                title = "Proporción de datos sobre sucursales relevadas por comuna") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'right',
@@ -287,7 +287,7 @@ grafico.evolucion.general <- ggplot2::ggplot(data = evolucion.punta.a.punta) +
   ggplot2::coord_flip() +
   ggplot2::labs(x = "", y = "Diferencia porcentual", 
                 title = "Evolución porcentual de precios para C.A.B.A",
-                subtitle = "Diferencia medida entra la última y la primera medición") +
+                subtitle = "Diferencia medida entre la última y la primera medición") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     plot.title = ggplot2::element_text(hjust = 0.5),
@@ -316,7 +316,7 @@ grafico.boxplots.evolucion.por.tipo.sucursal <- ggplot2::ggplot(data = evolucion
   ggplot2::coord_flip() +
   ggplot2::labs(x = "", y = "Diferencia porcentual", fill = "",
                 title = "Evolución porcentual de precios por tipo de sucursal",
-                subtitle = "Diferencia medida entra la última y la primera medición") +
+                subtitle = "Diferencia medida entre la última y la primera medición") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'bottom',
@@ -341,7 +341,7 @@ grafico.mediana.evolucion.por.comuna <- ggplot2::ggplot(data = estadisticas.por.
                                 na.value = "white", guide = "colourbar", aesthetics = "fill") +
   ggplot2::labs(x = "", y = "", fill = "",
                 title = "Mediana de evolución porcentual de precios",
-                subtitle = "Diferencia medida entra la última y la primera medición") +
+                subtitle = "Diferencia medida entre la última y la primera medición") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'right',
@@ -356,7 +356,7 @@ grafico.media.evolucion.por.comuna <- ggplot2::ggplot(data = estadisticas.por.co
                                 na.value = "white", guide = "colourbar", aesthetics = "fill") +
   ggplot2::labs(x = "", y = "", fill = "",
                 title = "Media de evolución porcentual de precios",
-                subtitle = "Diferencia medida entra la última y la primera medición") +
+                subtitle = "Diferencia medida entre la última y la primera medición") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'right',
@@ -364,7 +364,7 @@ grafico.media.evolucion.por.comuna <- ggplot2::ggplot(data = estadisticas.por.co
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
   )
 
-# iv. Boxplots por comercio
+# iv. Dotplots por comercio
 evolucion.por.comercio <- evolucion.punta.a.punta %>%
   dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
   dplyr::inner_join(banderas, by = c("comercioId", "banderaId")) %>%
@@ -374,28 +374,71 @@ evolucion.por.comercio <- evolucion.punta.a.punta %>%
   dplyr::group_by(comercio) %>%
   dplyr::summarize(Mediana = median(evolucion_porcentual_total),
                    Media = mean(evolucion_porcentual_total)) %>%
-  dplyr::arrange(Mediana)
+  dplyr::arrange(Media)
 evolucion.por.comercio$comercio <- factor(evolucion.por.comercio$comercio, levels = evolucion.por.comercio$comercio)
 grafico.evolucion.por.comercio <- ggplot2::ggplot(data = tidyr::gather(evolucion.por.comercio, key = metrica, value = valor, -comercio)) +
-  ggplot2::geom_bar(mapping = ggplot2::aes(x = comercio, y = valor, group = metrica, fill = metrica), 
-                    stat = 'identity', position = 'dodge') +
+  ggplot2::geom_point(mapping = ggplot2::aes(x = comercio, y = valor, group = metrica, col = metrica), size = 10) +
   ggplot2::geom_text(data = evolucion.por.comercio,
                      mapping = ggplot2::aes(x = comercio, y = Mediana,
-                                            label = sprintf("%0.2f%%", round(Mediana, digits = 2))), 
-                     color = "black", size = 3.5, hjust = 2, vjust = -0.5) +
+                                            label = sprintf("%0.2f%%", round(Mediana, digits = 2))),
+                     color = "black", size = 3.5) +
   ggplot2::geom_text(data = evolucion.por.comercio,
                      mapping = ggplot2::aes(x = comercio, y = Media,
-                                            label = sprintf("%0.2f%%", round(Media, digits = 2))), 
-                     color = "black", size = 3.5, hjust = 2, vjust = +1.5) +
+                                            label = sprintf("%0.2f%%", round(Media, digits = 2))),
+                     color = "black", size = 3.5) +
   ggplot2::coord_flip() +
-  ggplot2::labs(x = "", y = "Diferencia porcentual", fill = "Métrica",
-                title = "Evolución porcentual de precios por tipo de sucursal",
-                subtitle = "Diferencia medida entra la última y la primera medición") +
+  ggplot2::labs(x = "", y = "Diferencia porcentual", col = "Métrica",
+                title = "Evolución porcentual de precios por empresa",
+                subtitle = "Diferencia medida entre la última y la primera medición") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
-    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    panel.grid.major = ggplot2::element_line(size = 0.5, linetype = 'solid',
+                                             colour = "grey75")
+  )
+
+# v. Dotplots por productos (maximo aumento, mas estables y minimo aumento)
+evolucion.por.producto <- evolucion.punta.a.punta %>%
+  dplyr::inner_join(productos, by = c("productoId")) %>%
+  dplyr::group_by(productoId, nombre) %>%
+  dplyr::summarize(Media = mean(evolucion_porcentual_total)) %>%
+  dplyr::ungroup()
+evolucion.por.producto.maxima <- evolucion.por.producto %>%
+  dplyr::top_n(n = 5, wt = Media)  %>%
+  dplyr::mutate(Evolucion = "Máxima")
+evolucion.por.producto.minima <- evolucion.por.producto %>%
+  dplyr::top_n(n = -5, wt = Media) %>%
+  dplyr::mutate(Evolucion = "Mínima")
+evolucion.por.producto.estables <- evolucion.por.producto %>%
+  dplyr::mutate(MediaAbsoluta = abs(Media)) %>%
+  dplyr::top_n(n = -5, wt = MediaAbsoluta) %>%
+  dplyr::select(-MediaAbsoluta) %>%
+  dplyr::mutate(Evolucion = "Estable")
+evolucion.por.producto <- evolucion.por.producto.maxima %>%
+  dplyr::bind_rows(evolucion.por.producto.minima) %>%
+  dplyr::bind_rows(evolucion.por.producto.estables) %>%
+  dplyr::arrange(dplyr::desc(Media)) %>%
+  dplyr::mutate(nombre = iconv(nombre, from="UTF-8", to="ASCII//TRANSLIT"))
+evolucion.por.producto$nombre <- factor(evolucion.por.producto$nombre, levels = evolucion.por.producto$nombre)
+grafico.evolucion.por.producto <- ggplot2::ggplot(data = evolucion.por.producto) +
+  ggplot2::geom_point(mapping = ggplot2::aes(x = nombre, y = Media, group = Evolucion, col = Evolucion), size = 10) +
+  ggplot2::geom_text(mapping = ggplot2::aes(x = nombre, y = Media,
+                                            label = sprintf("%0.2f%%", round(Media, digits = 2))),
+                     color = "black", size = 3.5) +
+  ggplot2::coord_flip() +
+  ggplot2::scale_color_manual(values = c("Máxima" = "#e41a1c", "Estable" = "#4daf4a", "Mínima" = "#377eb8")) +
+  ggplot2::labs(x = "", y = "Diferencia porcentual", col = "Evolución",
+                title = "Evolución porcentual de precios por producto",
+                subtitle = "Diferencia medida entre la última y la primera medición") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    panel.grid.major = ggplot2::element_line(size = 0.5, linetype = 'solid',
+                                             colour = "grey75")
   )
 # ----------------------------------------------------------------------------------------
 
@@ -482,6 +525,6 @@ save(grafico.sucursales.barrio, grafico.sucursales.comuna, grafico.sucursales.ti
      grafico.precios.barrio, grafico.precios.comuna, grafico.precios.sucursales.comuna, grafico.cantidad.datos.relevados,
      zscore.precios.sucursal, grafico.scores.precios.comunas, grafico.ranking.precios.comercio,
      grafico.evolucion.general, grafico.media.evolucion.por.comuna, grafico.mediana.evolucion.por.comuna,
-     grafico.boxplots.evolucion.por.tipo.sucursal, grafico.evolucion.por.comercio,
+     grafico.boxplots.evolucion.por.tipo.sucursal, grafico.evolucion.por.comercio, grafico.evolucion.por.producto,
      file = paste0(getwd(), "/output/Informe.RData"))
 # ----------------------------------------------------------------------------------------
