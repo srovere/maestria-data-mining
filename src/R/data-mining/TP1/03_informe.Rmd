@@ -64,8 +64,8 @@ En presente trabajo se propone responder una serie de preguntas organizadas en 3
 
 * Ranking de precios 
   - ¿Cuáles son las sucursales con precios más altos y más bajos a lo largo de todo el período?
-  - ¿Cuáles son las comunas con precios más altos y más bajos?
   - ¿Cuáles son las empresas con precios más altos y más bajos?
+  - ¿Cuáles son las comunas con precios más altos y más bajos?
   
 * Evolución temporal de precios
   - ¿Es consistente la evolución de precios con los datos del IPC informado por el Gobierno de la Ciudad de Buenos Aires? ¿Hay alguna diferencia según el tipo de sucursal?
@@ -85,7 +85,19 @@ gridExtra::grid.arrange(grafico.barrios, grafico.comunas, nrow = 1)
 
 Cabe destacar que por un lado se encontraron 3 sucursales que están fuera del polígono de la Ciudad de Buenos Aires, dado que sus domicilios forman parte de partidos aledaños de la Provicia de Buenos Aires. Con dichas sucursales se procedió a buscar el polígono del barrio más cercano para resolver este conflicto. Otro detalle que es importante resaltar es que de las 837 sucursales, solamente 175 de ellas presentan datos de precios en este set de datos analizado.
 
-A continuación, se analizó la tabla de *precios* a fin de detectar si había datos atípicos que pudieran entorpecer en análisis. Dado que los precios varían con los productos y con las mediciones, lo que se hizo para evitar esta complicación fue estandarizar los datos mediante el uso de *z-score*. Se calculó un *z-score* por porducto y otro por producto y medición. 
+También se crearon tablas para identificar los comercios (o empresas) y las *banderas* (o unidades de negocio) de dichos comercios. Por ejemplo, INC S.A. es la empresa que agrupa a Hipermercados Carrefour, Carrefour Market y Carrefour Express. Esto nos permite analizar por separado cada bandera dado que, como se verá después, la evolución de los precios no es la misma para banderas de la misma empresa. Como resultado, se obtiene el siguiente esquema de tablas:
+
+   tabla      | descripción                                                     | tipo de objeto
+   -----------|-----------------------------------------------------------------|-------------------------
+      comunas | comunas de la Ciudad de Buenos Aires                            | data frame geolocalizado
+      barrios | barrios de la Ciudad de Buenos Aires                            | data frame geolocalizado
+    productos | productos relevados por la aplicación                           | data frame
+    comercios | empresas cuyas sucursales fueron relevadas                      | data frame
+     banderas | unidades de negocio correspondientes a cada empresa             | data frame
+   sucursales | sucursales relevadas en los distintos barrios de CABA           | data frame
+      precios | precios por producto y sucursal para cada una de las mediciones | data frame
+
+A continuación, se analizó la tabla de *precios* a fin de detectar si había datos atípicos que pudieran entorpecer en análisis. Dado que los precios varían con los productos y con las mediciones, lo que se hizo para evitar esta complicación fue estandarizar los datos mediante el uso de *z-score*. Se calculó un *z-score* por producto y otro por producto y medición. 
 
 Tomando como base el *z-score* de los precios por producto y medición, se buscaron aquellos datos que resultaran ser *outliers extremos* mediante el método univariado basado en cuartiles (Q1 y Q3) y rango intercualtil. Se consideraron datos atípicos aqullos que estuvieran a una distancia de 3 rangos intercuartiles de Q1 o Q3. Con este sencillo método se eliminaron datos muy distorsivos que representaban aproximadamente el 0,4% de la muestra. Debido a que la cantidad de datos restante resultó ser muy elevada, no se efectuó ningún proceso de imputación de datos faltantes por considerarse innecesario.
 
@@ -141,9 +153,15 @@ En la figura anterior se presentan barras correspondientes a cada medición. Se 
 
 ## Ranking de precios
 
+En esta subsección se exploran los precios a lo largo de todo el período de análisis. El objetivo es encontrar patrones que nos permitan detectar precios más altos o más bajos independientemente del porcentaje evolutivo de los mismos. Se explorarán las sucursales con precios más altos y bajos de la Cuidad y luego se realizará el mismo análisis a nivel de unidades de negocios. Finalmente, se explorará el nivel de precios a nivel de comunas para tratar de encontrar algún patrón emergente.
+
+En el análisis de precios a nivel de sucursales, se utilizó el z-score de los precios por producto para todo el período. Esto nos permite comparar precios de productos diferentes en todo el intervalo de tiempo. Para los análisis de precios por comercio y por comuna, se utilizó el z-score de precios por producto y por medición. Esto nos permite comparar el precio de productos diferentes y su evolución a lo largo de cada medición.
+
 ### ¿Cuáles son las sucursales con precios más altos y más bajos a lo largo de todo el período?
 
-Sucursales con precios más bajos
+Las tablas que se muestran a continuación muestran las 5 sucursales con precios más altos y bajos, respectivamente, a lo largo de todo el período de análisis. Es de interés para el consumidor, dado que esta información puede modificar hábitos de compra. Esta información también motiva un posterior análisis por comercio. Como ya se observa en las siguientes tablas, las sucursales con precios más baratos son todas unidades de negocio de INC S.A., mientras que las que tienen precios más elevados son de Jumbo Retail Argentina S.A.
+
+__Sucursales con precios más bajos__:
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE }
 sucursales.mas.baratas <- sf::st_set_geometry(zscore.precios.sucursal, NULL)
@@ -161,7 +179,7 @@ knitr::kable(
 )
 ```
 
-Sucursales con precios más elevados
+__Sucursales con precios más elevados__:
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE }
 sucursales.mas.caras <- sf::st_set_geometry(zscore.precios.sucursal, NULL) %>%
@@ -180,16 +198,22 @@ knitr::kable(
 )
 ```
 
-### ¿Cuáles son las comunas con precios más altos y más bajos? 
-
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=6, fig.cap="Scores de precios por comuna a lo largo del período de relevamiento"}
-plot(grafico.scores.precios.comunas)
-```
-
 ### ¿Cuáles son las empresas con precios más altos y más bajos?
+
+La información anterior sirve como disparador para preguntarnos cuáles son los comercios con precios más altos y bajos de los relevados. A fin de responder esta pregunta, se elabora un mapa de calor. En el eje de las abcisas se muestran las 10 mediciones realizadas y en el de las ordenadas, las 11 unidades de negocios cuyas sucursales fueron relevadas (existen en realidad 15 unidades de negocio, pero tal como se explicó previamente, la mayoría de las sucursales listadas no poseen datos de precios para el período de análisis). 
+
+Luego se elaboró un ranking del 1 (comercio con precios más bajos) y 11 (sucursal con precios más elevados) utilizando la mediana de los z-score de los precios de los productos para cada sucursal en cada medición. Como se observa, *Supermercados DIA* es el comercio que más veces aparece como el que tiene los precios más bajos. Sin embargo, lo siguen de cerca (e incluso lo superan en algunas mediciones) *Hipermercados Carrefour* y *Carrefour Market*. Por el contrario, los comercios con precios más elevados son las 3 unidades de negocios de *Jumbo Retail Argentina* (Jumbo, Disco y Vea).
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=6, fig.cap="Ranking de precios por comercios a lo largo del período de relevamiento (valores más bajos de ranking indican comercios con precios más baratos)"}
 plot(grafico.ranking.precios.comercio)
+```
+
+### ¿Cuáles son las comunas con precios más altos y más bajos? 
+
+Por último, para finalizar esta subsección, se elabora un ranking de precios por comuna y medición. El análisis es análogo al de precios por comercio y medición. En vez de agrupar las sucursales por unidad de negocio, en este caso se agrupan por la comuna a la que pertenencen. En líneas generales se observa que las comunas del norte de la Ciudad de Buenos Aires tienen precios más elevados que aquellas ubicadas en la zona sur, aunque con excepciones. Es notable observar que la Comuna 6, correspondiente al barrio de Caballito resulta ser aquella que tiene las sucursales con precios más elevados de acuerdo a los datos relevados.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=6, fig.cap="Scores de precios por comuna a lo largo del período de relevamiento"}
+plot(grafico.scores.precios.comunas)
 ```
 
 ## Evolución temporal de precios
