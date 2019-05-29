@@ -1,6 +1,6 @@
 ---
 title: "Data Mining: Trabajo Práctico nº 1"
-subtitle: "Análisis de set de datos de Precios Claros"
+subtitle: "Análisis de un conjunto de datos de Precios Claros"
 author:
 - Santiago Rovere (srovere@gmail.com), Facultad de Ingeniería, Universidad de Buenos Aires
 - Javier Quinteros (jaqbase-dmkm@yahoo.com.ar), Universidad Argentina de la Empresa
@@ -41,9 +41,9 @@ load(file = paste0("output/Informe.RData"))
 
 # Introducción
 
-El presente trabajo se basa en la exploración y análisis de un conjunto de datos extraído del la aplicación **Precios Claros** [1]. Dichos datos fueron extraídos mediante un proceso de relevamiento automático utilizando la técnica de web crawling [2]. Este proceso consistió en la en la generación de consultas a la página web mediante un script programado en *Python*. Cada medición tomó 3 semanas aproximadamente debido a la gran cantidad de datos disponibles y la cantidad máxima de consultas por día que se pueden hacer al sitio sin ser bloqueado. Sea realizaron un total de 10 mediciones.
+El presente trabajo se basa en la exploración y análisis de un conjunto de datos extraído del la aplicación **Precios Claros** [1]. Dichos datos fueron extraídos mediante un proceso de relevamiento automático utilizando la técnica de *web crawling* [2]. Este proceso consistió en la generación de consultas a la página web mediante un script programado en *Python*. Cada medición tomó 3 semanas aproximadamente debido a la gran cantidad de datos disponibles y la cantidad máxima de consultas por día que se pueden hacer al sitio sin ser bloqueado. Sea realizaron un total de 10 mediciones.
 
-Posteriormente, este conjunto de datos fue introducido en una base de datos MongoDB a fin de poder manejar más cómodamente las consultas. El set de datos inicial es el siguiente:
+Posteriormente, este conjunto de datos fue introducido en una base de datos MongoDB a fin de poder manejar más cómodamente las consultas. El conjunto de datos inicial es el siguiente:
 
    tabla      | descripción                                                       | cantidad de datos
    -----------|-------------------------------------------------------------------|------------------
@@ -51,7 +51,7 @@ Posteriormente, este conjunto de datos fue introducido en una base de datos Mong
    sucursales | sucursales relevadas en los distintos barrios de CABA             | 837
       precios | precios por producto y sucursal para cada una de las mediciones   | + 1,5 millones
       
-Este documento se organiza de la siguiente manera: en la sección *2* se presentarán los objetivos de este estudio en forma de preguntas a responder; en la sección *3* se detallará el proceso de preparación de datos que se realizó a fin de poder llevar a cabo los análisis de la sección *4*; finalmente, en la sección *5* se elaborarán las conclusiones finales del trabajo proponiendo algunas posibles líneas de trabajo futuro.
+El presente trabajo consta de un análisis exploratorio de dichos datos organizado de la siguiente manera: en la sección *2* se presentarán los objetivos de este estudio en forma de preguntas a responder; en la sección *3* se detallará el proceso de preparación de datos que se realizó a fin de poder llevar a cabo los análisis de la sección *4*; finalmente, en la sección *5* se elaborarán las conclusiones finales del trabajo proponiendo algunas posibles líneas de trabajo futuro.
 
 # Objetivo
 
@@ -99,7 +99,7 @@ También se crearon tablas para identificar los comercios (o empresas) y las *ba
 
 A continuación, se analizó la tabla de *precios* a fin de detectar si había datos atípicos que pudieran entorpecer en análisis. Dado que los precios varían con los productos y con las mediciones, lo que se hizo para evitar esta complicación fue estandarizar los datos mediante el uso de *z-score*. Se calculó un *z-score* por producto y otro por producto y medición. 
 
-Tomando como base el *z-score* de los precios por producto y medición, se buscaron aquellos datos que resultaran ser *outliers extremos* mediante el método univariado basado en cuartiles (Q1 y Q3) y rango intercualtil. Se consideraron datos atípicos aqullos que estuvieran a una distancia de 3 rangos intercuartiles de Q1 o Q3. Con este sencillo método se eliminaron datos muy distorsivos que representaban aproximadamente el 0,4% de la muestra. Debido a que la cantidad de datos restante resultó ser muy elevada, no se efectuó ningún proceso de imputación de datos faltantes por considerarse innecesario.
+Tomando como base el *z-score* de los precios por producto y medición, se buscaron aquellos datos que resultaran ser *outliers extremos* mediante el método univariado basado en cuartiles (Q1 y Q3) y rango intercuartil. Se consideraron datos atípicos aquellos que estuvieran a una distancia de 3 rangos intercuartiles de Q1 o Q3. Con este sencillo método se eliminaron datos muy distorsivos que representaban aproximadamente el 0,4% de la muestra. Debido a que la cantidad de datos restante resultó ser muy elevada, no se efectuó ningún proceso de imputación de datos faltantes por considerarse innecesario.
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Boxplots de scores de precios por producto y medición"}
 gridExtra::grid.arrange(grafico.outliers.inicial, grafico.outliers.final, ncol = 1)
