@@ -1,0 +1,31 @@
+@import url("http://fonts.googleapis.com/css?family=Roboto");
+
+body {
+	font-family: roboto;
+  margin: auto;
+  line-height: 20px;
+}
+
+h1 {
+	font-weight: bold;
+	padding-top: 30px;
+}
+
+h2 {
+  font-weight: bold;
+	padding-top: 30px;
+}
+
+.caption {
+	font-size: 12px;
+	font-style: oblique;
+	text-align: center;
+	margin-bottom: 10px;
+}
+
+table thead {
+  background-color: #666666;
+  font-size: 16px;
+  font-weight: bold;
+  color: white;
+}
