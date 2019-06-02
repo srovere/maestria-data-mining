@@ -42,9 +42,11 @@ load(file = paste0("output/Informe.RData"))
 
 # Introducción
 
-El presente trabajo se basa en la exploración y análisis de un conjunto de datos extraído del la aplicación **Precios Claros** [1]. Dichos datos fueron extraídos mediante un proceso de relevamiento automático utilizando la técnica de *web crawling* [2]. Este proceso consistió en la generación de consultas a la página web de Precios Claros mediante un script programado en lenguaje *Python*. Cada una de las mediciones realizadas tomó 3 semanas aproximadamente debido a la gran cantidad de datos disponibles y la cantidad máxima de consultas por día que se pueden hacer al sitio sin ser bloqueado. Sea realizaron un total de 10 mediciones.
+El presente trabajo se basa en la exploración y análisis de un conjunto de datos extraído del la aplicación **Precios Claros** [1]. Dichos datos fueron extraídos mediante un proceso de relevamiento automático utilizando la técnica de *web crawling* [2]. Este proceso consistió en la generación de consultas a la página web de Precios Claros mediante un script programado en lenguaje *Python*. 
 
-Posteriormente, este conjunto de datos fue introducido en una base de datos MongoDB a fin de poder manejar más cómodamente las consultas. El conjunto de datos inicial es el siguiente:
+Se realizaron un total de 10 mediciones, cada una de las cuales tomó 3 semanas aproximadamente debido a la gran cantidad de datos disponibles y la cantidad máxima de consultas por día que se pueden hacer al sitio sin ser bloqueado. Estas mediciones corresponden un período de tiempo que abarca desde el 5 de Noviembre de 2018 hasta el 2 de Marzo de 2019. 
+
+Este conjunto de datos fue introducido en una base de datos MongoDB y consta de las siguientes colecciones:
 
    Tabla      | Descripción                                                       | Cantidad de datos
    -----------|-------------------------------------------------------------------|------------------
@@ -52,11 +54,11 @@ Posteriormente, este conjunto de datos fue introducido en una base de datos Mong
    sucursales | sucursales relevadas en los distintos barrios de CABA             | 837
       precios | precios por producto y sucursal para cada una de las mediciones   | + 1,5 millones
       
-El presente trabajo consta de un análisis exploratorio de dichos datos organizado de la siguiente manera: en la sección *2* se presentarán los objetivos de este estudio en forma de preguntas a responder; en la sección *3* se detallará el proceso de preparación de datos que se realizó a fin de poder llevar a cabo los análisis de la sección *4*; finalmente, en la sección *5* se elaborarán las conclusiones finales del trabajo proponiendo algunas posibles líneas de trabajo futuro.
+Este trabajo presenta un análisis exploratorio de dichos datos organizado de la siguiente manera: en la sección *2* se presentarán los objetivos del análisis; en la sección *3* se detallará el proceso de preparación de datos realizado a fin de poder llevar a cabo los análisis de la sección *4*; finalmente, en la sección *5* se elaborarán las conclusiones finales del trabajo proponiendo algunas posibles líneas de trabajo futuro.
 
 # Objetivo
 
-En presente trabajo se propone responder una serie de preguntas organizadas en 3 categorías:
+En presente trabajo se propone dar respuesta a una serie de preguntas organizadas en 3 categorías:
 
 * Análisis exploratorio inicial
   - ¿Cómo es la distribución espacial de sucursales de acuerdo a la cantidad y tipo de sucursal?
@@ -69,24 +71,24 @@ En presente trabajo se propone responder una serie de preguntas organizadas en 3
   - ¿Cuáles son las comunas con precios más altos y más bajos?
   
 * Evolución temporal de precios
-  - ¿Es consistente la evolución de precios con los datos del IPC informado por el Gobierno de la Ciudad de Buenos Aires? ¿Hay alguna diferencia según el tipo de sucursal?
+  - ¿Es consistente la evolución de precios con los datos informados por el IPC de de la Ciudad de Buenos Aires? ¿Hay alguna diferencia según el tipo de sucursal?
   - ¿Cuál fue la evolución porcentual de precios por comuna?
-  - ¿Cuál fue la evolución de precios según la empresa?
+  - ¿Cuál fue la evolución porcentual de precios según la empresa?
   - ¿Cuáles fueron los productos cuya evolución fue máxima, mínima y más estable?
   
 # Preparación de datos
 
-En primer lugar, se extrajeron los datos de las 3 tablas originales y se efectuó una normalización de sus atributos a fin de trabajar con tablas que permitan fácilmente hacer join entre ellas y agrupar eficientemente por *ids*. También se eliminaron los datos de provincia y localidad de la tabla de sucursales dado que no era eficiente extraer el barrio o la comuna por estar dicha información no estructurada (es decir, por figurar como texto libre).
+Se comenzó extrayendo los datos de las 3 colecciones originales y se efectuó una normalización de sus atributos a fin de trabajar con tablas que permitan fácilmente hacer operaciones de *join* entre ellas y agrupar eficientemente por *ids*. También se eliminaron los datos de provincia y localidad de la colección de sucursales dado que no era eficiente extraer el barrio por estar dicha información como texto libre.
 
-Sin embargo, dado que para cada sucursal se cuenta con el dato de longitud y latitud, se descargaron los *shapes* de los barrios de la página del Gobierno de la Ciudad de Buenos Aires [3]. Estos datos fueron integrados con los datos de sucursales, y mediante operaciones espaciales, se logró ubicar cada sucursal en un barrio de la Ciudad Autónoma de Buenos. A su vez, se construyeron los polígonos correspondientes a las comunas uniendo los polígonos de los barrios que las componen.
+Dado que contamos con los datos de latitud y longitud para cada sucursal, se descargaron los *shapes* de los barrios de la página del Gobierno de la Ciudad de Buenos Aires [3]. Estos *shapes* fueron integrados con los datos de sucursales, y mediante operaciones espaciales, se logró ubicar cada sucursal en un barrio de la ciudad. A su vez, se construyeron los polígonos correspondientes a las comunas uniendo los polígonos de los barrios que las componen.
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Barrios y comunas de la Ciudad Autónoma de Buenos Aires"}
 gridExtra::grid.arrange(grafico.barrios, grafico.comunas, nrow = 1)
 ```
 
-Cabe destacar que se encontraron 3 sucursales que están fuera del polígono de la Ciudad de Buenos Aires, dado que sus domicilios forman parte de partidos aledaños de la Provicia de Buenos Aires. Con dichas sucursales se procedió a buscar el polígono del barrio más cercano para resolver este conflicto. Otro detalle que es importante resaltar es que de las 837 sucursales, solamente 175 de ellas presentan datos de precios en este conjunto de datos analizado.
+Cabe destacar que se encontraron 3 sucursales fuera del polígono de la Ciudad de Buenos Aires, dado que sus domicilios forman parte de partidos aledaños de la Provicia de Buenos Aires. Con dichas sucursales se procedió a buscar el polígono del barrio más cercano para resolver este conflicto. También es importante resaltar que de las 837 sucursales listadas, solamente 175 de ellas presentan datos de precios relevados.
 
-También se crearon tablas para identificar los comercios (o empresas) y las *banderas* (o unidades de negocio) de dichos comercios. Por ejemplo, INC S.A. es la empresa que agrupa a Hipermercados Carrefour, Carrefour Market y Carrefour Express. Esto nos permite analizar por separado cada unidad de negocios dado que, como se verá después, la evolución de los precios no es la misma para banderas de la misma empresa. Como resultado, se obtiene el siguiente esquema de tablas:
+A continuación se crearon tablas para identificar los comercios (o empresas) y las *banderas* (o unidades de negocio) de dichos comercios. Esto nos permite analizar por separado cada unidad de negocios dado que, como se verá después, la evolución de los precios no es la misma para banderas de la misma empresa. Como resultado, se obtiene el siguiente esquema de tablas:
 
    Tabla      | Descripción                                                     | Tipo de objeto
    -----------|-----------------------------------------------------------------|-------------------------
@@ -98,9 +100,9 @@ También se crearon tablas para identificar los comercios (o empresas) y las *ba
    sucursales | sucursales relevadas en los distintos barrios de CABA           | data frame
       precios | precios por producto y sucursal para cada una de las mediciones | data frame
 
-A continuación, se analizó la tabla de *precios* a fin de detectar si había datos atípicos que pudieran entorpecer en análisis. Dado que los precios varían con los productos y con las mediciones, lo que se hizo para evitar esta complicación fue estandarizar los datos mediante el uso de *z-score*. Se calculó un *z-score* por producto y otro por producto y medición. 
+Luego se procedió a analizar la tabla de *precios* a fin de detectar si había datos atípicos que pudieran entorpecer en análisis. Dado que los precios varían con los productos y con las mediciones (y en menor medida por sucursal), lo que se hizo para evitar esta complicación fue estandarizar los precios mediante el uso de *z-score*. Se calculó un *z-score* por producto y otro por producto y medición. 
 
-Tomando como base el *z-score* de los precios por producto y medición, se buscaron aquellos datos que resultaran ser *outliers extremos* mediante el método univariado basado en cuartiles (Q1 y Q3) y rango intercuartil. Se consideraron datos atípicos aquellos que estuvieran a una distancia de más de 3 rangos intercuartiles de Q1 o Q3. Con este sencillo método se eliminaron datos muy distorsivos que representaban aproximadamente el 0,4% de la muestra. Debido a que la cantidad de datos restante resultó ser muy elevada, no se efectuó ningún proceso de imputación de datos faltantes por considerarse innecesario.
+Tomando como base el *z-score* de los precios por producto y medición, se buscaron aquellos valores que resultaran ser *outliers extremos* mediante el método univariado basado en cuartiles (Q1 y Q3) y rango intercuartil. Se consideraron datos atípicos aquellos que estuvieran a una distancia de más de 3 rangos intercuartiles de Q1 o Q3. Con este sencillo método se eliminaron datos muy distorsivos que representaban aproximadamente el 0,4% de la muestra. Debido a que la cantidad de datos restante resultó ser muy elevada, no se efectuó ningún proceso de imputación de datos faltantes por considerarse innecesario.
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Boxplots de scores de precios por producto y medición"}
 gridExtra::grid.arrange(grafico.outliers.inicial, grafico.outliers.final, ncol = 1)
@@ -132,13 +134,13 @@ gridExtra::grid.arrange(grafico.sucursales.tipo.comuna)
 
 A continuación se analizó la cantidad de datos relevados por barrio y comuna con el objetivo de ver si se encontraba el mismo patrón que con la cantidad de sucursales o si se había intentado equiparar esta inhomogeneidad relevando más productos en barrios con menor cantidad de sucursales. En la figura siguiente se observa que el patrón de datos relevados es consistentente con el de sucursales relevadas.
 
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Cantidad de datos relevados para la Ciudad Autónoma de Buenos Aires. Los barrios que aparecen en blanco son aquellos donde no hubo relevamiento de precios."}
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.cap="Cantidad de datos relevados para la Ciudad Autónoma de Buenos Aires. Los barrios que aparecen en blanco son aquellos donde no hubo relevamiento de precios."}
 gridExtra::grid.arrange(grafico.precios.barrio, grafico.precios.comuna, nrow = 1)
 ```
 
 Para reforzar este argumento, también se calculó la proporción de precios relevados sobre la cantidad de sucursales. Se observa que en general esa proporción es más o menos constante, excepto en dos comunas del sur de la Ciudad de Buenos Aires, donde es menor. De todos modos, este patrón es mucho más regular y no parece haber un gradiente notorio como en los casos anteriores (para sucursales y precios).
 
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=5, fig.cap="Proporción de sucursales por tipo para cada comuna de la Ciudad Autónoma de Buenos Aires."}
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.cap="Proporción de datos sobre sucursales relevadas para la Ciudad Autónoma de Buenos Aires."}
 gridExtra::grid.arrange(grafico.precios.sucursales.comuna)
 ```
 
@@ -160,7 +162,7 @@ En el análisis de precios a nivel de sucursales, se utilizó el z-score de los 
 
 ### ¿Cuáles son las sucursales con precios más altos y más bajos a lo largo de todo el período?
 
-Las tablas que se muestran a continuación muestran las 5 sucursales con precios más altos y bajos, respectivamente, a lo largo de todo el período de análisis. Esta información podería resultar de interés para el consumidor, dado que permitiría modificar hábitos de compra. Esta información también motiva un posterior análisis por comercio. Como ya se observa en las siguientes tablas, las sucursales con precios más son unidades de negocio de *INC S.A.*, mientras que las que tienen precios más elevados son de *Jumbo Retail Argentina S.A.*
+Las tablas que se muestran a continuación muestran las 5 sucursales con precios más altos y bajos, respectivamente, a lo largo de todo el período de análisis. Esta información podería resultar de interés para el consumidor, dado que permitiría modificar hábitos de compra. También motiva un posterior análisis por comercio. Como ya se observa en las siguientes tablas, las sucursales con precios más bajos son unidades de negocio de *INC S.A.*, mientras que las que tienen precios más elevados son de *Jumbo Retail Argentina S.A.*
 
 __Sucursales con precios más bajos__:
 
@@ -201,9 +203,9 @@ knitr::kable(
 
 ### ¿Cuáles son las empresas con precios más altos y más bajos?
 
-La información anterior sirve como disparador para preguntarnos cuáles son los comercios con precios más altos y bajos de los relevados. A fin de responder esta pregunta, se elabora un mapa de calor. En el eje de las abcisas se muestran las 10 mediciones realizadas y en el de las ordenadas, las 11 unidades de negocios cuyas sucursales fueron relevadas (existen en realidad 15 unidades de negocio, pero tal como se explicó previamente, la mayoría de las sucursales listadas no poseen datos de precios para el período de análisis). 
+La información anterior sirve como disparador para preguntarnos cuáles son los comercios con precios más altos y bajos. A fin de responder esta pregunta, se elabora un mapa de calor. En el eje de las abcisas se muestran las 10 mediciones realizadas y en el de las ordenadas, las 11 unidades de negocios cuyas sucursales fueron relevadas (existen en realidad 15 unidades de negocio, pero tal como se explicó previamente, la mayoría de las sucursales listadas no poseen datos de precios para el período de análisis). 
 
-Luego se elaboró un ranking del 1 (precios más bajos) al 11 (precios más elevados) utilizando la mediana de los z-score de los precios de los productos para cada sucursal en cada medición. Como se observa, *Supermercados DIA* es el comercio que más veces aparece como la unidad de negocios con los precios más bajos. Sin embargo, lo siguen de cerca (e incluso lo superan en algunas mediciones) *Hipermercados Carrefour* y *Carrefour Market*. Por el contrario, los comercios con precios más elevados son las 3 unidades de negocios de *Jumbo Retail Argentina* (Jumbo, Disco y Vea).
+Luego se elaboró un ranking del 1 (precios más bajos) al 11 (precios más elevados) utilizando la mediana de los z-score de los precios de los productos para cada sucursal en cada medición. Como se observa, *Supermercados DIA* es el comercio que más veces aparece liderando el ranking de los precios más bajos. Sin embargo, lo siguen de cerca (e incluso lo superan en algunas mediciones) *Hipermercados Carrefour* y *Carrefour Market*. Por el contrario, los comercios con precios más elevados son las 3 unidades de negocios de *Jumbo Retail Argentina* (Jumbo, Disco y Vea).
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=6, fig.cap="Ranking de precios por comercios a lo largo del período de relevamiento (valores más bajos de ranking indican comercios con precios más baratos)"}
 plot(grafico.ranking.precios.comercio)
@@ -219,31 +221,31 @@ plot(grafico.scores.precios.comunas)
 
 ## Evolución temporal de precios
 
-Para realizar los siguientes análisis se consideró la variación de precios de cada producto en cada sucursal. Esto se debe a que el mismo producto puede tener distintos precios en distintas sucursales. De acuerdo a exploraciones iniciales, esta evolución es nula de una medición a otra en la gran mayoría de los casos. Tampoco es posible realizar un análisis utilizando los z-score calculados, dado que el porcentaje de variación de dichos scores no guarda relación con la variación de los precios originales.
+Para realizar los siguientes análisis se consideró la variación de precios de cada producto en cada sucursal. Esto se debe a que el mismo producto puede tener distintos precios en distintas sucursales. De acuerdo a exploraciones iniciales, esta evolución es nula de una medición a otra en la gran mayoría de los casos, lo cual no aporta mucha información. Tampoco es posible realizar un análisis utilizando los z-score calculados, dado que el porcentaje de variación de dichos scores no guarda relación con la variación porcentual de los precios.
 
 Por tal motivo, se decidió evaluar la evolucón de precios de *punta a punta*. Es decir, se compara el precio de un producto en una sucursal en la primera medición contra el precio del mismo producto en la misma sucursal para la última medición. Por supuesto, existen casos de sucursales y productos que no cuentan con datos en algunas de las dos mediciones (la primera o la última). Pero la cantidad de casos es lo suficientemente baja (7,7% de los casos) como para que eso impida realizar un análisis como el propuesto.
 
 ### ¿Es consistente la evolución de precios con los datos del IPC informado por el Gobierno de la Ciudad de Buenos Aires? ¿Hay alguna diferencia según el tipo de sucursal?
 
-Para el siguiente análisis se obtuvieron los datos del Indice de Precios al Consumidor del Gobierno de la Ciudad de Buenos Aires (IPC GCBA). El IPC GBCA calcula evoluciones de precios para distintas categorías. En este análisis se compararon los valores de las datos relevados contra los valores del IPC GCBA Nivel General [4] e IPC GCBA Alimentos [5]). 
+Para el siguiente análisis se obtuvieron los datos del Indice de Precios al Consumidor del Gobierno de la Ciudad de Buenos Aires (IPC GCBA). El IPC GBCA calcula evoluciones de precios para distintas categorías. En este análisis se compararon los valores de los precios relevados contra los valores del IPC GCBA Nivel General [4] e IPC GCBA Alimentos [5]. 
 
-En este primer boxplot se observa que tanto la media como la mediana de las evoluciones de precios calculadas en base a los relevamientos es levemente inferior a los índices de variación del IPC. Esto puede deberse a que tanto en el caso de IPC GCBA - Nivel General como alimentos, la población de productos considerados es sustancialmente diferente a la de los productos relevados en este conjunto de datos. De todos modos, la evolución de precios para el período analizado parece guardar relación con la información publicada por el Gobierno de la Ciudad de Buenos Aires.
+En el primer boxplot se observa que tanto la media como la mediana de las evoluciones de precios calculadas en base a los relevamientos son levemente inferiores a los valores reportados por el IPC. Esto puede deberse a que tanto en el caso de IPC Nivel General como IPC Alimentos, los productos considerados son distintos a los relevados en este conjunto de datos. Aún así, la evolución de precios para el período analizado parece guardar relación con la información publicada por el Gobierno de la Ciudad de Buenos Aires.
 
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.cap="Comparación de incrementos porcentuales registrados en los productos relevados contra valores de IPC (GCBA) publicados para el período Noviembre-2018 a Febrero de 2019. Se ha comparado la variación de precio de cada producto en cada sucursal tomando entre la primera y la última medición."}
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.cap="Comparación de incrementos porcentuales registrados en los productos relevados contra valores de IPC (GCBA) publicados para el período Noviembre-2018 a Febrero de 2019. Se ha comparado la variación de precio de cada producto en cada sucursal entre la primera y la última medición."}
 gridExtra::grid.arrange(grafico.evolucion.general)
 ```
 
-Además, se desagregó el cálculo de evolución de precios para analizar si existen diferencias de acuerdo al tipo de sucursal (supermercados e hipermercados). Tal como se observa en la figura siguente, no existen diferencias notables que muestren una variación diferente de precios entre un tipo de sucursal y otro.
-
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Incrementos porcentuales registrados en los productos relevados agrupados por tipo de sucursal. Se ha comparado la variación de precio de cada producto en cada sucursal tomando entre la primera y la última medición."}
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Incrementos porcentuales registrados en los productos relevados agrupados por tipo de sucursal. Se ha comparado la variación de precio de cada producto en cada sucursal entre la primera y la última medición."}
 gridExtra::grid.arrange(grafico.boxplots.evolucion.por.tipo.sucursal)
 ```
+
+Además, se desagregó el cálculo de evolución de precios para analizar si existen diferencias de acuerdo al tipo de sucursal (supermercados e hipermercados). Tal como se observa en la figura anterior, no existen diferencias notables que muestren una variación diferente de precios entre supermercados e hipermercados.
 
 ### ¿Cuál fue la evolución porcentual de precios por comuna?
 
 Luego se procedió a analizar la evolución de precios por comuna. En este caso no se observa un boxplot por comuna sino los valores de la media y la mediana escalados en un mapa (que resulta más fácil de asimilar para el ojo humano). El aumento de precios por comuna es aparentemente homogéneo, registrándose leves incremento superiores en las comunas del sur de la Ciudad de Buenos Aires y en el barrio de Caballito (si consideramos la media en vez de la mediana).
 
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Incrementos porcentuales registrados en los productos relevados agrupados por comuna. Se ha comparado la variación de precio de cada producto en cada sucursal tomando entre la primera y la última medición. Se presentan los valores de media y mediana para cada comuna."}
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Incrementos porcentuales registrados en los productos relevados agrupados por comuna. Se ha comparado la variación de precio de cada producto en cada sucursal entre la primera y la última medición. Se presentan los valores de media y mediana para cada comuna."}
 gridExtra::grid.arrange(grafico.mediana.evolucion.por.comuna, grafico.media.evolucion.por.comuna, ncol = 2)
 ```
 
@@ -253,7 +255,7 @@ A continuación se realizó el mismo tipo de análisis que con las comunas pero 
 
 Se observa, por ejemplo, que *Supermercados DIA* (que es la unidad de negocios que más veces consiguió el primer puesto en el ranking de comercios más baratos) fue la empresas que más aumentó los precios, mientras que *Hipermercados Carrefour* fue la que menos los aumentó. Esta información es consistente con el gráfico de ranking de precios, ya que *Supermercados DIA* pasa del puesto número 1 al número 3 en dicho ranking y lo inverso le sucede a *Hipermercados Carrefour*.
 
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Incrementos porcentuales registrados en los productos relevados agrupados por comercio. Se ha comparado la variación de precio de cada producto en cada sucursal tomando entre la primera y la última medición. Se presentan los valores de media y mediana para cada comercio."}
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.width=9, fig.height=5, fig.cap="Incrementos porcentuales registrados en los productos relevados agrupados por comercio. Se ha comparado la variación de precio de cada producto en cada sucursal entre la primera y la última medición. Se presentan los valores de media y mediana para cada unidad de negocios."}
 gridExtra::grid.arrange(grafico.evolucion.por.comercio)
 ```
 

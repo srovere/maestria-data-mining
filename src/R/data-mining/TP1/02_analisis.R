@@ -30,13 +30,13 @@ sucursales.por.barrio <- sucursales %>%
   sf::st_set_geometry(NULL) %>%
   dplyr::group_by(barrioId) %>%
   dplyr::summarise(cantidad = dplyr::n()) %>%
-  dplyr::inner_join(barrios, by = c("barrioId"))
+  dplyr::right_join(barrios, by = c("barrioId"))
 
 grafico.sucursales.barrio <- ggplot2::ggplot(data = sucursales.por.barrio) +
   ggplot2::geom_sf(mapping = ggplot2::aes(fill = cantidad)) +
   ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
                                 direction = 1, option = "D", values = NULL, space = "Lab",
-                                na.value = "grey50", guide = "colourbar", aesthetics = "fill") +
+                                na.value = "white", guide = "colourbar", aesthetics = "fill") +
   ggplot2::labs(x = "", y = "", fill = "",
                 title = "Cantidad de sucursales por barrio") +
   ggplot2::theme_bw() +
@@ -57,7 +57,7 @@ grafico.sucursales.comuna <- ggplot2::ggplot(data = sucursales.por.comuna) +
   ggplot2::geom_text(mapping = ggplot2::aes(x = centro_x, y = centro_y, label = comuna)) +
   ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
                                 direction = 1, option = "D", values = NULL, space = "Lab",
-                                na.value = "grey50", guide = "colourbar", aesthetics = "fill") +
+                                na.value = "white", guide = "colourbar", aesthetics = "fill") +
   ggplot2::labs(x = "", y = "", fill = "",
                 title = "Cantidad de sucursales por comuna") +
   ggplot2::theme_bw() +
