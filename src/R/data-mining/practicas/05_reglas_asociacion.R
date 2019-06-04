@@ -53,3 +53,12 @@ Confianza(titanic.raw, list(Class = "Crew"), list(Survived = "No"))
 Confianza(titanic.raw, list(Class = "1st"), list(Survived = "No"))
 Confianza(titanic.raw, list(Age = "Adult", Sex = "Female"), list(Survived = "Yes"))
 Confianza(titanic.raw, list(Age = "Adult", Sex = "Male"), list(Survived = "No"))
+
+# --- Uso de arules
+require(arules)
+
+# Carga de dataset
+data("Groceries")
+
+# Buscar reglas
+reglas <- apriori(Groceries, parameter = list(support=0.01, confidence=0.01, target = "rules"))
