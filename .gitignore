@@ -7,5 +7,9 @@ src/R/data-mining/TP1/input/*.RData
 src/R/data-mining/TP1/output/*.RData
 src/R/data-mining/TP1/*.html
 src/R/data-mining/TP1/*.pdf
+src/R/data-mining/TP2/input/*.RData
+src/R/data-mining/TP2/output/*.RData
+src/R/data-mining/TP2/*.html
+src/R/data-mining/TP2/*.pdf
 src/python/aprendizaje-automatico/TP1/.idea
 src/python/aprendizaje-automatico/TP1/output/*
