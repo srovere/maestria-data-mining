@@ -11,7 +11,9 @@ require(dplyr)
 require(magrittr)
 require(purrr)
 require(sf)
+require(stringr)
 require(tidyr)
+require(tm)
 
 load("input/PreciosClaros.RData")
 # ----------------------------------------------------------------------------------------
@@ -83,4 +85,111 @@ precios.variacion <- precios.completos %>%
   dplyr::mutate(V1 = (P2-P1)/P1, V2 = (P3-P2)/P2, V3 = (P4-P3)/P3, VT = (P4-P1)/P1) %>%
   dplyr::mutate(DV1 = DiscretizarVariacion(V1), DV2 = DiscretizarVariacion(V2), DV3 = DiscretizarVariacion(V3),
                 DVT = DiscretizarVariacion(VT))
+
+# 7. Calcular precios promedio por producto para cada periodo y para el periodo total
+precios.productos.periodo <- precios.completos %>%
+  dplyr::select(-comercioId, -banderaId, -sucursalId, -P1, -P2, -P3, -P4, -PT) %>%
+  tidyr::gather(key = medicion, value = precio, -productoId) %>%
+  dplyr::inner_join(periodos, by = c("medicion")) %>%
+  dplyr::select(-medicion)
+precios.promedio.producto.periodo <- precios.productos.periodo %>%
+  dplyr::mutate(periodo = paste0('PP', periodo)) %>%
+  dplyr::group_by(productoId, periodo) %>%
+  dplyr::summarise(PP = mean(precio)) %>%
+  tidyr::spread(key = periodo, value = PP)
+precios.promedio.producto <- precios.productos.periodo %>%
+  dplyr::group_by(productoId) %>%
+  dplyr::summarise(PPT = mean(precio)) %>%
+  dplyr::inner_join(precios.promedio.producto.periodo, by = c("productoId"))
+
+# 8. Tomando los precios promedio por producto, calcular el precio relativo por producto/sucursal 
+#    para todos los periodos y para el periodo total. Discretizarlos.
+DiscretizarPreciosRelativos <- function(precios.relativos) {
+  intervalos <- c(-Inf, -0.1, -0.05, -0.01, 0.01, 0.05, 0.1, Inf)
+  categorias <- c("Muy barato", "Medianamente barato", "Levemente barato", "Medio", "Levemente caro", "Moderadamente caro", "Muy caro")
+  return (cut(x = precios.relativos, breaks = intervalos, labels = categorias))
+}
+precios.relativos <- precios.variacion %>%
+  dplyr::inner_join(precios.promedio.producto, by = c("productoId")) %>%
+  dplyr::mutate(PR1 = (P1 - PP1)/PP1, PR2 = (P2 - PP2)/PP2, PR3 = (P3 - PP3)/PP3,  
+                PR4 = (P4 - PP4)/PP4, PRT = (PT - PPT)/PPT) %>%
+  dplyr::mutate(DPR1 = DiscretizarPreciosRelativos(PR1), DPR2 = DiscretizarPreciosRelativos(PR2),
+                DPR3 = DiscretizarPreciosRelativos(PR3), DPR4 = DiscretizarPreciosRelativos(PR4),
+                DPRT = DiscretizarPreciosRelativos(PRT))
+
+# 9. Seleccionar las siguientes variables:
+#    (productoId, comercioId, banderaId, sucursalId, DPR1, DPR2, DPR3, DPR4, DPRT, DV1, DV2, DV3, DVT)
+precios.asociacion <- precios.relativos %>%
+  dplyr::select(productoId, comercioId, banderaId, sucursalId, DPR1, DPR2, DPR3, DPR4, DPRT, DV1, DV2, DV3, DVT)
+rm(precios.ancho, matriz.precios, precios.ancho.imputado, precios.promedio.periodo, precios.promedio.total, precios.completos,
+   precios.variacion, precios.productos.periodo, precios.promedio.producto.periodo, precios.promedio.producto, precios.relativos)
+# ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
+# ---- III. Tratamiento de productos ----                            
+# ---------------------------------------------------------------------------------------#
+
+productos.asociacion <- productos %>%
+  # 1/2. Generar copias de campos textuales en minusculas
+  dplyr::mutate(nombre_asoc = base::tolower(nombre), marca_asoc = base::tolower(marca), 
+                presentacion_asoc = base::tolower(presentacion)) %>%
+  # 3. Quitar numeros
+  dplyr::mutate(nombre_asoc = tm::removeNumbers(nombre_asoc),
+                marca_asoc = tm::removeNumbers(marca_asoc),
+                presentacion_asoc = tm::removeNumbers(presentacion_asoc)) %>%
+  # 4. Quitar puntuacion
+  dplyr::mutate(nombre_asoc = tm::removePunctuation(nombre_asoc),
+                marca_asoc = tm::removePunctuation(marca_asoc),
+                presentacion_asoc = tm::removePunctuation(presentacion_asoc)) %>%
+  # 5. Quitar tildes
+  dplyr::mutate(nombre_asoc = iconv(nombre_asoc, from="UTF-8", to="ASCII//TRANSLIT"),
+                marca_asoc = iconv(marca_asoc, from="UTF-8", to="ASCII//TRANSLIT"),
+                presentacion_asoc = iconv(presentacion_asoc, from="UTF-8", to="ASCII//TRANSLIT")) %>%
+  # 6. Borrar espacios en marca y presentacion
+  dplyr::mutate(marca_asoc = trimws(tm::stripWhitespace(marca_asoc)),
+                presentacion_asoc = trimws(tm::stripWhitespace(presentacion_asoc)))
+
+presentaciones <- unique(dplyr::pull(productos.asociacion, presentacion_asoc))
+marcas         <- unique(dplyr::pull(productos.asociacion, marca_asoc))
+
+# 7. Eliminar unidades de presentacion del nombre
+productos.asociacion %<>%
+  dplyr::mutate(nombre_asoc = tm::removeWords(nombre_asoc, words = presentaciones)) %>%
+  # 8. Eliminar marcas del nombre
+  dplyr::mutate(nombre_asoc = tm::removeWords(nombre_asoc, words = marcas)) %>%
+  # 9. Eliminar palabras vacias (stopwords) y hacer trim y strip
+  dplyr::mutate(nombre_asoc = trimws(tm::stripWhitespace(tm::removeWords(nombre_asoc, words = tm::stopwords("es")))),
+                marca_asoc = trimws(tm::stripWhitespace(tm::removeWords(marca_asoc, words = tm::stopwords("es")))),
+                presentacion_asoc = trimws(tm::stripWhitespace(tm::removeWords(presentacion_asoc, words = tm::stopwords("es")))))
+
+# 10. Generar un vocaculario con los nombres de los productos. Nos quedamos
+#     con las palabras que aparecen 4 veces o mas (percentil 75).
+palabras.nombres         <- stringr::str_split(dplyr::pull(productos.asociacion, nombre_asoc), " ")
+tabla.palabras           <- as.data.frame(table(unlist(palabras.nombres)))
+colnames(tabla.palabras) <- c("palabra", "frecuencia")
+umbral.frecuencia        <- quantile(tabla.palabras$frecuencia, 0.75)
+vocabulario              <- tabla.palabras %>%
+  dplyr::mutate(palabra = as.character(palabra)) %>%
+  dplyr::filter(frecuencia >= umbral.frecuencia) %>%
+  dplyr::pull(palabra) %>%
+  sort()
+
+# 11. Generar matriz de presencia/ausencia para cada producto
+matriz.presencia.ausencia <- purrr::imap(
+  .x = palabras.nombres,
+  .f = function(palabras.producto, seq_index) {
+    existencia <- ifelse(vocabulario %in% palabras.producto, 'S', NA)
+  }
+) %>% do.call(what = "rbind", args = .)
+colnames(matriz.presencia.ausencia) <- paste0("termino_", vocabulario)
+rownames(matriz.presencia.ausencia) <- dplyr::pull(productos.asociacion, productoId)
+
+rm(presentaciones, marcas, palabras.nombres, umbral.frecuencia)
+# ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
+# ---- IV. Almacenar variables resultantes de utilidad ----                            
+# ---------------------------------------------------------------------------------------#
+save(precios.asociacion, productos.asociacion, tabla.palabras, vocabulario, matriz.presencia.ausencia,
+     file = "input/ReglasAsociacion.RData")
 # ----------------------------------------------------------------------------------------
