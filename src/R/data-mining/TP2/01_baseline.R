@@ -78,7 +78,7 @@ precios.completos <- precios.ancho.imputado %>%
 # 6. Discretizar variaciones
 DiscretizarVariacion <- function(variacion) {
   intervalos <- c(-Inf, -0.1, -0.05, -0.005, 0.005, 0.05, 0.1, Inf)
-  categorias <- c("Disminución Fuerte", "Disminución Ḿoderada", "Disminución Leve", "Mantiene", "Aumento Leve", "Aumento Moderado", "Aumento Fuerte")
+  categorias <- c("Disminución Fuerte", "Disminución Moderada", "Disminución Leve", "Mantiene", "Aumento Leve", "Aumento Moderado", "Aumento Fuerte")
   return (cut(x = variacion, breaks = intervalos, labels = categorias))
 }
 precios.variacion <- precios.completos %>%
@@ -106,7 +106,7 @@ precios.promedio.producto <- precios.productos.periodo %>%
 #    para todos los periodos y para el periodo total. Discretizarlos.
 DiscretizarPreciosRelativos <- function(precios.relativos) {
   intervalos <- c(-Inf, -0.1, -0.05, -0.01, 0.01, 0.05, 0.1, Inf)
-  categorias <- c("Muy barato", "Medianamente barato", "Levemente barato", "Medio", "Levemente caro", "Moderadamente caro", "Muy caro")
+  categorias <- c("Muy barato", "Moderadamente barato", "Levemente barato", "Medio", "Levemente caro", "Moderadamente caro", "Muy caro")
   return (cut(x = precios.relativos, breaks = intervalos, labels = categorias))
 }
 precios.relativos <- precios.variacion %>%
