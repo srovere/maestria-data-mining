@@ -7,6 +7,8 @@
 # ---------------------------------------------------------------------------------------#
 rm(list = objects())
 
+require(arules)
+require(arulesViz)
 require(ca)
 require(dplyr)
 require(factoextra)
@@ -204,3 +206,19 @@ factoextra::fviz_contrib(ca.nivel.aumento.precios.comercio, choice = "row", axes
 factoextra::fviz_contrib(ca.nivel.aumento.precios.comercio, choice = "col", axes = 1)
 factoextra::fviz_ca_biplot(ca.nivel.aumento.precios.comercio, repel = TRUE) 
 # ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
+# ---- IV. Reglas de asociación para precios ----                            
+# ---------------------------------------------------------------------------------------#
+
+precios.transactions <- precios.asociacion %>%
+  dplyr::select(DPR1, DV1, DPR2, DV2, DPR3, DV3, DPR4) %>%
+  as("transactions")
+
+precios.rules <- arules::apriori(data = precios.transactions,
+                                 parameter = list(support = 0.05, confidence = 0.8, target = "rules"))  
+
+inspect(precios.rules)
+plot(precios.rules)
+# ----------------------------------------------------------------------------------------
+
