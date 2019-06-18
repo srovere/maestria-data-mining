@@ -212,13 +212,17 @@ factoextra::fviz_ca_biplot(ca.nivel.aumento.precios.comercio, repel = TRUE)
 # ---------------------------------------------------------------------------------------#
 
 precios.transactions <- precios.asociacion %>%
-  dplyr::select(DPR1, DV1, DPR2, DV2, DPR3, DV3, DPR4) %>%
+  dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
+  dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
+  dplyr::mutate(comuna = as.character(comuna)) %>%
+  dplyr::select(comuna, DPR1, DPR2, DPR3, DPR4, DPRT, DV1, DV2, DV3, DVT)
   as("transactions")
 
 precios.rules <- arules::apriori(data = precios.transactions,
                                  parameter = list(support = 0.05, confidence = 0.8, target = "rules"))  
 
-arules::inspect(precios.rules)
+sort(precios.rules, decreasing = TRUE, by = "confidence")
+mejores.reglas <- subset(precios.rules, subset = confidence > 0.95 & lift > 5)
+arules::inspect(mejores.reglas)
 plot(precios.rules)
 # ----------------------------------------------------------------------------------------
-
