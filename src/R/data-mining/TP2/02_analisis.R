@@ -218,7 +218,7 @@ precios.transactions <- precios.asociacion %>%
 precios.rules <- arules::apriori(data = precios.transactions,
                                  parameter = list(support = 0.05, confidence = 0.8, target = "rules"))  
 
-inspect(precios.rules)
+arules::inspect(precios.rules)
 plot(precios.rules)
 # ----------------------------------------------------------------------------------------
 
