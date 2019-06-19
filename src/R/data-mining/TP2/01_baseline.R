@@ -5,8 +5,11 @@
 # ---------------------------------------------------------------------------------------#
 # ---- I. Inicialización de ambiente ----                            
 # ---------------------------------------------------------------------------------------#
+
+# Borrar variables de ambiente
 rm(list = objects())
 
+# Cargar paquetes
 require(dplyr)
 require(httr)
 require(jsonlite)
@@ -16,8 +19,19 @@ require(sf)
 require(stringr)
 require(tidyr)
 require(tm)
+require(yaml)
 
+# Cargar archivo de parametros
+parametros <- yaml::yaml.load_file("parametros.yml")
+
+# Cargar datos de entrada
 load("input/PreciosClaros.RData")
+
+# Definir funcion de discretizacion
+Discretizar <- function(variacion, intervalos, etiquetas) {
+  intervalos.completos <- c(-Inf, intervalos, Inf)
+  return (cut(x = variacion, breaks = intervalos.completos, labels = etiquetas))
+}
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -78,15 +92,12 @@ precios.completos <- precios.ancho.imputado %>%
 
 # 5. Calcular variaciones interperiodo y total
 # 6. Discretizar variaciones
-DiscretizarVariacion <- function(variacion) {
-  intervalos <- c(-Inf, -0.1, -0.05, -0.005, 0.005, 0.05, 0.1, Inf)
-  categorias <- c("Disminución Fuerte", "Disminución Moderada", "Disminución Leve", "Mantiene", "Aumento Leve", "Aumento Moderado", "Aumento Fuerte")
-  return (cut(x = variacion, breaks = intervalos, labels = categorias))
-}
 precios.variacion <- precios.completos %>%
   dplyr::mutate(V1 = (P2-P1)/P1, V2 = (P3-P2)/P2, V3 = (P4-P3)/P3, VT = (P4-P1)/P1) %>%
-  dplyr::mutate(DV1 = DiscretizarVariacion(V1), DV2 = DiscretizarVariacion(V2), DV3 = DiscretizarVariacion(V3),
-                DVT = DiscretizarVariacion(VT))
+  dplyr::mutate(DV1 = Discretizar(V1, parametros$variacion.precios.periodo$intervalos, parametros$variacion.precios.periodo$etiquetas), 
+                DV2 = Discretizar(V2, parametros$variacion.precios.periodo$intervalos, parametros$variacion.precios.periodo$etiquetas), 
+                DV3 = Discretizar(V3, parametros$variacion.precios.periodo$intervalos, parametros$variacion.precios.periodo$etiquetas),
+                DVT = Discretizar(VT, parametros$variacion.precios.total$intervalos, parametros$variacion.precios.total$etiquetas))
 grafico.variacion <- ggplot2::ggplot(data = dplyr::select(precios.variacion, V1, V2, V3) %>% tidyr::gather(key = Periodo, value = Variacion)) +
   ggplot2::geom_boxplot(mapping = ggplot2::aes(x = Periodo, y = Variacion))
 
@@ -108,18 +119,15 @@ precios.promedio.producto <- precios.productos.periodo %>%
 
 # 8. Tomando los precios promedio por producto, calcular el precio relativo por producto/sucursal 
 #    para todos los periodos y para el periodo total. Discretizarlos.
-DiscretizarPreciosRelativos <- function(precios.relativos) {
-  intervalos <- c(-Inf, -0.1, -0.05, -0.01, 0.01, 0.05, 0.1, Inf)
-  categorias <- c("Muy barato", "Moderadamente barato", "Levemente barato", "Medio", "Levemente caro", "Moderadamente caro", "Muy caro")
-  return (cut(x = precios.relativos, breaks = intervalos, labels = categorias))
-}
 precios.relativos <- precios.variacion %>%
   dplyr::inner_join(precios.promedio.producto, by = c("productoId")) %>%
   dplyr::mutate(PR1 = (P1 - PP1)/PP1, PR2 = (P2 - PP2)/PP2, PR3 = (P3 - PP3)/PP3,  
                 PR4 = (P4 - PP4)/PP4, PRT = (PT - PPT)/PPT) %>%
-  dplyr::mutate(DPR1 = DiscretizarPreciosRelativos(PR1), DPR2 = DiscretizarPreciosRelativos(PR2),
-                DPR3 = DiscretizarPreciosRelativos(PR3), DPR4 = DiscretizarPreciosRelativos(PR4),
-                DPRT = DiscretizarPreciosRelativos(PRT))
+  dplyr::mutate(DPR1 = Discretizar(PR1, parametros$nivel.precios$intervalos, parametros$nivel.precios$etiquetas), 
+                DPR2 = Discretizar(PR2, parametros$nivel.precios$intervalos, parametros$nivel.precios$etiquetas),
+                DPR3 = Discretizar(PR3, parametros$nivel.precios$intervalos, parametros$nivel.precios$etiquetas), 
+                DPR4 = Discretizar(PR4, parametros$nivel.precios$intervalos, parametros$nivel.precios$etiquetas),
+                DPRT = Discretizar(PRT, parametros$nivel.precios$intervalos, parametros$nivel.precios$etiquetas))
 
 # 9. Seleccionar las siguientes variables:
 #    (productoId, comercioId, banderaId, sucursalId, DPR1, DPR2, DPR3, DPR4, DPRT, DV1, DV2, DV3, DVT)
@@ -194,22 +202,24 @@ rm(presentaciones, marcas, palabras.nombres, umbral.frecuencia)
 # ---------------------------------------------------------------------------------------#
 # ---- IV. Cotizacion del dolar ----                            
 # ---------------------------------------------------------------------------------------#
-BuscarCotizacion <- function(url) {
-  token   <- "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1OTI0Mzg2NTQsInR5cGUiOiJleHRlcm5hbCIsInVzZXIiOiJzcm92ZXJlQGdtYWlsLmNvbSJ9.M-tLmicANIYxgC1oGPLPDZpQv03Fxtd6M8uYjl4UD74vOkJypfiOhAxbwQrlPS8w9DprhAbVHqATBdZm6KjMBg"
+BuscarCotizacion <- function(url, token) {
   request <- httr::GET(url = url, httr::add_headers(Authorization = paste0("BEARER ", token)))
   return (jsonlite::fromJSON(httr::content(request, as = "text")))
 }
 
-cotizacion.mayorista <- BuscarCotizacion("https://api.estadisticasbcra.com/usd_of") %>%
+cotizacion.mayorista <- BuscarCotizacion(parametros$cotizacion$url.mayorista, parametros$cotizacion$token) %>%
   dplyr::rename(fecha = d, mayorista = v)
-cotizacion.minorista <- BuscarCotizacion("https://api.estadisticasbcra.com/usd_of_minorista") %>%
+cotizacion.minorista <- BuscarCotizacion(parametros$cotizacion$url.minorista, parametros$cotizacion$token) %>%
   dplyr::rename(fecha = d, minorista = v)
-cotizacion           <- dplyr::full_join(cotizacion.mayorista, cotizacion.minorista, by = c("fecha"))
+cotizacion           <- dplyr::full_join(cotizacion.mayorista, cotizacion.minorista, by = c("fecha")) %>%
+  dplyr::mutate(fecha = as.Date(fecha)) %>%
+  dplyr::arrange(fecha) %>%
+  dplyr::as.tbl()
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
 # ---- IV. Almacenar variables resultantes de utilidad ----                            
 # ---------------------------------------------------------------------------------------#
 save(precios.asociacion, productos.asociacion, tabla.palabras, vocabulario, matriz.presencia.ausencia,
-     file = "input/ReglasAsociacion.RData")
+     cotizacion, periodos, file = "input/ReglasAsociacion.RData")
 # ----------------------------------------------------------------------------------------

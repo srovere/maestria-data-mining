@@ -1,0 +1,21 @@
+# Archivo de parametros para baseline
+
+# Intervalos y etiquetas para discretizar varaciones de precios
+variacion.precios.periodo:
+  intervalos: [ -0.1, -0.05, -0.005, 0.005, 0.05, 0.1 ]
+  etiquetas: [ "Disminución Fuerte", "Disminución Moderada", "Disminución Leve", "Mantiene", "Aumento Leve", "Aumento Moderado", "Aumento Fuerte" ]
+  
+variacion.precios.total:
+  intervalos: [ -0.1, -0.05, -0.005, 0.005, 0.05, 0.1 ]
+  etiquetas: [ "Disminución Fuerte", "Disminución Moderada", "Disminución Leve", "Mantiene", "Aumento Leve", "Aumento Moderado", "Aumento Fuerte" ]
+  
+# Intervalos y etiquetas para discretizar niveles de precios
+nivel.precios:
+  intervalos: [ -0.1, -0.05, -0.01, 0.01, 0.05, 0.1 ]
+  etiquetas: [ "Muy barato", "Moderadamente barato", "Levemente barato", "Medio", "Levemente caro", "Moderadamente caro", "Muy caro" ]
+  
+# Datos de acceso para buscar cotizaciones en el BCRA
+cotizacion:
+  token: "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1OTI0Mzg2NTQsInR5cGUiOiJleHRlcm5hbCIsInVzZXIiOiJzcm92ZXJlQGdtYWlsLmNvbSJ9.M-tLmicANIYxgC1oGPLPDZpQv03Fxtd6M8uYjl4UD74vOkJypfiOhAxbwQrlPS8w9DprhAbVHqATBdZm6KjMBg"
+  url.minorista: https://api.estadisticasbcra.com/usd_of
+  url.mayorista: https://api.estadisticasbcra.com/usd_of_minorista

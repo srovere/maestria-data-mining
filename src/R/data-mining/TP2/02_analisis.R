@@ -211,18 +211,30 @@ factoextra::fviz_ca_biplot(ca.nivel.aumento.precios.comercio, repel = TRUE)
 # ---- IV. Reglas de asociación para precios ----                            
 # ---------------------------------------------------------------------------------------#
 
-precios.transactions <- precios.asociacion %>%
+# Consolidar comunas, comercios, niveles de precios, varaciones de precios y productos (palabras)
+transacciones <- precios.asociacion %>%
   dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
   dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
-  dplyr::mutate(comuna = as.character(comuna)) %>%
-  dplyr::select(comuna, DPR1, DPR2, DPR3, DPR4, DPRT, DV1, DV2, DV3, DVT)
+  dplyr::inner_join(banderas, by = c("comercioId", "banderaId")) %>%
+  dplyr::inner_join(comercios, by = c("comercioId")) %>%
+  dplyr::mutate(comuna = factor(comuna),
+                comercio = factor(paste0(razonSocial, " - ", descripcion))) %>%
+  #dplyr::select(comuna, comercio, DPR1, DPR2, DPR3, DPR4, DPRT, DV1, DV2, DV3, DVT) %>%
+  dplyr::select(comuna, comercio, DPRT, DVT) %>%
   as("transactions")
 
-precios.rules <- arules::apriori(data = precios.transactions,
-                                 parameter = list(support = 0.05, confidence = 0.8, target = "rules"))  
+# Generar reglas
+reglas <- sort(arules::apriori(data = transacciones,
+                               parameter = list(support = 0.02, confidence = 0.6, target = "rules", maxlen = 11)),
+               by = "lift", decreasing = TRUE)
 
-sort(precios.rules, decreasing = TRUE, by = "confidence")
-mejores.reglas <- subset(precios.rules, subset = confidence > 0.95 & lift > 5)
-arules::inspect(mejores.reglas)
-plot(precios.rules)
+# Reglas de comercios
+reglas.comercios <- subset(reglas,
+                           subset = ((lhs %pin% "comercio") | (rhs %pin% "comercio")) & (lift > 3))
+arules::inspect(head(reglas.comercios, 20))
+
+# Reglas de comunas
+reglas.comunas <- subset(reglas,
+                         subset = ((lhs %pin% "comuna") | (rhs %pin% "comuna")))
+arules::inspect(reglas.comunas)
 # ----------------------------------------------------------------------------------------
