@@ -8,6 +8,8 @@
 rm(list = objects())
 
 require(dplyr)
+require(httr)
+require(jsonlite)
 require(magrittr)
 require(purrr)
 require(sf)
@@ -85,6 +87,8 @@ precios.variacion <- precios.completos %>%
   dplyr::mutate(V1 = (P2-P1)/P1, V2 = (P3-P2)/P2, V3 = (P4-P3)/P3, VT = (P4-P1)/P1) %>%
   dplyr::mutate(DV1 = DiscretizarVariacion(V1), DV2 = DiscretizarVariacion(V2), DV3 = DiscretizarVariacion(V3),
                 DVT = DiscretizarVariacion(VT))
+grafico.variacion <- ggplot2::ggplot(data = dplyr::select(precios.variacion, V1, V2, V3) %>% tidyr::gather(key = Periodo, value = Variacion)) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = Periodo, y = Variacion))
 
 # 7. Calcular precios promedio por producto para cada periodo y para el periodo total
 precios.productos.periodo <- precios.completos %>%
@@ -185,6 +189,22 @@ colnames(matriz.presencia.ausencia) <- paste0("termino_", vocabulario)
 rownames(matriz.presencia.ausencia) <- dplyr::pull(productos.asociacion, productoId)
 
 rm(presentaciones, marcas, palabras.nombres, umbral.frecuencia)
+# ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
+# ---- IV. Cotizacion del dolar ----                            
+# ---------------------------------------------------------------------------------------#
+BuscarCotizacion <- function(url) {
+  token   <- "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1OTI0Mzg2NTQsInR5cGUiOiJleHRlcm5hbCIsInVzZXIiOiJzcm92ZXJlQGdtYWlsLmNvbSJ9.M-tLmicANIYxgC1oGPLPDZpQv03Fxtd6M8uYjl4UD74vOkJypfiOhAxbwQrlPS8w9DprhAbVHqATBdZm6KjMBg"
+  request <- httr::GET(url = url, httr::add_headers(Authorization = paste0("BEARER ", token)))
+  return (jsonlite::fromJSON(httr::content(request, as = "text")))
+}
+
+cotizacion.mayorista <- BuscarCotizacion("https://api.estadisticasbcra.com/usd_of") %>%
+  dplyr::rename(fecha = d, mayorista = v)
+cotizacion.minorista <- BuscarCotizacion("https://api.estadisticasbcra.com/usd_of_minorista") %>%
+  dplyr::rename(fecha = d, minorista = v)
+cotizacion           <- dplyr::full_join(cotizacion.mayorista, cotizacion.minorista, by = c("fecha"))
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
