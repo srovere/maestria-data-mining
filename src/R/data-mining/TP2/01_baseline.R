@@ -55,6 +55,20 @@ matriz.precios <- precios.ancho %>%
       valores.lead      <- dplyr::lead(valores.precios)
       promedios         <- (valores.lag + valores.lead) / 2
       valores.imputados <- ifelse(! is.na(valores.precios), valores.precios, promedios) 
+      
+      # Mejora para primer precio y ultimo precio
+      n <- length(valores.precios)
+      if (is.na(valores.precios[1]) && ! is.na(valores.precios[2]) && ! is.na(valores.precios[3])) {
+        # Con la misma logica de arriba: v2 = (v3 + v1) / 2,
+        # se deduce que => v1 = 2 * v2 - v3
+        valores.imputados[1] <- 2 * valores.precios[2] - valores.precios[3]
+      }
+      if (is.na(valores.precios[n]) && ! is.na(valores.precios[n-1]) && ! is.na(valores.precios[n-2])) {
+        # Con la misma logica de arriba: vN-1 = (vN + vN-2) / 2,
+        # se deduce que => vN = 2 * vN-1 - vN-2
+        valores.imputados[n] <- 2 * valores.precios[n-1] - valores.precios[n-2]
+      }
+      
       return (valores.imputados)
     }
   ) %>% do.call(what = "rbind", args = .) %>% as.data.frame()
