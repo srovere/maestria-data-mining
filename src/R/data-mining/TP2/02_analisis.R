@@ -28,7 +28,75 @@ load(file = paste0(getwd(), "/input/ReglasAsociacion.RData"))
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
-# ---- II. Analisis de nivel de precios por comunas/comercios (todo el periodo) ----                            
+# ---- II. Reglas de asociación generales ----                            
+# ---------------------------------------------------------------------------------------#
+
+# Consolidar comunas, comercios, niveles de precios, varaciones de precios y productos (palabras)
+# Para no tener los comercios ni las comunas tan atomizadas (15 comunas y 11 comercios con precios relevados),
+# se van a agregar las comunas en zonas
+regiones      <- data.frame(comuna = c(4, 8, 9, 1, 3, 5, 6, 7, 10, 11, 2, 12, 13, 14, 15),
+                            zona = c("Sur", "Sur", "Sur", "Centro", "Centro", "Centro", "Centro", "Centro", "Centro", "Centro", "Norte", "Norte", "Norte", "Norte", "Norte"))       
+transacciones <- precios.asociacion %>%
+  dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
+  dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
+  dplyr::inner_join(regiones, by = c("comuna")) %>%
+  dplyr::inner_join(banderas, by = c("comercioId", "banderaId")) %>%
+  dplyr::inner_join(comercios, by = c("comercioId")) %>%
+  dplyr::mutate(comercio = factor(razonSocial)) %>%
+  dplyr::select(zona, comercio, DPRT, DVT) %>%
+  as("transactions")
+
+# Generar reglas
+reglas <- sort(arules::apriori(data = transacciones,
+                               parameter = list(support = 0.01, confidence = 0.6, target = "rules", maxlen = 11)),
+               by = "lift", decreasing = TRUE)
+
+# Reglas de comercios
+reglas.comercios <- subset(reglas,
+                           subset = ((lhs %pin% "comercio") | (rhs %pin% "comercio")) & (lift > 2))
+arules::inspect(head(reglas.comercios, 20))
+
+# Reglas de zonas
+reglas.zonas <- subset(reglas,
+                       subset = ((lhs %pin% "zona") | (rhs %pin% "zona")) & (lift > 2))
+arules::inspect(reglas.zonas)
+# ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
+# ---- III. Reglas de asociación para productos ----                            
+# ---------------------------------------------------------------------------------------#
+
+# Seleccionar productos que sean bebidas comunes (aguas, jugos, gaseosas y vinos)
+terminos       <- paste0("termino_", c("cerveza", "vino", "agua", "bebida", "gaseosa"))
+bebidas        <- apply(X = matriz.presencia.ausencia[, terminos], MARGIN = 1, 
+                        FUN = function(fila) { return (any(! is.na(fila))) })
+matriz.bebidas <- matriz.presencia.ausencia[bebidas, terminos]
+datos.bebidas  <- as.data.frame(matriz.bebidas) %>%
+  dplyr::mutate(productoId = rownames(.))
+
+# Generar transacciones asociadas a bebidas
+transacciones.bebidas <- precios.asociacion %>%
+  dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
+  dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
+  dplyr::inner_join(regiones, by = c("comuna")) %>%
+  dplyr::inner_join(banderas, by = c("comercioId", "banderaId")) %>%
+  dplyr::inner_join(comercios, by = c("comercioId")) %>%
+  dplyr::mutate(comercio = factor(razonSocial)) %>%
+  dplyr::select(productoId, zona, comercio, DPRT, DVT) %>%
+  dplyr::inner_join(datos.bebidas, by = c("productoId")) %>%
+  dplyr::select(-productoId) %>%
+  as("transactions")
+
+# Generar reglas
+reglas.bebidas <- sort(arules::apriori(data = transacciones.bebidas,
+                                       parameter = list(support = 0.02, confidence = 0.6, target = "rules", maxlen = 20)),
+                       by = "support", decreasing = TRUE) %>%
+  subset(x = ., subset = ((lhs %pin% "termino")) & (lift > 4))
+arules::inspect(reglas.bebidas)
+# ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
+# ---- ?. Analisis de nivel de precios por comunas/comercios (todo el periodo) ----                            
 # ---------------------------------------------------------------------------------------#
 
 # i. Pasar a formato largo
@@ -118,7 +186,7 @@ factoextra::fviz_ca_biplot(ca.nivel.precios.comercio, repel = TRUE)
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
-# ---- III. Analisis de aumento de precios por comunas/comercios (todo el periodo) ----                            
+# ---- ??. Analisis de aumento de precios por comunas/comercios (todo el periodo) ----                            
 # ---------------------------------------------------------------------------------------#
 
 # i. Pasar a formato largo
@@ -205,40 +273,4 @@ ca.nivel.aumento.precios.comercio <- ca::ca(matriz.acs.nivel.aumento.precios.com
 factoextra::fviz_contrib(ca.nivel.aumento.precios.comercio, choice = "row", axes = 1)
 factoextra::fviz_contrib(ca.nivel.aumento.precios.comercio, choice = "col", axes = 1)
 factoextra::fviz_ca_biplot(ca.nivel.aumento.precios.comercio, repel = TRUE) 
-# ----------------------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------------------#
-# ---- IV. Reglas de asociación para precios ----                            
-# ---------------------------------------------------------------------------------------#
-
-# Consolidar comunas, comercios, niveles de precios, varaciones de precios y productos (palabras)
-# Para no tener los comercios ni las comunas tan atomizadas (15 comunas y 11 comercios con precios relevados),
-# se van a agregar las comunas en zonas
-regiones      <- data.frame(comuna = c(4, 8, 9, 1, 3, 5, 6, 7, 10, 11, 2, 12, 13, 14, 15),
-                            zona = c("Sur", "Sur", "Sur", "Centro", "Centro", "Centro", "Centro", "Centro", "Centro", "Centro", "Norte", "Norte", "Norte", "Norte", "Norte"))       
-transacciones <- precios.asociacion %>%
-  dplyr::inner_join(sf::st_set_geometry(sucursales, NULL), by = c("comercioId", "banderaId", "sucursalId")) %>%
-  dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
-  dplyr::inner_join(regiones, by = c("comuna")) %>%
-  dplyr::inner_join(banderas, by = c("comercioId", "banderaId")) %>%
-  dplyr::inner_join(comercios, by = c("comercioId")) %>%
-  dplyr::mutate(comercio = factor(razonSocial)) %>%
-  #dplyr::select(zona, comercio, DPR1, DPR2, DPR3, DPR4, DPRT, DV1, DV2, DV3, DVT) %>%
-  dplyr::select(zona, comercio, DPRT, DVT) %>%
-  as("transactions")
-
-# Generar reglas
-reglas <- sort(arules::apriori(data = transacciones,
-                               parameter = list(support = 0.01, confidence = 0.6, target = "rules", maxlen = 11)),
-               by = "lift", decreasing = TRUE)
-
-# Reglas de comercios
-reglas.comercios <- subset(reglas,
-                           subset = ((lhs %pin% "comercio") | (rhs %pin% "comercio")) & (lift > 2))
-arules::inspect(head(reglas.comercios, 20))
-
-# Reglas de zonas
-reglas.zonas <- subset(reglas,
-                       subset = ((lhs %pin% "zona") | (rhs %pin% "zona")) & (lift > 2))
-arules::inspect(reglas.zonas)
 # ----------------------------------------------------------------------------------------
