@@ -51,7 +51,15 @@ El presente documento se encuentra organizado de la siguiente manera: en la secc
 
 # Objetivo
 
-En presente trabajo se propone abordar la investigación del conjunto de datos a partir del análisis de los siguientes temas:
+De acuerdo a las consignas propuestas en la documentación del trabajo práctico, se abordará la investigación del conjunto de datos a partir del análisis de los siguientes temas:
+
+  * Enfoque descriptivo:
+    * Análisis exploratorio de reglas de asociación
+    * Búsqueda de factores que expliquen la desaceleración de precios en las últimas mediciones
+    * Exploración de reglas asociadas al comportamiento de los precios de un lote de productos seleccionado
+  * Enfoque predictivo:
+    * Evaluación de reglas que permitan predecir el comportamiento de precios del último período a partir de precios anteriores
+    * Validación de resultados expuestos en el trabajo práctivo previo
 
 # Preparación de datos
 
