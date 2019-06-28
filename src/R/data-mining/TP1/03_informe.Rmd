@@ -42,7 +42,7 @@ load(file = paste0("output/Informe.RData"))
 
 # Introducción
 
-El presente trabajo se basa en la exploración y análisis de un conjunto de datos extraído del la aplicación **Precios Claros** [1]. Dichos datos fueron extraídos mediante un proceso de relevamiento automático utilizando la técnica de *web crawling* [2]. Este proceso consistió en la generación de consultas a la página web de Precios Claros mediante un script programado en lenguaje *Python*. 
+El presente trabajo se basa en la exploración y análisis de un conjunto de datos extraído de la aplicación **Precios Claros** [1]. Dichos datos fueron extraídos mediante un proceso de relevamiento automático utilizando la técnica de *web crawling* [2]. Este proceso consistió en la generación de consultas a la página web de Precios Claros mediante un script programado en lenguaje *Python*. 
 
 Se realizaron un total de 10 mediciones, cada una de las cuales tomó 3 semanas aproximadamente debido a la gran cantidad de datos disponibles y la cantidad máxima de consultas por día que se pueden hacer al sitio sin ser bloqueado. Estas mediciones corresponden un período de tiempo que abarca desde el 5 de Noviembre de 2018 hasta el 2 de Marzo de 2019. 
 

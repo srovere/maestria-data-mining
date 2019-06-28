@@ -1,0 +1,66 @@
+---
+title: "Data Mining: Trabajo Práctico nº 2"
+subtitle: "Análisis de un conjunto de datos de Precios Claros"
+author:
+- Santiago Rovere (srovere@gmail.com), Facultad de Ingeniería, Universidad de Buenos Aires
+- Javier Quinteros (jaqbase-dmkm@yahoo.com.ar), Universidad Argentina de la Empresa
+date: '`r format(Sys.Date(), "%d de %B de %Y")`'
+output:
+  html_document:
+    number_sections: yes
+    css: styles.css
+  pdf_document:
+    number_sections: yes
+  html_notebook:
+    number_sections: yes
+header-includes: \usepackage{float}
+lang: es
+---
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Borrar bariables del ambiente
+rm(list = objects())
+
+# Carga de paquetes necesarios para hacer los gráficos
+require(arules)
+require(arulesViz)
+require(Cairo)
+require(ggplot2)
+require(gridExtra)
+require(knitr)
+require(sf)
+
+# Uso de Cairo para renderizar los gráficos
+options(bitmapType = "cairo")
+
+# Ubicar los gráficos en el lugar donde aparece el código
+knitr::opts_chunk$set(fig.pos = "H", collapse = TRUE)
+
+# Carga de variables necesarias para realizar el informe
+load(file = paste0("input/PreciosClaros.RData"))
+load(file = paste0("input/ReglasAsociacion.RData"))
+```
+
+# Introducción
+
+El presente trabajo se basa en la exploración y análisis de un conjunto de datos extraído de la aplicación **Precios Claros** [1]. Este conjunto de datos ya fue analizado anteriormente en [2]. En este caso, nos proponemos poner el foco en el análisis a partir de reglas de asociación. El uso de esta técnica nos permitirá extraer nuevo conocimiento del conjunto de datos. También nos permitirá corroborar o reformular afirmaciones realizadas en el trabajo previo.
+
+Sin embargo, si bien el uso de reglas de asociación será la herramienta central de este estudio, no será la única. Se utilizarán también algunas herramientas de *text mining* con el fin de poder clasificar productos a partir de sus datos de descripción, marca y presentación. Incluso también se utilizará análisis de correspondencia para validar algunas conclusiones elaboradas en nuestro trabajo previo.
+
+El presente documento se encuentra organizado de la siguiente manera: en la sección *2* se presentarán los objetivos centrales del análisis; en la sección *3* se detallará el proceso de preparación de datos realizado a fin de poder llevar a cabo los análisis de la sección *4*; finalmente, en la sección *5* se elaborarán las conclusiones finales proponiendo algunas posibles líneas de trabajo futuro.
+
+# Objetivo
+
+En presente trabajo se propone abordar la investigación del conjunto de datos a partir del análisis de los siguientes temas:
+
+# Preparación de datos
+
+# Análisis realizados
+
+# Conclusiones
+
+# Referencias
+
+[1]   Precios Claros (https://www.preciosclaros.gob.ar)
+
+[2]   Data Mining: Trabajo Práctico nº 1 - Análisis de un conjunto de datos de Precios Claros (https://rpubs.com/srovere/precios-claros)
