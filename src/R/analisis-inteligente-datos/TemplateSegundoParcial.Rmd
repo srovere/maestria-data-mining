@@ -26,11 +26,11 @@ options(bitmapType = "cairo")
 
 # ANOVA
 
-## Conjunto de datos normal y que cumple con hipótesis de homocedasticidad
+## Conjunto de datos normal y que NO cumple con hipótesis de homocedasticidad
 
 Definimos el conjunto de datos sobre el cual vamos a trabajar
 
-```{r}
+```{r warnings=FALSE, message=FALSE}
 dosis  <- c(rep("a",6),rep("b",8),rep("c",4))
 alerta <- c(30,38,35,41,27,24,32,26,31,29,27,35,21,25,17,21,20,19)
 data   <- data.frame(dosis,alerta)
@@ -39,14 +39,14 @@ head(data)
 
 Realizamos primero la ANOVA 
 
-```{r}
+```{r warnings=FALSE, message=FALSE}
 aov.data <- stats::aov(formula = alerta ~ dosis, data = data)
 summary(aov.data)
 ```
 
 El test rechaza la hipótesis nula, por lo que se asume que las medias no son iguales. Si embargo, para poder seguir adelante, se deben corroborar los supuestos de normalidad y homocedasticidad. Comenzamos primer por la normalidad.
 
-```{r}
+```{r warnings=FALSE, message=FALSE}
 # Test de Shapiro-Wilk
 stats::shapiro.test(stats::residuals(aov.data))
 
@@ -60,13 +60,44 @@ stats::qqline(stats::residuals(aov.data))
 
 El supuesto de normalidad se cumple. Ahora verificamos la homocedasticidad.
 
-```{r}
+```{r warnings=FALSE, message=FALSE}
 # Test de Bartlett
 stats::bartlett.test(x = alerta, g = dosis)
 
 # Test de Levene
 car::leveneTest(alerta, dosis)
 ```
+
+Dado que el test de Levene rechaza la hipótesis de homocedasticidad, aplicamos transformaciones de Box-Cox ver si podemos resolver el problema.
+
+```{r warnings=FALSE, message=FALSE}
+MASS::boxcox(alerta ~ dosis, data = data, plotit = TRUE)
+```
+
+Encontramos que para $\lambda = -1, se magnifica la función de versimilitud. Luego,
+
+```{r warnings=FALSE, message=FALSE}
+aov.data.box.cox <- aov(alerta^-1 ~ dosis, data = data)
+summary(aov.data.box.cox)
+```
+
+Nuevamente, rechazamos la igualdad de medias por grupo. Ahora validamos los supuestos.
+
+```{r warnings=FALSE, message=FALSE}
+# Test de Shapiro-Wilk
+stats::shapiro.test(stats::residuals(aov.data.box.cox))
+
+# Test de Anderson-Darling
+nortest::ad.test(stats::residuals(aov.data.box.cox))
+
+# Test de Bartlett
+stats::bartlett.test(x = alerta^-1, g = dosis)
+
+# Test de Levene
+car::leveneTest(alerta^-1, dosis)
+```
+
+Con estos resultados podemos asumir como válidos los supuestos de ANOVA.
 
 # Análisis Discriminante Lineal
 
