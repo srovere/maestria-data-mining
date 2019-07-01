@@ -1,0 +1,77 @@
+---
+title: "Segundo examen parcial"
+subtitle: "Análisis Inteligente de Datos (2019)"
+author:
+  - Santiago Luis Rovere (srovere@gmail.com)
+date: '`r format(Sys.Date(), "%d de %B de %Y")`'
+output:
+  html_document:
+    toc: true
+    number_sections: yes
+  pdf_document:
+    number_sections: yes
+  html_notebook:
+    number_sections: yes
+---
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Inicializacion de ambiente
+rm(list = objects())
+paquetes <- c("Cairo", "car", "dplyr", "ggplot2", "knitr", "MASS", "nortest", "purrr", "tidyr")
+for (paquete in paquetes) {
+  suppressWarnings(require(paquete, character.only = TRUE))
+}
+options(bitmapType = "cairo")
+```
+
+# ANOVA
+
+## Conjunto de datos normal y que cumple con hipótesis de homocedasticidad
+
+Definimos el conjunto de datos sobre el cual vamos a trabajar
+
+```{r}
+dosis  <- c(rep("a",6),rep("b",8),rep("c",4))
+alerta <- c(30,38,35,41,27,24,32,26,31,29,27,35,21,25,17,21,20,19)
+data   <- data.frame(dosis,alerta)
+head(data)
+```
+
+Realizamos primero la ANOVA 
+
+```{r}
+aov.data <- stats::aov(formula = alerta ~ dosis, data = data)
+summary(aov.data)
+```
+
+El test rechaza la hipótesis nula, por lo que se asume que las medias no son iguales. Si embargo, para poder seguir adelante, se deben corroborar los supuestos de normalidad y homocedasticidad. Comenzamos primer por la normalidad.
+
+```{r}
+# Test de Shapiro-Wilk
+stats::shapiro.test(stats::residuals(aov.data))
+
+# Test de Anderson-Darling
+nortest::ad.test(stats::residuals(aov.data))
+
+# QQ-Plot para corroborar la normalidad
+stats::qqnorm(stats::residuals(aov.data))
+stats::qqline(stats::residuals(aov.data))
+```
+
+El supuesto de normalidad se cumple. Ahora verificamos la homocedasticidad.
+
+```{r}
+# Test de Bartlett
+stats::bartlett.test(x = alerta, g = dosis)
+
+# Test de Levene
+car::leveneTest(alerta, dosis)
+```
+
+# Análisis Discriminante Lineal
+
+# Análisis Discriminante Cuadrático
+
+# Máquina de Soporte Vectorial (SVM)
+
+# Clustering
