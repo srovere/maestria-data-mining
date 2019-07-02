@@ -63,6 +63,18 @@ De acuerdo a las consignas propuestas en la documentación del trabajo práctico
 
 # Preparación de datos
 
+El primer paso necesario para avanzar sobre la preparación de los datos consiste en averiguar qué variables del conjunto de datos se desean estudiar. Algunas de ellas fueron sugeridas en el enunciado del trabajo práctico (niveles de precios y de variación de los mismos) y otras fueron adicionadas por los autores. En todos los casos, el abordaje consistió en la discretización de las variables continuas y en la reagrupación de variables categóricas.
+
+A continuación, se realizaron todas las transformaciones de precios sugeridas en el enunciado. Por tal motivo, no ahondaremos en detalles de dichas transformaciones, sino que las enumeraremos para dar completitud al presente documento:
+
+  * Agrupación las mediciones en 4 períodos los cuales abarcan las mediciones 1-3, 4-5, 6-7 y 8-10 respectivamente.
+  * Discretización los niveles de precios por producto para cada período y para la totalidad de las mediciones. Así, cada precio relevado, fue categorizado según en: *muy barato, moderadamente barato, levemente barato, medio, levemente caso, moderadamente caso y muy caro*.
+  * Discretización de los niveles de aumento de precios por producto para los 3 interperíodos (P1-P2, P2-P3 y P3-P4) y para el período total (medición 1 - medición 10). Las categorías son las siguientes: *disminución fuerte, disminución moderada, disminución leve, mantiene, aumento leve, aumento moderado, aumento fuerte*.
+  
+Luego se utilizaron herramientas de *text mining* para extraer palabras frecuentes de los nombres de los productos a fin de poder utilizar dicha información para seleccionar datos de productos determinados y poder realizar un análisis más específico. Para llevar a cabo esta tarea, se elaboró un vocabulario con todas la palabras incluidas en los nombres de los productos, eliminando números, tildes, espacios, signos de puntuación, marcas, unidades de presentación y términos frecuentes. De ese conjunto de palabras, muchas de ellas se encontraron en varios productos. 
+
+Para eliminar palabras poco frecuentes, se construyó una tabla para indicar la cantidad de productos que contienen a cada término del vocabulario dentro de su descripción. Luego se analizó la distribucion de la variable *cantidad*, encontrándose que el percentil 75 corresponde el valor 4. Esto significa que solamente 25% de los términos tienen una frecuencia mayor o igual a 4. Consideramos a ese valor como el umbral mínimo para determinar si un término es frecuente o no. A partir de dicho umbral, se encontraron 234 términos con los cuales se construyeron una matriz de tipo *término-documento* donde cada una de las filas corresponde a cada uno de los 1000 productos del conjunto de datos. Esta información luego pudo ser integrada al conjunto de precios, a través de la variable *productoId*.
+
 # Análisis realizados
 
 # Conclusiones
