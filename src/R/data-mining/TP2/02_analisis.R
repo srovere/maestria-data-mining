@@ -54,13 +54,24 @@ grafico.regiones <- ggplot2::ggplot(data = dplyr::inner_join(comunas, regiones, 
   ggplot2::geom_sf(mapping = ggplot2::aes(fill = zona)) +
   ggplot2::geom_text(mapping = ggplot2::aes(x = centro_x, y = centro_y, label = comuna)) +
   ggplot2::scale_fill_brewer(type = "qual", palette = "Set1") +
-  ggplot2::labs(x = "Longitud", y = "Latitud", fill = "Zona",
-                title = "Zonificación de comunas de la Ciudad de Buenos Aires") +
+  ggplot2::labs(x = "", y = "", fill = "",
+                title = "Zonificación de comunas") +
   ggplot2::theme_bw() +
   ggplot2::theme(
-    legend.position = 'bottom',
-    plot.title = ggplot2::element_text(hjust = 0.5)
+    legend.position = 'right',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    axis.text.x = ggplot2::element_blank(),
+    axis.ticks.x = ggplot2::element_blank(),
+    axis.text.y = ggplot2::element_blank(),
+    axis.ticks.y = ggplot2::element_blank()
   )
+
+# Redefinicion de nombres de comercios
+comercios.cortos <- data.frame(
+  comercioId = c(3, 4, 9, 10, 11, 12, 15, 19, 23, 29),
+  razonSocial = c("Deheza", "Lima", "Jumbo", "Carrefour", "Walmart", "Coto", "Dia", "OES", "PAE", "Josimar"),
+  stringsAsFactors = FALSE
+)
 
 # Consolidacion
 datos.consolidados <- precios.asociacion %>%
@@ -68,8 +79,44 @@ datos.consolidados <- precios.asociacion %>%
   dplyr::inner_join(sf::st_set_geometry(barrios, NULL), by = c("barrioId")) %>%
   dplyr::inner_join(regiones, by = c("comuna")) %>%
   dplyr::inner_join(banderas, by = c("comercioId", "banderaId")) %>%
-  dplyr::inner_join(comercios, by = c("comercioId")) %>%
+  dplyr::inner_join(comercios.cortos, by = c("comercioId")) %>%
   dplyr::mutate(comercio = factor(razonSocial), tipo = factor(tipo))
+
+# Grafico de porcentajes de datos por region y comercio
+grafico.porcentaje.datos.zona <- ggplot2::ggplot(data = dplyr::group_by(datos.consolidados, zona) %>% 
+                                                   dplyr::summarise(cantidad = dplyr::n()) %>%
+                                                   dplyr::mutate(porcentaje = 100 * cantidad / sum(cantidad))) +
+  ggplot2::geom_bar(mapping = ggplot2::aes(x = "", y = porcentaje, fill = zona), stat = 'identity', width = 1) +
+  ggplot2::scale_fill_brewer(type = "qual", palette = "Set1") +
+  ggplot2::coord_polar("y", 0) +
+  ggplot2::labs(x = "", y = "", fill = "",
+                title = "Proporción de datos por zona") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'right',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    axis.text.x = ggplot2::element_blank(),
+    axis.ticks.x = ggplot2::element_blank(),
+    axis.text.y = ggplot2::element_blank(),
+    axis.ticks.y = ggplot2::element_blank()
+  )
+grafico.porcentaje.datos.comercio <- ggplot2::ggplot(data = dplyr::group_by(datos.consolidados, comercio) %>% 
+                                                       dplyr::summarise(cantidad = dplyr::n()) %>%
+                                                       dplyr::mutate(porcentaje = 100 * cantidad / sum(cantidad))) +
+  ggplot2::geom_bar(mapping = ggplot2::aes(x = "", y = porcentaje, fill = comercio), stat = 'identity', width = 1) +
+  ggplot2::scale_fill_brewer(type = "qual", palette = "Set1") +
+  ggplot2::coord_polar("y", 0) +
+  ggplot2::labs(x = "", y = "", fill = "",
+                title = "Proporción de datos por comercio") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'right',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    axis.text.x = ggplot2::element_blank(),
+    axis.ticks.x = ggplot2::element_blank(),
+    axis.text.y = ggplot2::element_blank(),
+    axis.ticks.y = ggplot2::element_blank()
+  )
 
 # Generacion de transacciones y reglas
 transacciones <- datos.consolidados %>%
@@ -304,27 +351,6 @@ nivel.precios.comuna.general <- nivel.precios.comuna %>%
   tidyr::spread(key = nivelPrecio, value = porcentaje) %>%
   dplyr::inner_join(comunas, by = c("comuna"))
 
-colores                        <- rev(RColorBrewer::brewer.pal(7, "RdYlGn"))
-names(colores)                 <- levels(nivel.precios.comuna$nivelPrecio)
-grafico.precios.comuna.general <- ggplot2::ggplot(data = nivel.precios.comuna.general) +
-  ggplot2::geom_sf() +
-  scatterpie::geom_scatterpie(mapping = ggplot2::aes(x = centro_x, y = centro_y, group = comuna, r = 0.01, ),
-                              data = nivel.precios.comuna.general, 
-                              cols = names(colores)) +
-  ggrepel::geom_label_repel(mapping = ggplot2::aes(x = centro_x, y = centro_y, label = comuna),
-                            nudge_x = 0.005, nudge_y = 0.005, alpha = 0.75) +
-  ggplot2::scale_fill_manual(name = "Precio", values = colores) +
-  ggplot2::labs(x = "", y = "", title = "Ocurrencia de categorías de precios por comuna") +
-  ggplot2::theme_bw() +
-  ggplot2::theme(
-    legend.position = 'bottom',
-    plot.title = ggplot2::element_text(hjust = 0.5),
-    axis.text.x = ggplot2::element_blank(),
-    axis.ticks.x = ggplot2::element_blank(),
-    axis.text.y = ggplot2::element_blank(),
-    axis.ticks.y = ggplot2::element_blank()
-  )
-
 # Analisis de correspondencia simple de nivel de precios vs. comuna
 matriz.acs.nivel.precios.comuna <- nivel.precios.comuna.general %>%
   dplyr::select(-centro_x, -centro_y, -geometry) %>%
@@ -335,7 +361,20 @@ ca.nivel.precios.comuna <- ca::ca(matriz.acs.nivel.precios.comuna, graph = FALSE
 
 #factoextra::fviz_contrib(ca.nivel.precios.comuna, choice = "row", axes = 1)
 #factoextra::fviz_contrib(ca.nivel.precios.comuna, choice = "col", axes = 1)
-factoextra::fviz_ca_biplot(ca.nivel.precios.comuna, repel = TRUE) 
+grafico.ca.nivel.precios.comuna <- factoextra::fviz_ca_biplot(ca.nivel.precios.comuna, repel = TRUE) +
+  ggplot2::labs(x = sprintf("Dimensión 1 (%.2f%%)", 100*ca.nivel.precios.comuna$sv[1]^2/sum(ca.nivel.precios.comuna$sv^2)), 
+                y = sprintf("Dimensión 2 (%.2f%%)", 100*ca.nivel.precios.comuna$sv[2]^2/sum(ca.nivel.precios.comuna$sv^2)), fill = "",
+                subtitle = "Análisis de correspondencia", title = "Variación de precios por comuna") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'right',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    axis.text.x = ggplot2::element_blank(),
+    axis.ticks.x = ggplot2::element_blank(),
+    axis.text.y = ggplot2::element_blank(),
+    axis.ticks.y = ggplot2::element_blank()
+  )
 
 # iii Por comercio
 nivel.precios.comercio <- nivel.precios %>%
@@ -346,7 +385,7 @@ nivel.precios.comercio <- nivel.precios %>%
   dplyr::summarise(cantidad = dplyr::n()) %>%
   dplyr::mutate(porcentaje = 100 * cantidad / total) %>%
   dplyr::inner_join(banderas, NULL, by = c("comercioId", "banderaId")) %>%
-  dplyr::inner_join(comercios, NULL, by = c("comercioId")) %>%
+  dplyr::inner_join(comercios.cortos, NULL, by = c("comercioId")) %>%
   dplyr::mutate(comercio = paste0(razonSocial, " - ", descripcion)) %>%
   dplyr::select(comercio, periodo, nivelPrecio, total, cantidad, porcentaje)
 nivel.precios.comercio.general <- nivel.precios.comercio %>%
@@ -364,5 +403,27 @@ ca.nivel.precios.comercio <- ca::ca(matriz.acs.nivel.precios.comercio, graph = F
 
 #factoextra::fviz_contrib(ca.nivel.precios.comercio, choice = "row", axes = 1)
 #factoextra::fviz_contrib(ca.nivel.precios.comercio, choice = "col", axes = 1)
-factoextra::fviz_ca_biplot(ca.nivel.precios.comercio, repel = TRUE) 
+grafico.ca.nivel.precios.comercio <- factoextra::fviz_ca_biplot(ca.nivel.precios.comercio, repel = TRUE) +
+  ggplot2::labs(x = sprintf("Dimensión 1 (%.2f%%)", 100*ca.nivel.precios.comercio$sv[1]^2/sum(ca.nivel.precios.comercio$sv^2)), 
+                y = sprintf("Dimensión 2 (%.2f%%)", 100*ca.nivel.precios.comercio$sv[2]^2/sum(ca.nivel.precios.comercio$sv^2)), fill = "",
+                subtitle = "Análisis de correspondencia", title = "Variación de precios por comercio") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'right',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    axis.text.x = ggplot2::element_blank(),
+    axis.ticks.x = ggplot2::element_blank(),
+    axis.text.y = ggplot2::element_blank(),
+    axis.ticks.y = ggplot2::element_blank()
+  )
+# ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
+# ---- ??. Almacenar resultados ----                            
+# ---------------------------------------------------------------------------------------#
+
+save(grafico.regiones, grafico.porcentaje.datos.zona, grafico.porcentaje.datos.comercio,
+     grafico.ca.nivel.precios.comercio, grafico.ca.nivel.precios.comuna,
+     file = "output/Resultados.RData")
 # ----------------------------------------------------------------------------------------
