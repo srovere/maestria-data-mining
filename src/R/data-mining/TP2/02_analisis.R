@@ -128,31 +128,31 @@ reglas <- sort(arules::apriori(data = transacciones,
 
 # Reglas de tipos de sucursal
 reglas.tipo <- subset(reglas,
-                      subset = ((lhs %pin% "tipo") | (rhs %pin% "tipo")) & (lift > 2))
+                      subset = ((lhs %pin% "tipo") | (rhs %pin% "tipo")) & (lift > 1.5))
 arules::inspect(head(reglas.tipo, 10))
 plot(reglas.tipo, method = "matrix", measure = "confidence")
 
 # Reglas de comercios
 reglas.comercios <- subset(reglas,
-                           subset = ((lhs %pin% "comercio") | (rhs %pin% "comercio")) & (lift > 2))
+                           subset = ((lhs %pin% "comercio") | (rhs %pin% "comercio")) & (lift > 1.5))
 arules::inspect(head(reglas.comercios, 10))
 plot(reglas.comercios, method = "matrix", measure = "confidence")
 
 # Reglas de zonas
 reglas.zonas <- subset(reglas,
-                       subset = ((lhs %pin% "zona") | (rhs %pin% "zona")) & (lift > 2))
+                       subset = ((lhs %pin% "zona") | (rhs %pin% "zona")) & (lift > 1.5))
 arules::inspect(head(reglas.zonas, 10))
 plot(reglas.zonas, method = "matrix", measure = "confidence")
 
 # Reglas de niveles de precios
 reglas.nivel.precio <- subset(reglas,
-                              subset = ((lhs %pin% "DPRT") | (rhs %pin% "DPRT")) & (lift > 2))
+                              subset = ((lhs %pin% "DPRT") | (rhs %pin% "DPRT")) & (lift > 1.5))
 arules::inspect(head(reglas.nivel.precio, 10))
 plot(reglas.nivel.precio, method = "matrix", measure = "confidence")
 
 # Reglas de variaciones de precios
 reglas.variacion.precio <- subset(reglas,
-                                  subset = ((lhs %pin% "DVT") | (rhs %pin% "DVT")) & (lift > 2))
+                                  subset = ((lhs %pin% "DVT") | (rhs %pin% "DVT")) & (lift > 1.5))
 arules::inspect(head(reglas.variacion.precio, 10))
 # ----------------------------------------------------------------------------------------
 
@@ -177,29 +177,17 @@ transacciones.bebidas <- datos.consolidados %>%
 
 # Generar reglas
 reglas.bebidas <- sort(arules::apriori(data = transacciones.bebidas,
-                                       parameter = list(support = 0.02, confidence = 0.6, target = "rules", maxlen = 20)),
+                                       parameter = list(support = 0.02, confidence = 0.7, target = "rules", maxlen = 20)),
                        by = "confidence", decreasing = TRUE) %>%
-  subset(x = ., subset = ((lhs %pin% "termino")) & (lift > 2))
-arules::inspect(head(reglas.bebidas, 20))
-plot(reglas.bebidas, method = "matrix")
+  subset(x = ., subset = ((lhs %pin% "termino")) & (lift > 1.5)) %>%
+  ReglasADataFrame()
+
+# reglas.bebidas.seleccionadas <- reglas.bebidas[c(8, 15, 20, 21, 28, 29), ]
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
 # ---- IV. Reglas de asociación para variaciones de precios ----                            
 # ---------------------------------------------------------------------------------------#
-
-# Generar transacciones asociadas a variaciones de precios
-transacciones.precios <- datos.consolidados %>%
-  dplyr::select(zona, comercio, tipo, DPR1, DPR2, DPR3, DPR4, DV1, DV2, DV3) %>%
-  as("transactions")
-
-# Generar reglas
-reglas.precios <- sort(arules::apriori(data = transacciones.precios,
-                                       parameter = list(support = 0.02, confidence = 0.6, target = "rules", maxlen = 20)),
-                       by = "confidence", decreasing = TRUE) %>%
-  subset(x = ., subset = (rhs %pin% 'DV3') & ((lhs %pin% 'zona') | (lhs %pin% 'comercio') | (lhs %pin% 'tipo')) & (lift > 2) & (confidence < 1))
-arules::inspect(head(reglas.precios, 30))
-plot(reglas.precios, method = "matrix", measure = "confidence")
 
 # Preparacion para hacer analisis de correspondencia entre periodos y aumento de precios
 periodos.variacion.precios <- datos.consolidados %>%
@@ -243,85 +231,91 @@ grafico.periodo.variacion <- ggplot2::ggplot(data = porcentajes.periodo.variacio
 ca.periodos.variacion.precios <- ca::ca(periodos.variacion.precios, graph = FALSE)
 factoextra::fviz_contrib(ca.periodos.variacion.precios, choice = "row", axes = 1)
 factoextra::fviz_contrib(ca.periodos.variacion.precios, choice = "col", axes = 1)
-grafico.ca.periodos.variacion <- factoextra::fviz_ca_biplot(ca.periodos.variacion.precios, repel = TRUE) 
+grafico.ca.periodos.variacion <- factoextra::fviz_ca_biplot(ca.periodos.variacion.precios, repel = TRUE) +
+  ggplot2::labs(x = sprintf("Dimensión 1 (%.2f%%)", 100*ca.periodos.variacion.precios$sv[1]^2/sum(ca.periodos.variacion.precios$sv^2)), 
+                y = sprintf("Dimensión 2 (%.2f%%)", 100*ca.periodos.variacion.precios$sv[2]^2/sum(ca.periodos.variacion.precios$sv^2)), fill = "",
+                subtitle = "Análisis de correspondencia", title = "Variación de precios por interperíodo") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'right',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    axis.text.x = ggplot2::element_blank(),
+    axis.ticks.x = ggplot2::element_blank(),
+    axis.text.y = ggplot2::element_blank(),
+    axis.ticks.y = ggplot2::element_blank()
+  )
 
-# En base a este analisis, redefinimos los grupos en Maniene, Variacion Leve, Variacion Moderada, Variacion Fuerte
-periodos.variacion.precios.reagrupado <- datos.consolidados %>%
-  dplyr::select(DV1, DV2, DV3) %>%
-  tidyr::gather(key = Periodo, value = Variacion) %>%
-  dplyr::mutate(Variacion = factor(Variacion, levels = levels(datos.consolidados$DVT))) %>%
-  dplyr::mutate(VariacionReagrupada = forcats::fct_collapse(
-    Variacion,
-    "Mantiene" = c("Mantiene"),
-    "Variación Leve" = c("Aumento Leve", "Disminución Leve"),
-    "Variación Moderada" = c("Aumento Moderado", "Disminución Moderada"),
-    "Variación Fuerte" = c("Aumento Fuerte", "Disminución Fuerte")
-  )) %>%
-  dplyr::group_by(Periodo, VariacionReagrupada) %>%
-  dplyr::summarise(Cantidad = dplyr::n()) %>%
-  tidyr::spread(key = Periodo, value = Cantidad) %>%
-  as.data.frame()
-rownames(periodos.variacion.precios.reagrupado) <- periodos.variacion.precios.reagrupado$VariacionReagrupada
-periodos.variacion.precios.reagrupado <- periodos.variacion.precios.reagrupado %>%
-  dplyr::select(-VariacionReagrupada)
-
-# Nuevo analisis de correspondencia
-nuevo.ca.periodos.variacion.precios <- ca::ca(periodos.variacion.precios.reagrupado, graph = FALSE)
-factoextra::fviz_contrib(nuevo.ca.periodos.variacion.precios, choice = "row", axes = 1)
-factoextra::fviz_contrib(nuevo.ca.periodos.variacion.precios, choice = "col", axes = 1)
-grafico.ca.periodos.variacion.nuevo <- factoextra::fviz_ca_biplot(nuevo.ca.periodos.variacion.precios, repel = TRUE) 
-
-# Vuenas reglas de asociacion para la variacion de precios
-transacciones.precios.modificadas <- datos.consolidados %>%
+# Reglas de asociacion a partir de categorias de varacion de precios originales
+transacciones.precios <- datos.consolidados %>%
   dplyr::select(zona, comercio, tipo, DPR1, DPR2, DPR3, DPR4, DV1, DV2, DV3) %>%
-  dplyr::mutate(
-    DV1 = forcats::fct_collapse(DV1,
-      "Mantiene" = c("Mantiene"),
-      "Variación Leve" = c("Aumento Leve", "Disminución Leve"),
-      "Variación Moderada" = c("Aumento Moderado", "Disminución Moderada"),
-      "Variación Fuerte" = c("Aumento Fuerte", "Disminución Fuerte")
-    ),
-    DV2 = forcats::fct_collapse(DV2,
-      "Mantiene" = c("Mantiene"),
-      "Variación Leve" = c("Aumento Leve", "Disminución Leve"),
-      "Variación Moderada" = c("Aumento Moderado", "Disminución Moderada"),
-      "Variación Fuerte" = c("Aumento Fuerte", "Disminución Fuerte")
-    ),
-    DV3 = forcats::fct_collapse(DV3,
-      "Mantiene" = c("Mantiene"),
-      "Variación Leve" = c("Aumento Leve", "Disminución Leve"),
-      "Variación Moderada" = c("Aumento Moderado", "Disminución Moderada"),
-      "Variación Fuerte" = c("Aumento Fuerte", "Disminución Fuerte")
-    )
-  ) %>%
   as("transactions")
 
 # Generar reglas
-reglas.precios.modificadas <- sort(arules::apriori(data = transacciones.precios.modificadas,
-                                                   parameter = list(support = 0.02, confidence = 0.6, target = "rules", maxlen = 20)),
-                                   by = "confidence", decreasing = TRUE) %>%
-  subset(x = ., subset = (rhs %pin% 'DV3') & ((lhs %pin% 'zona') | (lhs %pin% 'comercio') | (lhs %pin% 'tipo')) & (lift > 2) & (confidence < 1))
-arules::inspect(head(reglas.precios.modificadas, 30))
-plot(reglas.precios.modificadas, method = "matrix", measure = "confidence")
-reglas.precios.df <- ReglasADataFrame(reglas.precios.modificadas)
+reglas.precios <- sort(arules::apriori(data = transacciones.precios,
+                                       parameter = list(support = 0.02, confidence = 0.7, target = "rules", maxlen = 5)),
+                       by = "confidence", decreasing = TRUE) %>%
+  subset(x = ., subset = (rhs %pin% 'DV3') & ((lhs %pin% 'zona') | (lhs %pin% 'comercio')) & (lift > 1.5) & (confidence < 1)) %>%
+  ReglasADataFrame()
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
 # ---- V. Reglas de asociación para predicciones ----                            
 # ---------------------------------------------------------------------------------------#
 
-# Generar transacciones asociadas a bebidas
-transacciones.prediccion.precios <- datos.consolidados %>%
-  dplyr::select(zona, comercio, tipo, DPR1, DPR2, DPR3, DPR4) %>%
-  as("transactions")
+# Generar transacciones asociadas primeros 3 periodos y verificar si podemos encontrar las 
+# mismas reglas en el 4 periodo y que metricas tienen las mismas.
+reglas.periodos <- purrr::map_dfr(
+  .x = seq(from = 1, to = 4),
+  .f = function(periodo) {
+    precio.periodo <- paste0("DPR", periodo)
+    transacciones.periodo <- datos.consolidados %>%
+      dplyr::select(zona, comercio, tipo, !! precio.periodo, DPRT, DVT) %>%
+      dplyr::rename(DPRPer = !! precio.periodo) %>%
+      as("transactions")  
+    reglas.periodo <- sort(arules::apriori(data = transacciones.periodo,
+                                           parameter = list(support = 0.02, confidence = 0.7, target = "rules", maxlen = 20)),
+                                      by = "confidence", decreasing = TRUE) %>%
+      subset(x = ., subset = (lift > 1.5)) %>%
+      ReglasADataFrame(.) %>%
+      dplyr::mutate(periodo = periodo)
+    return (reglas.periodo)
+  }
+)
+  
+# Buscar las reglas de los periodos 1 a 3 que esten tambien en el periodo 4
+reglas.comunes <- dplyr::filter(reglas.periodos, periodo == 4)
+purrr::walk(
+  .x = seq(from = 1, to = 3),
+  .f = function(periodo) {
+    reglas.periodo <- dplyr::filter(reglas.periodos, periodo == !! periodo) %>%
+      dplyr::select(lhs, rhs)
+    reglas.comunes <<- reglas.comunes %>%
+      dplyr::inner_join(reglas.periodo, by = c("lhs", "rhs"))
+  }
+)
 
-# Generar reglas
-reglas.prediccion.precios <- sort(arules::apriori(data = transacciones.prediccion.precios,
-                                       parameter = list(support = 0.02, confidence = 0.6, target = "rules", maxlen = 20)),
-                       by = "confidence", decreasing = TRUE) %>%
-  subset(x = ., subset = (rhs %pin% 'DPR4') & (lift > 2))
-arules::inspect(head(reglas.prediccion.precios, 30))
-plot(reglas.precios, method = "matrix", measure = "confidence")
+# Seleccion de reglas y agregado de metricas
+reglas.prediccion.seleccionadas <- reglas.comunes[c(3, 10, 16, 17, 20, 21, 24, 26, 27, 32), ] %>%
+  dplyr::select(lhs, rhs) %>%
+  dplyr::inner_join(reglas.periodos, by = c("lhs", "rhs")) %>%
+  dplyr::mutate(regla = paste0(lhs, " => ", rhs)) %>%
+  dplyr::select(-count) %>%
+  tidyr::gather(key = metrica, value = valor, -lhs, -rhs, -regla, -periodo)
+
+# Grafico de evolucion de metricas
+grafico.evolucion.metricas <- ggplot2::ggplot(data = reglas.prediccion.seleccionadas) +
+  ggplot2::geom_line(mapping = ggplot2::aes(x = periodo, y = valor, col = regla)) +
+  ggplot2::scale_colour_brewer(type = "qual", palette = "Paired") +
+  ggplot2::labs(x = "Período", y = "Valor", col = "") +
+  ggplot2::facet_wrap(~ metrica, scales = "free", nrow = 1) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  ) +
+  ggplot2::guides(colour = ggplot2::guide_legend(ncol = 1))
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -425,5 +419,6 @@ grafico.ca.nivel.precios.comercio <- factoextra::fviz_ca_biplot(ca.nivel.precios
 
 save(grafico.regiones, grafico.porcentaje.datos.zona, grafico.porcentaje.datos.comercio,
      grafico.ca.nivel.precios.comercio, grafico.ca.nivel.precios.comuna,
+     grafico.evolucion.metricas, grafico.ca.periodos.variacion, grafico.periodo.variacion,
      file = "output/Resultados.RData")
 # ----------------------------------------------------------------------------------------

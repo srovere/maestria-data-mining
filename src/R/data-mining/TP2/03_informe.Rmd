@@ -118,11 +118,23 @@ Variable        | Descripción
 
 ### Búsqueda de factores que expliquen la desaceleración de precios en las últimas mediciones
 
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Análisis de correspondencias de niveles de variación de precios asociados a los distintos interperíodos."}
+grid.arrange(grafico.ca.periodos.variacion)
+```
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Análisis de correspondencias de niveles de variación de precios asociados a los distintos interperíodos."}
+grid.arrange(grafico.periodo.variacion)
+```
+
 ### Exploración de reglas asociadas al comportamiento de los precios de un lote de productos seleccionado
 
 ## Enfoque predictivo
 
 ### Evaluación de reglas que permitan predecir el comportamiento de precios del último período a partir de precios anteriores
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Evolución de métricas de reglas predictivas encontradas en todos los períodos de medición.", height = 8, width = 8}
+grid.arrange(grafico.evolucion.metricas)
+```
 
 ### Validación de resultados expuestos en el trabajo práctivo previo
 
