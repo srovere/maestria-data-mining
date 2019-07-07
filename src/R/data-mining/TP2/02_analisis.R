@@ -59,6 +59,8 @@ grafico.regiones <- ggplot2::ggplot(data = dplyr::inner_join(comunas, regiones, 
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'right',
+    legend.text = ggplot2::element_text(size = 8),
+    text = ggplot2::element_text(size = 8),
     plot.title = ggplot2::element_text(hjust = 0.5),
     axis.text.x = ggplot2::element_blank(),
     axis.ticks.x = ggplot2::element_blank(),
@@ -94,6 +96,8 @@ grafico.porcentaje.datos.zona <- ggplot2::ggplot(data = dplyr::group_by(datos.co
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'right',
+    legend.text = ggplot2::element_text(size = 8),
+    text = ggplot2::element_text(size = 8),
     plot.title = ggplot2::element_text(hjust = 0.5),
     axis.text.x = ggplot2::element_blank(),
     axis.ticks.x = ggplot2::element_blank(),
@@ -111,6 +115,8 @@ grafico.porcentaje.datos.comercio <- ggplot2::ggplot(data = dplyr::group_by(dato
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'right',
+    legend.text = ggplot2::element_text(size = 8),
+    text = ggplot2::element_text(size = 8),
     plot.title = ggplot2::element_text(hjust = 0.5),
     axis.text.x = ggplot2::element_blank(),
     axis.ticks.x = ggplot2::element_blank(),
@@ -126,67 +132,17 @@ reglas <- sort(arules::apriori(data = transacciones,
                                parameter = list(support = 0.01, confidence = 0.6, target = "rules", maxlen = ncol(transacciones))),
                by = "confidence", decreasing = TRUE)
 
-# Reglas de tipos de sucursal
-reglas.tipo <- subset(reglas,
-                      subset = ((lhs %pin% "tipo") | (rhs %pin% "tipo")) & (lift > 1.5))
-arules::inspect(head(reglas.tipo, 10))
-plot(reglas.tipo, method = "matrix", measure = "confidence")
-
-# Reglas de comercios
-reglas.comercios <- subset(reglas,
-                           subset = ((lhs %pin% "comercio") | (rhs %pin% "comercio")) & (lift > 1.5))
-arules::inspect(head(reglas.comercios, 10))
-plot(reglas.comercios, method = "matrix", measure = "confidence")
-
-# Reglas de zonas
-reglas.zonas <- subset(reglas,
-                       subset = ((lhs %pin% "zona") | (rhs %pin% "zona")) & (lift > 1.5))
-arules::inspect(head(reglas.zonas, 10))
-plot(reglas.zonas, method = "matrix", measure = "confidence")
-
-# Reglas de niveles de precios
-reglas.nivel.precio <- subset(reglas,
-                              subset = ((lhs %pin% "DPRT") | (rhs %pin% "DPRT")) & (lift > 1.5))
-arules::inspect(head(reglas.nivel.precio, 10))
-plot(reglas.nivel.precio, method = "matrix", measure = "confidence")
-
-# Reglas de variaciones de precios
-reglas.variacion.precio <- subset(reglas,
-                                  subset = ((lhs %pin% "DVT") | (rhs %pin% "DVT")) & (lift > 1.5))
-arules::inspect(head(reglas.variacion.precio, 10))
-# ----------------------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------------------#
-# ---- III. Reglas de asociación para productos ----                            
-# ---------------------------------------------------------------------------------------#
-
-# Seleccionar productos que sean bebidas comunes (aguas, jugos, gaseosas y vinos)
-terminos       <- paste0("termino_", c("cerveza", "vino", "agua", "bebida", "gaseosa"))
-bebidas        <- apply(X = matriz.presencia.ausencia[, terminos], MARGIN = 1, 
-                        FUN = function(fila) { return (any(! is.na(fila))) })
-matriz.bebidas <- matriz.presencia.ausencia[bebidas, terminos]
-datos.bebidas  <- as.data.frame(matriz.bebidas) %>%
-  dplyr::mutate(productoId = rownames(.))
-
-# Generar transacciones asociadas a bebidas
-transacciones.bebidas <- datos.consolidados %>%
-  dplyr::select(productoId, zona, comercio, DPRT, DVT) %>%
-  dplyr::inner_join(datos.bebidas, by = c("productoId")) %>%
-  dplyr::select(-productoId) %>%
-  as("transactions")
-
-# Generar reglas
-reglas.bebidas <- sort(arules::apriori(data = transacciones.bebidas,
-                                       parameter = list(support = 0.02, confidence = 0.7, target = "rules", maxlen = 20)),
-                       by = "confidence", decreasing = TRUE) %>%
-  subset(x = ., subset = ((lhs %pin% "termino")) & (lift > 1.5)) %>%
+# Exploracion de reglas generales
+reglas.generales <- subset(reglas,
+                      subset = ((lhs %pin% "tipo") | (rhs %pin% "tipo") | 
+                                  (lhs %pin% "comercio") | (rhs %pin% "comercio") |
+                                  (lhs %pin% "zona") | (rhs %pin% "zona")) & (lift > 1.5)) %>%
   ReglasADataFrame()
-
-# reglas.bebidas.seleccionadas <- reglas.bebidas[c(8, 15, 20, 21, 28, 29), ]
+reglas.generales.seleccionadas <- reglas.generales[c(5, 11, 23, 37, 41, 63, 71),]
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
-# ---- IV. Reglas de asociación para variaciones de precios ----                            
+# ---- III. Reglas de asociación para variaciones de precios ----                            
 # ---------------------------------------------------------------------------------------#
 
 # Preparacion para hacer analisis de correspondencia entre periodos y aumento de precios
@@ -217,15 +173,17 @@ grafico.periodo.variacion <- ggplot2::ggplot(data = porcentajes.periodo.variacio
                                 direction = 1, option = "D", values = NULL, space = "Lab",
                                 na.value = "white", guide = "colourbar", aesthetics = "fill") +
   ggplot2::labs(y = "Nivel de aumento de precios", x = "Interperíodo", fill = "",
-                title = "Mapa de calor de categorías de variación de precios",
-                subtitle = "Evolución a lo largo de los 3 interperíodos") +
+                title = "Evolución de precios para cada interperíodo") +
   ggplot2::theme_bw() +
   ggplot2::theme(
-    legend.position = 'bottom',
+    legend.position = 'right',
+    legend.text = ggplot2::element_text(size = 8),
+    text = ggplot2::element_text(size = 9),
+    axis.text = ggplot2::element_text(size = 9),
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
   ) +
-  ggplot2::guides(fill = ggplot2::guide_colourbar(barwidth = 20 , label.position = "bottom"))
+  ggplot2::guides(fill = ggplot2::guide_colourbar(barheight = 20 , label.position = "right"))
   
 # Analisis de correspondencia
 ca.periodos.variacion.precios <- ca::ca(periodos.variacion.precios, graph = FALSE)
@@ -234,10 +192,13 @@ factoextra::fviz_contrib(ca.periodos.variacion.precios, choice = "col", axes = 1
 grafico.ca.periodos.variacion <- factoextra::fviz_ca_biplot(ca.periodos.variacion.precios, repel = TRUE) +
   ggplot2::labs(x = sprintf("Dimensión 1 (%.2f%%)", 100*ca.periodos.variacion.precios$sv[1]^2/sum(ca.periodos.variacion.precios$sv^2)), 
                 y = sprintf("Dimensión 2 (%.2f%%)", 100*ca.periodos.variacion.precios$sv[2]^2/sum(ca.periodos.variacion.precios$sv^2)), fill = "",
-                subtitle = "Análisis de correspondencia", title = "Variación de precios por interperíodo") +
+                title = "Análisis de correspondencia de variación de precios por interperíodo") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'right',
+    legend.text = ggplot2::element_text(size = 8),
+    text = ggplot2::element_text(size = 9),
+    axis.text = ggplot2::element_text(size = 8),
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5),
     axis.text.x = ggplot2::element_blank(),
@@ -248,15 +209,45 @@ grafico.ca.periodos.variacion <- factoextra::fviz_ca_biplot(ca.periodos.variacio
 
 # Reglas de asociacion a partir de categorias de varacion de precios originales
 transacciones.precios <- datos.consolidados %>%
-  dplyr::select(zona, comercio, tipo, DPR1, DPR2, DPR3, DPR4, DV1, DV2, DV3) %>%
+  dplyr::select(zona, comercio, DV1, DV2, DV3) %>%
   as("transactions")
 
 # Generar reglas
 reglas.precios <- sort(arules::apriori(data = transacciones.precios,
-                                       parameter = list(support = 0.02, confidence = 0.7, target = "rules", maxlen = 5)),
+                                       parameter = list(support = 0.02, confidence = 0.6, target = "rules", maxlen = 7)),
                        by = "confidence", decreasing = TRUE) %>%
-  subset(x = ., subset = (rhs %pin% 'DV3') & ((lhs %pin% 'zona') | (lhs %pin% 'comercio')) & (lift > 1.5) & (confidence < 1)) %>%
+  subset(x = ., subset = (rhs %pin% 'DV3') & ((lhs %pin% 'DV1') | (lhs %pin% 'DV2')) & (lift > 1.5) & (confidence < 1)) %>%
   ReglasADataFrame()
+reglas.precios.seleccionadas <- reglas.precios[c(1, 2, 7, 11, 12, 17),]
+# ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
+# ---- IV. Reglas de asociación para productos ----                            
+# ---------------------------------------------------------------------------------------#
+
+# Seleccionar productos que sean bebidas comunes (aguas, jugos, gaseosas y vinos)
+terminos       <- paste0("termino_", c("cerveza", "vino", "agua", "bebida", "gaseosa"))
+bebidas        <- apply(X = matriz.presencia.ausencia[, terminos], MARGIN = 1, 
+                        FUN = function(fila) { return (any(! is.na(fila))) })
+matriz.bebidas <- matriz.presencia.ausencia[bebidas, terminos]
+datos.bebidas  <- as.data.frame(matriz.bebidas) %>%
+  dplyr::mutate(productoId = rownames(.))
+
+# Generar transacciones asociadas a bebidas
+transacciones.bebidas <- datos.consolidados %>%
+  dplyr::select(productoId, zona, comercio, DPRT, DVT) %>%
+  dplyr::inner_join(datos.bebidas, by = c("productoId")) %>%
+  dplyr::select(-productoId) %>%
+  as("transactions")
+
+# Generar reglas
+reglas.bebidas <- sort(arules::apriori(data = transacciones.bebidas,
+                                       parameter = list(support = 0.02, confidence = 0.7, target = "rules", maxlen = 20)),
+                       by = "confidence", decreasing = TRUE) %>%
+  subset(x = ., subset = ((lhs %pin% "termino")) & (lift > 1.5)) %>%
+  ReglasADataFrame()
+
+# reglas.bebidas.seleccionadas <- reglas.bebidas[c(8, 15, 20, 21, 28, 29), ]
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -276,7 +267,7 @@ reglas.periodos <- purrr::map_dfr(
     reglas.periodo <- sort(arules::apriori(data = transacciones.periodo,
                                            parameter = list(support = 0.02, confidence = 0.7, target = "rules", maxlen = 20)),
                                       by = "confidence", decreasing = TRUE) %>%
-      subset(x = ., subset = (lift > 1.5)) %>%
+      subset(x = ., subset = ((lhs %pin% "DPRPer") | (rhs %pin% "DPRPer")) & (lift > 1.5)) %>%
       ReglasADataFrame(.) %>%
       dplyr::mutate(periodo = periodo)
     return (reglas.periodo)
@@ -296,7 +287,7 @@ purrr::walk(
 )
 
 # Seleccion de reglas y agregado de metricas
-reglas.prediccion.seleccionadas <- reglas.comunes[c(3, 10, 16, 17, 20, 21, 24, 26, 27, 32), ] %>%
+reglas.prediccion.seleccionadas <- reglas.comunes[c(4, 9, 13, 15, 16, 17, 20), ] %>%
   dplyr::select(lhs, rhs) %>%
   dplyr::inner_join(reglas.periodos, by = c("lhs", "rhs")) %>%
   dplyr::mutate(regla = paste0(lhs, " => ", rhs)) %>%
@@ -321,6 +312,12 @@ grafico.evolucion.metricas <- ggplot2::ggplot(data = reglas.prediccion.seleccion
 # ---------------------------------------------------------------------------------------#
 # ---- VI. Validacion de precios usando analisis de correspondencia ----                            
 # ---------------------------------------------------------------------------------------#
+
+# Redefinicion de nombres de unidades de negocio a fin de mejorar legibilidad de graficos
+unidades.negocio <- c("Deheza", "Lima", "Vea", "Disco", "Jumbo", "Carrefour H", "Carrefour M", 
+                      "Carrefour E", "Changomas", "Walmart SC", "Coto", "Dia", "Full", "Axion", "Josimar")
+banderas         <- banderas %>%
+  dplyr::mutate(unidad_negocio = unidades.negocio)
 
 # i. Pasar a formato largo
 nivel.precios <- precios.asociacion %>%
@@ -362,6 +359,9 @@ grafico.ca.nivel.precios.comuna <- factoextra::fviz_ca_biplot(ca.nivel.precios.c
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'right',
+    legend.text = ggplot2::element_text(size = 8),
+    text = ggplot2::element_text(size = 9),
+    axis.text = ggplot2::element_text(size = 8),
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5),
     axis.text.x = ggplot2::element_blank(),
@@ -379,8 +379,7 @@ nivel.precios.comercio <- nivel.precios %>%
   dplyr::summarise(cantidad = dplyr::n()) %>%
   dplyr::mutate(porcentaje = 100 * cantidad / total) %>%
   dplyr::inner_join(banderas, NULL, by = c("comercioId", "banderaId")) %>%
-  dplyr::inner_join(comercios.cortos, NULL, by = c("comercioId")) %>%
-  dplyr::mutate(comercio = paste0(razonSocial, " - ", descripcion)) %>%
+  dplyr::mutate(comercio = unidad_negocio) %>%
   dplyr::select(comercio, periodo, nivelPrecio, total, cantidad, porcentaje)
 nivel.precios.comercio.general <- nivel.precios.comercio %>%
   dplyr::ungroup() %>%
@@ -404,6 +403,9 @@ grafico.ca.nivel.precios.comercio <- factoextra::fviz_ca_biplot(ca.nivel.precios
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'right',
+    legend.text = ggplot2::element_text(size = 8),
+    text = ggplot2::element_text(size = 9),
+    axis.text = ggplot2::element_text(size = 8),
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5),
     axis.text.x = ggplot2::element_blank(),
@@ -414,11 +416,12 @@ grafico.ca.nivel.precios.comercio <- factoextra::fviz_ca_biplot(ca.nivel.precios
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
-# ---- ??. Almacenar resultados ----                            
+# ---- VII. Almacenar resultados ----                            
 # ---------------------------------------------------------------------------------------#
 
 save(grafico.regiones, grafico.porcentaje.datos.zona, grafico.porcentaje.datos.comercio,
      grafico.ca.nivel.precios.comercio, grafico.ca.nivel.precios.comuna,
      grafico.evolucion.metricas, grafico.ca.periodos.variacion, grafico.periodo.variacion,
+     reglas.generales.seleccionadas, reglas.precios.seleccionadas,
      file = "output/Resultados.RData")
 # ----------------------------------------------------------------------------------------
