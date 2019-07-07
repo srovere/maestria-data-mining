@@ -218,6 +218,14 @@ Finalmente, el *biplot simétrico de la derecha*, tiene dimensiones que represen
 
 # Conclusiones
 
+A lo largo de *todos* los análisis, hemos podido encontrar asociaciones que han confirmado las aseveraciones realizadas en el trabajo anterior. Desde este punto de vista, el uso de reglas de asociación ha resultado útil para darle mayor validez al trabajo previo. También fue apropiado para encontrar encontrar algunas relaciones interesantes en ciertos tópicos abordados. Por ejemplo, para encontrar reglas que nos permitieran predecir el nivel de aumento de la última transición a partir de las transiciones previas (subsección 4.1.2 y 4.2.1). 
+
+También resultó de gran utilidad la tipificación de productos a partir de las descripciones de los mismos. El uso de herramientas de *text mining* nos permitió categorizar de forma programática los productos y buscar con facilidad reglas asociadas a los mismos (4.1.3). A partir de ellas, se encontraron asociaciones interesantes por el hecho de ser inesperadas. Por ejemplo, comercios (*Carrefour*) que disminuyeron el valor de los vinos en contraste con lo que se hubiera esperado en un contexto inflacionario.
+
+Complementar el uso de reglas de asociación con análisis de correspondencias (AC) también resultó ser de gran importancia para poder comprender las variaciones de precios entre períodos (4.2.1). Los resultados del AC nos permitieron comprender mejor las asociaciones entre transiciones y niveles de aumento de precios a fin de orientar la búsqueda de reglas sin necesidad de tener que realizar demasiadas iteraciones ni inspecciones. El AC también sirvió para agregar valor a la validación (4.2.2) en aspectos donde las reglas de asociación resultaron ser limitantes. Nos referimos a la necesidad de dicretizar las unidades de negocio y las comunas para que su nivel de atomización no nos impidiera encontrar reglas vinculadas a dichas variables. En este sentido, el AC nos permitió asociar niveles de precio con todas las comunas y todas las unidades de negocio (nuevamente, ratificando todo los encontrado en el trabajo previo).
+
+A partir de lo expuesto, consideramos sumamente importante destacar que el uso de múltiples herramientas de análisis (*reglas de asociación*, *text mining* y *análisis de correspondencias*) resultó esencial e imprescindible para este trabajo. Creemos que el uso de reglas de asociación para obtener conocimiento sobre este conjunto de datos no hubiera sido lo suficientemente apropiado de no haberse complementado con las herramientas anteriormente mencionadas. Es por ello que resaltamos la riqueza de abordar el análisis desde diversos enfoques y con distintas herramientas.
+
 # Referencias
 
 [1]   Precios Claros (https://www.preciosclaros.gob.ar)
