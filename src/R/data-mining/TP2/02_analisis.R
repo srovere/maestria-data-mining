@@ -267,11 +267,11 @@ reglas.periodos <- purrr::map_dfr(
   .f = function(periodo) {
     precio.periodo <- paste0("DPR", periodo)
     transacciones.periodo <- datos.consolidados %>%
-      dplyr::select(zona, comercio, tipo, !! precio.periodo, DPRT, DVT) %>%
+      dplyr::select(zona, comercio, tipo, !! precio.periodo, DVT) %>%
       dplyr::rename(DPRPer = !! precio.periodo) %>%
       as("transactions")  
     reglas.periodo <- sort(arules::apriori(data = transacciones.periodo,
-                                           parameter = list(support = 0.02, confidence = 0.7, target = "rules", maxlen = 20)),
+                                           parameter = list(support = 0.02, confidence = 0.6, target = "rules")),
                                       by = "confidence", decreasing = TRUE) %>%
       subset(x = ., subset = ((lhs %pin% "DPRPer") | (rhs %pin% "DPRPer")) & (lift > 1.5)) %>%
       ReglasADataFrame(.) %>%
@@ -281,38 +281,51 @@ reglas.periodos <- purrr::map_dfr(
 )
   
 # Buscar las reglas de los periodos 1 a 3 que esten tambien en el periodo 4
-reglas.comunes <- dplyr::filter(reglas.periodos, periodo == 4)
-purrr::walk(
-  .x = seq(from = 1, to = 3),
-  .f = function(periodo) {
-    reglas.periodo <- dplyr::filter(reglas.periodos, periodo == !! periodo) %>%
-      dplyr::select(lhs, rhs)
-    reglas.comunes <<- reglas.comunes %>%
-      dplyr::inner_join(reglas.periodo, by = c("lhs", "rhs"))
-  }
-)
-
-# Seleccion de reglas y agregado de metricas
-reglas.prediccion.seleccionadas <- reglas.comunes[c(4, 9, 13, 15, 16, 17, 20), ] %>%
+reglas.periodos.1.a.3 <- reglas.periodos %>%
+  dplyr::filter(periodo %in% c(1, 2, 3)) %>%
+  dplyr::distinct(lhs, rhs)
+reglas.comunes <- dplyr::filter(reglas.periodos, periodo == 4) %>%
   dplyr::select(lhs, rhs) %>%
-  dplyr::inner_join(reglas.periodos, by = c("lhs", "rhs")) %>%
-  dplyr::mutate(regla = paste0(lhs, " => ", rhs)) %>%
-  dplyr::select(-count) %>%
-  tidyr::gather(key = metrica, value = valor, -lhs, -rhs, -regla, -periodo)
+  dplyr::inner_join(reglas.periodos.1.a.3, by = c("lhs", "rhs")) %>%
+  dplyr::distinct(lhs, rhs)
 
+# Integracion de reglas
+reglas.prediccion <- reglas.periodos %>%
+  dplyr::inner_join(reglas.comunes, by = c("lhs", "rhs")) %>%
+  dplyr::mutate(regla = paste0(lhs, " => ", rhs)) %>%
+  dplyr::select(-count, -lhs, -rhs) %>%
+  tidyr::gather(key = metrica, value = valor, -regla, -periodo)
+reglas.prediccion.ancho <- reglas.prediccion %>%
+  dplyr::mutate(metrica = paste0(metrica, "_", periodo)) %>%
+  dplyr::select(-periodo) %>%
+  tidyr::spread(key = metrica, value = valor) %>%
+  dplyr::arrange(dplyr::desc(confidence_1), dplyr::desc(confidence_2), dplyr::desc(confidence_3), dplyr::desc(confidence_4))
+  
+# Seleccion de reglas y agregado de metricas
+reglas.prediccion.seleccionadas <- reglas.prediccion %>%
+  dplyr::filter(metrica == "confidence") %>%
+  dplyr::select(regla, periodo, valor)
+  
 # Grafico de evolucion de metricas
 grafico.evolucion.metricas <- ggplot2::ggplot(data = reglas.prediccion.seleccionadas) +
-  ggplot2::geom_line(mapping = ggplot2::aes(x = periodo, y = valor, col = regla)) +
-  ggplot2::scale_colour_brewer(type = "qual", palette = "Paired") +
-  ggplot2::labs(x = "Período", y = "Valor", col = "") +
-  ggplot2::facet_wrap(~ metrica, scales = "free", nrow = 1) +
+  ggplot2::geom_tile(mapping = ggplot2::aes(x = periodo, y = regla, fill = valor)) +
+  ggplot2::geom_text(mapping = ggplot2::aes(x = periodo, y = regla, label = sprintf("%.2f", valor))) +
+  ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
+                                direction = 1, option = "D", values = NULL, space = "Lab",
+                                na.value = "white", guide = "colourbar", aesthetics = "fill") +
+  ggplot2::labs(y = "Regla", x = "Período", fill = "Confianza",
+                title = "Reglas para niveles de precio",
+                subtitle = "Evolución de confianza") +
   ggplot2::theme_bw() +
   ggplot2::theme(
-    legend.position = 'bottom',
+    legend.position = "bottom",
+    legend.text = ggplot2::element_text(size = 8),
+    text = ggplot2::element_text(size = 8),
+    axis.text = ggplot2::element_text(size = 8),
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
   ) +
-  ggplot2::guides(colour = ggplot2::guide_legend(ncol = 1))
+  ggplot2::guides(fill = ggplot2::guide_colourbar(barwidth = 8))
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -429,6 +442,5 @@ save(grafico.regiones, grafico.porcentaje.datos.zona, grafico.porcentaje.datos.c
      grafico.ca.nivel.precios.comercio, grafico.ca.nivel.precios.comuna,
      grafico.evolucion.metricas, grafico.ca.periodos.variacion, grafico.periodo.variacion,
      reglas.generales.seleccionadas, reglas.precios.seleccionadas,
-     reglas.bebidas.seleccionadas,
-     file = "output/Resultados.RData")
+     reglas.bebidas.seleccionadas, file = "output/Resultados.RData")
 # ----------------------------------------------------------------------------------------

@@ -79,7 +79,7 @@ La investigación se abordará a partir del análisis de los siguientes temas:
     * Búsqueda de factores que expliquen la desaceleración (o no) de precios en las últimas mediciones
     * Exploración de reglas asociadas al comportamiento de los precios de un lote de productos seleccionado
   * Enfoque predictivo:
-    * Evaluación de reglas de los primeros tres períodos aplicadas al último período.
+    * Evaluación de reglas de los primeros tres períodos aplicadas al último período
     * Validación de resultados expuestos en el trabajo práctivo previo
 
 # Preparación de datos
@@ -186,11 +186,19 @@ Por el lado de las gaseosas (reglas 8 a 10), vemos que tanto *Jumbo* como *Coto*
 
 ## Enfoque predictivo
 
-### Evaluación de reglas que permitan predecir el comportamiento de precios del último período a partir de precios anteriores
+### Evaluación de reglas de los primeros tres períodos aplicadas al último período
 
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Evolución de métricas de reglas predictivas encontradas en todos los períodos de medición.", height = 8, width = 8}
+En este caso, el objetivo es buscar reglas de asociación para niveles de precios en los primeros tres períodos y ver cuáles de ellas se encuentran también en el último período. A fin de llevar a cabo este análisis, lo primero que debe realizarse es una transformación de los datos. Para cada uno de los períodos nos quedaremos con los datos de zona, comercio, tipo, nivel de precio del período y nivel de variación total de precios. A fin de poder determinar qué reglas están presentes en varios períodos de forma automática, llamaremos al nivel de precio de un períodos *DPRPer*. Adicionaremos además un atributo que indique el período al que pertenece cada regla.
+
+Una vez generado el conjunto de datos buscado, procedimos a buscar las reglas para cada período con los parámetros definidos al inicio de este documento. Luego filtramos aquellas reglas de los primeros tres períodos que estuvieran también en el último y nos quedamos con la métrica de confianza para evaluar su evolución a lo largo de los períodos esperando encontrar algún tipo de patrón emergente. Para ello, elaboramos el siguiente mapa de calor donde se muestra en cada celda el valor de *confianza* de cada regla para cada período. Aquellas reglas no presentes en un período aparecen como celdas vacías.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Evolución de métricas de reglas asociadas a niveles de precio por período.", width = 10}
 grid.arrange(grafico.evolucion.metricas)
 ```
+
+Se destacan dos reglas dos reglas con alto grado de confianza durante todos los períodos. Son aquellas que indican (son sutiles diferencias) que el comercio con nivel de precio *muy caro* es *Jumbo* **independientemente** del período que se considere. Esto fue previamente descubierto en el trabajo previo. También observamos reglas similares para productos *muy baratos* o de precio *medio* asociados a *Carrefour* y *Coto*. Esto también es consistente con lo encontrado en el trabajo anterior.
+
+Resultan también de interés una de las reglas que no se encuentra en todos los períodos (por no superar alguno de los umbrales). Por ejemplo, se observa que en los períodos 2 y 4 los *supermercados* de zona *norte* con nivel de precio *levemente caro* corresponden a *Jumbo* con nivel de confiaza aproximado a 0,6 (que en líneas generales siempre es *muy caro*). Sin embargo, en líneas generales el conocimiento aportado por este análisis no es significativamente nuevo.
 
 ### Validación de resultados expuestos en el trabajo práctico previo
 
@@ -202,7 +210,7 @@ Por tal motivo, en este análisis proponemos validar todo lo analizado en el tra
 grid.arrange(grafico.ca.nivel.precios.comuna, grafico.ca.nivel.precios.comercio, nrow = 1)
 ```
 
-En el *biplot simétrico de la izquierda*, observamos una interesante asociación entre los niveles de precios y las comunas. La dimensión 1, que capta casi el 77% de la inercia, representa en forma ordenada los niveles de precio desde *muy barato* hasta *muy caso*. Esto significa que la proyección de los valores de las comunas sobre dicha dimensión marca la asociación de las mismas con los niveles de precio. Esto confirma por ejemplo que Caballito (Comuna 6) es el barrio que tiene los precios más elevados, mientras que la Comuna 9 (de zona Sur) es la que tiene los precios más bajos. 
+En el *biplot simétrico de la izquierda*, observamos una interesante asociación entre los niveles de precios y las comunas. La dimensión 1, que capta casi el 77% de la inercia, representa en forma ordenada los niveles de precio desde *muy barato* hasta *muy caro*. Esto significa que la proyección de los valores de las comunas sobre dicha dimensión marca la asociación de las mismas con los niveles de precio. Esto confirma por ejemplo que Caballito (Comuna 6) es el barrio que tiene los precios más elevados, mientras que la Comuna 9 (de zona Sur) es la que tiene los precios más bajos. 
 
 La dimensión 2 captura poco más del 20% de la inercia y representa distancia de niveles de precios a precios medios. Los valores negativos están asociados a cercanía a precios medios, mientras que valores positivos están más asociados a niveles de precios más extremos (bajos y elevados). Se observa entonces que hay comunas como la 13 (zona Norte) donde hay coexistencia de precios moderadamente baratos y moderadamente caros. Por otro lado, las comunas como las 3, 5, 7 y 8 (zona centro y sur) tienen muy cercanos a niveles medios.
 
