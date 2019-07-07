@@ -174,6 +174,16 @@ Las reglas restantes (3, 5 y 6) aplican a todos los comercios y zonas en general
 
 ### Exploración de reglas asociadas al comportamiento de los precios de un lote de productos seleccionado
 
+Para cerrar la subsección de análisis exploratorio, realizamos un análisis de reglas de asociación vinculadas un cierto grupo de bebidas: a) vinos; b) gaseosas; y c) cervezas. A tal fin, se utilzó el conjunto de datos integrado que se describió en la sección de preparación de datos. A partir de ese conjunto de datos, se eliminaron aquellos relevamientos correspondientes a productos que no pertenecieran a alguna de las categorías indicadas. De los datos restantes, nos quedamos con los atributos correspondientes a zonas, comercios, niveles totales de precios y variaciones y los términos asociados al producto relevado. A continuación se generaron las reglas de asociación con un nivel de confianza mínimo de 0,7 a fin de limitar el conjunto de reglas obtenidas y poder inspeccionarlas individualmente. Finalmente, se seleccionaron aquellas que se muestran en la siguiente tabla.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis'}
+TablaReglas(reglas.bebidas.seleccionadas)
+```
+
+Las reglas 1, 2, 3, 4 y 7 corresponden a *vinos*. Es interesante resaltar que hay vinos cuyo precio disminuyó moderadamente durante el período. Con alto grado de confiabilidad se puede aseverar que son vinos provenientes de *Carrefour*. A su vez, tanto *Carrefour* como *Día* son los comercios cuyos vinos están categorizados como los más baratos en relación a otras cadenas. *Coto*, por su lado, se ubica en precios medios. Finalmente, se observa también que aquellos vinos *muy caros* provienen de *Jumbo* (nótese que esto no implica que si el supermercado es *Jumbo*, entonces los vinos son *muy caros*).
+
+Por el lado de las gaseosas (reglas 8 a 10), vemos que tanto *Jumbo* como *Coto* mostraron *aumento fuerte* en este rubro. Es de interés notar también, que las gaseosas de *Jumbo* están categorizadas como *levemente caras*, en contraste a lo que se hubiera esperado de acuerdo a análisis previos (por tener los precios más caros). Para las *cervezas* no se encontró demasiada información a partir de reglas. Solamente cabe destacar que *Coto* tiene cervezas con precio medio (como era de esperar) y que aquellas cervezas que mantuvieron su nivel de precios durante el período, son aquellas cuya sucursal tiene niveles de precios medios para estos productos (reglas 5 y 6).
+
 ## Enfoque predictivo
 
 ### Evaluación de reglas que permitan predecir el comportamiento de precios del último período a partir de precios anteriores

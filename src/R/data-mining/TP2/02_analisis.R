@@ -225,8 +225,8 @@ reglas.precios.seleccionadas <- reglas.precios[c(1, 2, 7, 11, 12, 17),]
 # ---- IV. Reglas de asociación para productos ----                            
 # ---------------------------------------------------------------------------------------#
 
-# Seleccionar productos que sean bebidas comunes (aguas, jugos, gaseosas y vinos)
-terminos       <- paste0("termino_", c("cerveza", "vino", "agua", "bebida", "gaseosa"))
+# Seleccionar productos de interes: gaseosas, cervezas y vinos.
+terminos       <- paste0("termino_", c("cerveza", "vino", "gaseosa"))
 bebidas        <- apply(X = matriz.presencia.ausencia[, terminos], MARGIN = 1, 
                         FUN = function(fila) { return (any(! is.na(fila))) })
 matriz.bebidas <- matriz.presencia.ausencia[bebidas, terminos]
@@ -246,8 +246,14 @@ reglas.bebidas <- sort(arules::apriori(data = transacciones.bebidas,
                        by = "confidence", decreasing = TRUE) %>%
   subset(x = ., subset = ((lhs %pin% "termino")) & (lift > 1.5)) %>%
   ReglasADataFrame()
+reglas.vino    <- dplyr::filter(reglas.bebidas, ! is.na(stringr::str_match(lhs, 'vino')[,1]))
+reglas.gaseosa <- dplyr::filter(reglas.bebidas, ! is.na(stringr::str_match(lhs, 'gaseosa')[,1]))
+reglas.cerveza <- dplyr::filter(reglas.bebidas, ! is.na(stringr::str_match(lhs, 'cerveza')[,1]))
 
-# reglas.bebidas.seleccionadas <- reglas.bebidas[c(8, 15, 20, 21, 28, 29), ]
+reglas.bebidas.seleccionadas <- reglas.vino[c(7,8,16,17,25),] %>%
+  dplyr::bind_rows(reglas.gaseosa[c(1,2,3),]) %>%
+  dplyr::bind_rows(reglas.cerveza) %>%
+  dplyr::arrange(dplyr::desc(confidence), dplyr::desc(lift), dplyr::desc(support))
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -423,5 +429,6 @@ save(grafico.regiones, grafico.porcentaje.datos.zona, grafico.porcentaje.datos.c
      grafico.ca.nivel.precios.comercio, grafico.ca.nivel.precios.comuna,
      grafico.evolucion.metricas, grafico.ca.periodos.variacion, grafico.periodo.variacion,
      reglas.generales.seleccionadas, reglas.precios.seleccionadas,
+     reglas.bebidas.seleccionadas,
      file = "output/Resultados.RData")
 # ----------------------------------------------------------------------------------------
