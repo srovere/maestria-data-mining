@@ -1,0 +1,123 @@
+---
+title: "Segundo examen parcial"
+subtitle: "Análisis Inteligente de Datos (2017)"
+author:
+  - Santiago Luis Rovere (srovere@gmail.com)
+date: '`r format(Sys.Date(), "%d de %B de %Y")`'
+output:
+  html_document:
+    toc: true
+    number_sections: yes
+  pdf_document:
+    number_sections: yes
+  html_notebook:
+    number_sections: yes
+---
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Inicializacion de ambiente
+rm(list = objects())
+require(Cairo)
+require(dplyr)
+require(ggplot2)
+require(plotly)
+require(readr)
+require(tidyr)
+options(bitmapType = "cairo")
+```
+
+# Clustering
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Carga de datos
+indicadores <- readr::read_delim(file = "Indicadores.csv", delim = "\t") %>%
+  as.data.frame()
+rownames(indicadores) <- indicadores$Pais
+indicadores <- as.matrix(dplyr::select(indicadores, -Pais))
+```
+
+## a. Clustering jerárquico
+
+Primero hacemos un PCA para reducir la dimensionalidad y encontrar factores ocultos o variables latentes.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# PCA
+pca            <- stats::princomp(x = indicadores, cor = TRUE)
+prop.varianzas <- (pca$sdev ^ 2) / sum((pca$sdev ^ 2))
+
+ggplot(data = data.frame(proporcion = 100 * cumsum(prop.varianzas), componente = 1:length(prop.varianzas)),
+       mapping = ggplot2::aes(x = componente, y = proporcion, fill = componente)) +
+  ggplot2::scale_x_continuous(breaks = 1:length(prop.varianzas)) +
+  ggplot2::geom_bar(stat = 'identity') +
+  ggplot2::geom_text(mapping = ggplot2::aes(y = proporcion + 1, label = sprintf("%0.2f", proporcion))) +
+  ggplot2::labs(x = "Componente", y = "Porcentaje acumulado de varianza explicada") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = 'none')
+```
+
+Seleccionamos las primeras 3 componentes que explican más del 82% de la varianza. Los loadings de cada una de ellas están representadas en el siguiente gráfico. En todos los casos son componentes de forma.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, fig.width=10, fig.height=10 }
+scores         <- pca$scores[, 1:3]
+loadings       <- pca$loadings[, 1:3] 
+loadings.largo <- data.frame(loadings) %>%
+  dplyr::mutate(Variable = rownames(.)) %>%
+  tidyr::gather(key = Componente, value = Loading, -Variable)
+ggplot(data = loadings.largo, mapping = ggplot2::aes(x = Variable, y = Loading, fill = Loading)) +
+  ggplot2::geom_bar(stat = 'identity') +
+  ggplot2::facet_wrap(~Componente, ncol = 1) +
+  ggplot2::scale_fill_distiller(type = "div", palette = "Spectral") +
+  ggplot2::labs(x = "Variable", y = "Loading") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'none',
+    axis.text.x = ggplot2::element_text(angle = 90)
+  )
+```
+
+Con esta 3 componentes nos disponemos a realizar un clustering jerárquico ascendente (aglomerativo) utilizando como métrica de distancia *ward.D2* (es una mejora introducida al método de Ward original (1963) por Murtagh y Legendre (2014). Seleccionamos 4 grupos.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+matriz.distancias  <- stats::dist(x = scores, method = "euclidean")
+cluster.jerarquico <- stats::hclust(d = matriz.distancias, method = "ward.D2")
+plot(cluster.jerarquico, main = "Clasificación de países", xlab = "País", ylab = "Distancia")
+grupos             <- stats::rect.hclust(cluster.jerarquico, k = 4, border = "red")
+scores.df          <- as.data.frame(scores) %>%
+  dplyr::mutate(pais = rownames(.))
+scores.grupos.jer  <- purrr::map_dfr(
+  .x = seq_len(length(grupos)),
+  .f = function(seq_index) {
+    filas        <- grupos[[seq_index]]
+    scores.grupo <- scores.df[filas,] %>%
+      dplyr::mutate(grupo = seq_index)
+    return (scores.grupo)
+  }
+)
+```
+
+Ahora graficamos el cluster resultante en coordenadas de las primeras 3 componentes principales.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+plotly::plot_ly(data = scores.grupos.jer, x = ~Comp.1, y = ~Comp.2, z = ~Comp.3, mode = "markers",
+                color = ~grupo, colors = c('#e41a1c', '#377eb8', '#4daf4a', '#984ea3')) %>%
+  add_markers() %>%
+  layout(scene = list(xaxis = list(title = 'Comp. 1'),
+                      yaxis = list(title = 'Comp. 2'),
+                      zaxis = list(title = 'Comp. 3')),
+         title = "Clustering jerárquico")
+```
+
+# b. Cluster no jerárquico
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+cluster.kmeans   <- stats::kmeans(x = scores, centers = 4, iter.max = 100)
+scores.grupos.km <- scores.df %>%
+  dplyr::mutate(grupo = cluster.kmeans$cluster)
+plotly::plot_ly(data = scores.grupos.km, x = ~Comp.1, y = ~Comp.2, z = ~Comp.3, mode = "markers",
+                color = ~grupo, colors = c('#e41a1c', '#377eb8', '#4daf4a', '#984ea3')) %>%
+  add_markers() %>%
+  layout(scene = list(xaxis = list(title = 'Comp. 1'),
+                      yaxis = list(title = 'Comp. 2'),
+                      zaxis = list(title = 'Comp. 3')),
+         title = "Clustering con K-means")
+```
