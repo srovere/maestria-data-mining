@@ -17,9 +17,12 @@ output:
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE }
 # Inicializacion de ambiente
 rm(list = objects())
+require(biotools)
 require(Cairo)
 require(dplyr)
 require(ggplot2)
+require(Hotelling)
+require(MASS)
 require(plotly)
 require(readr)
 require(tidyr)
@@ -107,7 +110,7 @@ plotly::plot_ly(data = scores.grupos.jer, x = ~Comp.1, y = ~Comp.2, z = ~Comp.3,
          title = "Clustering jerárquico")
 ```
 
-# b. Cluster no jerárquico
+## b. Cluster no jerárquico
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE }
 cluster.kmeans   <- stats::kmeans(x = scores, centers = 4, iter.max = 100)
@@ -121,3 +124,108 @@ plotly::plot_ly(data = scores.grupos.km, x = ~Comp.1, y = ~Comp.2, z = ~Comp.3, 
                       zaxis = list(title = 'Comp. 3')),
          title = "Clustering con K-means")
 ```
+
+## c. Selección de la cantidad de clusters
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+metricas <- purrr::map_dfr(
+  .x = seq(from = 2, to = nrow(scores)-1),
+  .f = function(k) {
+    cluster.kmeans.k <- stats::kmeans(x = scores, centers = k, iter.max = 100)
+    return (data.frame(k = k, metrica = 'WSS', valor = cluster.kmeans.k$tot.withinss, stringsAsFactors = FALSE) %>%
+              dplyr::bind_rows(data.frame(k = k, metrica = 'BSS', valor = cluster.kmeans.k$betweenss, stringsAsFactors = FALSE)))
+  }
+)
+ggplot2::ggplot(data = metricas) +
+  ggplot2::geom_line(mapping = ggplot2::aes(x = k, y = valor, col = metrica)) +
+  ggplot2::geom_vline(xintercept = 4, linetype = "dotted") +
+  ggplot2::labs(x = "Cantidad de clusters", y = "Valor", col = "Métrica",
+                title = "Métricas para distintos números de clusters",
+                subtitle = "Comparación de within-cluster sum of squares vs. between-cluster sum of squares") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom'
+  )
+```
+
+# Comparación de medias de dos poblaciones
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Carga de datos. Pasamos el sexo a factor y luego a numero para convertirlo a numerico
+empleados <- readr::read_delim(file = "empleados.csv", delim = ";") %>%
+  dplyr::select(-ID) %>%
+  dplyr::mutate(sexo = as.integer(as.factor(sexo))) 
+```
+
+## a. Test a realizar
+
+Se tienen 2 poblaciones, cada una de las cuales tiene asociadas 7 variables. Se desea probar si las medias de ambas poblaciones son iguales o no. Para ello, se plantea el test de Hotelling para comparación de medias multivariadas en 2 poblaciones diferentes. Sean $\mu$<sub>1</sub> y $\mu$<sub>2</sub> las medias para cada población, el test a llevar a cabo tiene las siguientes hipótesis:
+
+  * H<sub>0</sub>: $\mu$<sub>1</sub> = $\mu$<sub>2</sub>
+  * H<sub>1</sub>: $\mu$<sub>1</sub> != $\mu$<sub>2</sub>
+  
+## b. Realización del test
+
+```{r, echo=FALSE, warnings=FALSE, message=TRUE }
+print(Hotelling::hotelling.test(x = .~ minoria, data = empleados))
+```
+
+Se rechaza la hipótesis nula con un *p-valor* significativamente bajo, por lo que podemos afirmar que cada grupo tiene media distinta. Procedemos entonces a clasificiar cada grupo haciendo análisis discriminante. Verificanos normalidad multivariada (test de Shapiro-Wilk multivariado) y homocedasticidad (test M de Box).
+
+```{r, echo=FALSE, warnings=FALSE, message=TRUE }
+# Normalidad multivariadad por grupos
+for (grupo in unique(empleados$minoria)) {
+  cat(paste0("Analizando normalidad para grupo ", grupo))
+  matriz.datos <- empleados %>%
+    dplyr::filter(minoria == grupo) %>%
+    dplyr::select(-minoria) %>%
+    as.matrix()
+  print(mvnormtest::mshapiro.test(t(matriz.datos)))
+}
+
+# Homocedasticidad
+biotools::boxM(data = as.matrix(dplyr::select(empleados, -minoria)), 
+     grouping = as.matrix(dplyr::select(empleados, minoria)))
+```
+
+Como se observa, no se satisface la normalidad para ninguno de los dos grupos. Tampoco la condición de homocedasticidad. El discrimiante cuadrático se aplica cuando hay condición de normalidad multivariante, pero no de homocedasticidad. Sin embargo, también es robusto a la ausencia de normalidad multivariante. Por tal motivo aplicamos dicho método.
+
+## c. QDA
+
+Analizamos primero el poder de predicción con el método *ingenuo* (evaluar la clasificación con el mismo conjunto de datos de entrenamiento).
+
+```{r, echo=FALSE, warnings=FALSE, message=TRUE }
+modelo.qda <- MASS::qda(minoria ~ ., data = empleados, CV = TRUE)
+print("Matriz de contingencia")
+table(modelo.qda$class, empleados$minoria)
+sprintf("Clasifica correstamente el %.2f%% de los casos", 100 * mean(modelo.qda$class == empleados$minoria))
+```
+
+Ahora realizamos *cross-validation* excluyendo 20% de los datos para validación.
+
+```{r, echo=FALSE, warnings=FALSE, message=TRUE }
+set.seed(0) # Fijo la semilla para que todos obtengamos los mismos resultados
+filas.validacion       <- sample.int(n = nrow(empleados), size = 0.2 * nrow(empleados))
+conjunto.entrenamiento <- empleados[-filas.validacion, ]
+conjunto.validacion    <- empleados[filas.validacion, ]
+qda.entrenamiento      <- MASS::qda(x = dplyr::select(conjunto.entrenamiento, -minoria), grouping = conjunto.entrenamiento$minoria)
+qda.validacion         <- stats::predict(qda.entrenamiento, dplyr::select(conjunto.validacion, -minoria))
+
+print("Matriz de contingencia")
+table(qda.validacion$class, conjunto.validacion$minoria)
+sprintf("Clasifica correstamente el %.2f%% de los casos", 100 * mean(qda.validacion$class == conjunto.validacion$minoria))
+```
+
+Para evitar seleccionar un conjunto de validación que sea "bueno" o "malo", se debería hacer *k-fold cross validation* a fin de realizar múltiples entrenamientos y validaciones. Luego, se debería promediar el *accuracy* obtenido para cada *fold*.
+
+## d. Excluimos el último individuo, re-entrenamos y predecimos su clase.
+
+```{r, echo=FALSE, warnings=FALSE, message=TRUE }
+conjunto.entrenamiento <- empleados[-nrow(empleados), ]
+conjunto.validacion    <- empleados[nrow(empleados), ]
+qda.entrenamiento      <- MASS::qda(x = dplyr::select(conjunto.entrenamiento, -minoria), grouping = conjunto.entrenamiento$minoria)
+qda.validacion         <- stats::predict(qda.entrenamiento, dplyr::select(conjunto.validacion, -minoria))
+
+print(paste0("Clasificación real: ", conjunto.validacion$minoria, ". Clasficiación con QDA: ", qda.validacion$class))
+```
+
+# ANOVA
