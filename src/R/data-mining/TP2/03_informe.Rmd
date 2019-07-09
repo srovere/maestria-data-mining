@@ -6,11 +6,11 @@ author:
 - Javier Quinteros (jaqbase-dmkm@yahoo.com.ar), Universidad Argentina de la Empresa
 date: '`r format(Sys.Date(), "%d de %B de %Y")`'
 output:
-  pdf_document:
-    number_sections: yes
   html_document:
     number_sections: yes
     css: styles.css
+  pdf_document:
+    number_sections: yes
   html_notebook:
     number_sections: yes
 header-includes: \usepackage{float}
