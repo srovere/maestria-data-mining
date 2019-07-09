@@ -6,11 +6,11 @@ author:
 - Javier Quinteros (jaqbase-dmkm@yahoo.com.ar), Universidad Argentina de la Empresa
 date: '`r format(Sys.Date(), "%d de %B de %Y")`'
 output:
+  pdf_document:
+    number_sections: yes
   html_document:
     number_sections: yes
     css: styles.css
-  pdf_document:
-    number_sections: yes
   html_notebook:
     number_sections: yes
 header-includes: \usepackage{float}
@@ -22,8 +22,6 @@ lang: es
 rm(list = objects())
 
 # Carga de paquetes necesarios para hacer los gráficos
-require(arules)
-require(arulesViz)
 require(Cairo)
 require(ggplot2)
 require(gridExtra)
@@ -64,11 +62,11 @@ TablaReglas <- function(reglas) {
 
 # Introducción
 
-El presente trabajo se basa en la exploración y análisis de un conjunto de datos extraído de la aplicación **Precios Claros** [1]. Este conjunto de datos ya fue analizado anteriormente en [2]. En este caso, nos proponemos poner el foco en el análisis a partir de reglas de asociación. El uso de esta técnica nos permitirá extraer nuevo conocimiento así como también, corroborar o reformular afirmaciones realizadas en el trabajo previo.
+El presente trabajo se basa en la exploración y análisis de un conjunto de datos extraído de la aplicación **Precios Claros** [1]. Este conjunto de datos ya fue analizado anteriormente en [2]. En esta oportunidad, nos proponemos poner el foco en el análisis a partir de reglas de asociación. Se utilizará esta técnica con el propósito de extraer nuevo conocimiento así como también, para corroborar o reformular afirmaciones realizadas en el trabajo previo.
 
-Si bien la herramienta central de este estudio serán las reglas de asociación, no será la única. Se utilizarán también algunas herramientas de *text mining* con el fin de poder clasificar productos a partir de sus datos de descripción, marca y presentación. También se utilizará análisis de correspondencia para validar algunas conclusiones elaboradas en nuestro trabajo previo.
+Si bien el uso las reglas de asociación será el foco de este estudio, se utilizarán también algunas herramientas de *text mining* con el fin de poder clasificar productos a partir de sus datos de descripción, marca y presentación. También se utilizará análisis de correspondencias para validar algunas conclusiones elaboradas en nuestro trabajo previo.
 
-El presente documento se encuentra organizado de la siguiente manera: en la sección *2* se presentarán los objetivos centrales del análisis; en la sección *3* se detallará el proceso de preparación de datos realizado a fin de poder llevar a cabo los análisis de la sección *4*; finalmente, en la sección *5* se elaborarán las conclusiones finales proponiendo algunas posibles líneas de trabajo futuro.
+El presente documento se encuentra organizado de la siguiente manera: en la sección *2* se presentarán los objetivos centrales del análisis; en la sección *3* se detallará el proceso de preparación de datos realizado a fin de poder llevar a cabo los análisis de la sección *4*; finalmente, en la sección *5* se elaborarán las conclusiones finales.
 
 # Objetivo
 
@@ -80,29 +78,29 @@ La investigación se abordará a partir del análisis de los siguientes temas:
     * Exploración de reglas asociadas al comportamiento de los precios de un lote de productos seleccionado
   * Enfoque predictivo:
     * Evaluación de reglas de los primeros tres períodos aplicadas al último período
-    * Validación de resultados expuestos en el trabajo práctivo previo
+    * Validación de resultados expuestos en el trabajo práctico previo
 
 # Preparación de datos
 
-El primer paso necesario para avanzar sobre la preparación de los datos consiste en averiguar qué variables del conjunto de datos se desean estudiar. Algunas de ellas fueron sugeridas en el enunciado del trabajo práctico (niveles de precios y de variación de los mismos) y otras fueron adicionadas por los autores. En todos los casos, el abordaje consistió en la discretización de las variables continuas y en la reagrupación de variables categóricas.
+El primer paso necesario para avanzar sobre la preparación de los datos consiste en averiguar qué variables del conjunto de datos se desean estudiar. Algunas de ellas fueron sugeridas en el enunciado del trabajo práctico (niveles de precios y de variación de los mismos) y otras fueron adicionadas por los autores. En todos los casos, el abordaje inicial consistió en la discretización de las variables continuas y en la reagrupación de variables categóricas ya existentes.
 
-A continuación, se realizaron todas las transformaciones de precios sugeridas en el enunciado. Por tal motivo, no ahondaremos en detalles sobre dichas transformaciones, sino que las enumeraremos para dar completitud al presente documento:
+Se comenzó, entonces, llevando a cabo todas las transformaciones de precios indicadas en el enunciado. Por tal motivo, no ahondaremos en detalles sobre dichas transformaciones, sino que las enumeraremos para dar completitud al presente documento:
 
-  * Agrupación de las mediciones en 4 períodos los cuales abarcan las mediciones 1-3, 4-5, 6-7 y 8-10 respectivamente.
-  * Discretización de los niveles de precios por producto para cada período y para la totalidad de las mediciones. Así, cada precio relevado, fue categorizado según en: *muy barato, moderadamente barato, levemente barato, medio, levemente caso, moderadamente caso y muy caro*.
-  * Discretización de los niveles de aumento de precios por producto para los 3 interperíodos (P1-P2, P2-P3 y P3-P4) y para el período total (medición 1 - medición 10). Las categorías son las siguientes: *disminución fuerte, disminución moderada, disminución leve, mantiene, aumento leve, aumento moderado, aumento fuerte*.
+  * Se agruparon las mediciones en 4 períodos los cuales abarcan las mediciones 1-3, 4-5, 6-7 y 8-10 respectivamente.
+  * Se discretizaron los niveles de precios por producto para cada período y para la totalidad de las mediciones. Así, cada precio relevado, fue categorizado en los siguientes grupos: *muy barato, moderadamente barato, levemente barato, medio, levemente caro, moderadamente caro y muy caro*.
+  * Se discretizaron los niveles de variación de precios por producto para los 3 *interperíodos* o *transiciones* (P1-P2, P2-P3 y P3-P4) y para el período total (medición 1 - medición 10). Los agrupamientos fueron los siguientes: *disminución fuerte, disminución moderada, disminución leve, mantiene, aumento leve, aumento moderado, aumento fuerte*.
   
-Luego se utilizaron herramientas de *text mining* para extraer palabras frecuentes de los nombres de los productos a fin de poder utilizar dicha información para seleccionar datos de productos determinados y poder realizar un análisis más específico. Para llevar a cabo esta tarea, se elaboró un vocabulario con todas la palabras incluidas en los nombres de los productos, eliminando números, tildes, espacios, signos de puntuación, marcas, unidades de presentación y términos frecuentes. De ese conjunto de palabras, muchas de ellas se encontraron en varios productos. 
+Luego se utilizaron técnicas de *text mining* para extraer palabras frecuentes de los nombres de los productos a fin de poder utilizar dicha información para seleccionar productos determinados y realizar análisis pocalizados en dichos productos. Para llevar a cabo esta tarea, se elaboró un vocabulario con todas la palabras incluidas en los nombres de los productos, eliminando números, tildes, espacios, signos de puntuación, marcas, unidades de presentación y términos frecuentes. De ese conjunto de palabras, muchas de ellas se encontraron en varios productos. 
 
-Para eliminar palabras poco frecuentes, se construyó una tabla para indicar la cantidad de productos que contienen a cada término del vocabulario dentro de su descripción. Luego se analizó la distribucion de la variable *cantidad*, encontrándose que el percentil 75 corresponde el valor 4. Esto significa que solamente 25% de los términos tienen una frecuencia mayor o igual a 4. Consideramos a ese valor como el umbral mínimo para determinar si un término es frecuente o no. A partir de dicho umbral, se encontraron 234 términos con los cuales se construyeron una matriz de tipo *término-documento* donde cada una de las filas corresponde a cada uno de los 1000 productos del conjunto de datos. Esta información luego pudo ser integrada al conjunto de precios, a través de la variable *productoId*.
+Para eliminar palabras poco frecuentes, se construyó una tabla para indicar la *cantidad* de productos que incluían a cada término del vocabulario dentro de su descripción. Luego se analizó la distribucion de esa, encontrándose que el percentil 75 corresponde el valor 4. Esto significa que solamente 25% de los términos tienen una frecuencia mayor o igual a 4. Consideramos a ese valor como el umbral mínimo para determinar si un término es frecuente o no. A partir de dicho umbral, se encontraron 234 términos con los cuales se construyeron una matriz de tipo *término-documento* donde cada una de las filas corresponde a cada uno de los 1000 productos del conjunto de datos. Esta información luego pudo ser integrada al conjunto de precios, a través de la variable *productoId*.
 
-Además de realizarse las transformaciones y discretizaciones sugeridas, se realizaron otras adecuaciones al conjunto inicial de datos. Para las primeras iteraciones exploratorias se contaban con datos de 15 comunas y 11 unidades de negocios. Este nivel de atomización en las comunas y comercios dificultó la extracción de reglas, por lo que se procedió a la agregación de ambas variables de acuerdo a distintas transformaciones Para el caso de las comunas, se procedió a agrupar las mismas en zonas de acuerdo a la ubicación geográfica, tal como se detalla en el mapa de la figura siguiente.
+Además de realizarse las transformaciones y discretizaciones sugeridas, se realizaron otras adecuaciones al conjunto inicial de datos. Para las primeras iteraciones exploratorias se contaban con datos de 15 comunas y 11 unidades de negocios. Este nivel de atomización en las variables *comuna* y *comercio* dificultó la extracción de reglas que incluyeran dichos atributos, por lo que se procedió a la agregación de ambas variables de acuerdo a distintas transformaciones Para el caso de las comunas, se procedió a agrupar las mismas en zonas de acuerdo a la ubicación geográfica, tal como se detalla en el mapa de la figura siguiente.
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Zonificación de comunas de la Ciudad Autónoma de Buenos Aires"}
 gridExtra::grid.arrange(grafico.regiones, nrow = 1)
 ```
 
-Para el caso de las unidades de negocios, se unificaron las unidades de negocios según el comercio. Además, se acortaron manualmente los nombres de los mismos para evitar que se generen reglas difíciles de leer y con mucho texto. En la figura siguiente se muestra la cantidad de datos por comercio y por zona de acuerdo a las agrupaciones realizadas. Para el caso de las zonas, se observa que tanto para la zona sur como para la zona oeste, hay pocos datos. Esto obedece a la irregular distribución de datos originales relevados. Algo aún más marcado sucede con los comercios, por el mismo motivo expuesto previamente.
+Para el caso de las unidades de negocios, se unificaron según el comerco. Además, se acortaron manualmente los nombres de las razones sociales para evitar que se generen reglas difíciles de leer y con mucho texto. En la figura siguiente se muestra la cantidad de datos por comercio y por zona de acuerdo a las agrupaciones realizadas. Para el caso de las zonas, se observa que tanto para la zona sur como para la zona oeste, hay pocos datos. Esto obedece a la irregular distribución de datos originales relevados. Algo aún más marcado sucede con los comercios, por el mismo motivo previamente expuesto.
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Proporción de datos resultantes para cada zona y comercio luego de la reagrupación de dichas variables en nuevas categorías."}
 grid.arrange(
@@ -112,24 +110,24 @@ grid.arrange(
 )
 ```
 
-Luego de toda esta serie de transformaciones y reagrupamientos, se integraron todos los datos es un único *data frame* a partir del cual se hicieron los distintos análisis que a continuación se detallarán. Para que el lector pueda comprender la el significado de cada variable utilizada en las reglas de asociación extraídas, se presenta la siguiente tabla. A continuación se da comienzo a los análisis propuestos en los objetivos.
+Luego de esta serie de transformaciones y reagrupamientos, se integraron todos los datos es un único *data frame* a partir del cual se llevaron a cabo los distintos análisis que a continuación se detallarán. Para que el lector pueda comprender el significado de cada variable utilizada en las reglas de asociación extraídas, se presenta la siguiente tabla.
 
 Variable        | Descripción                                                     
 ----------------|-----------------------------------------------------------------------------------------------------------
            zona | Zona asociada a la comuna de la sucursal relevada
-       comercio | Comercio correspondiente a la sucursal relevada
-           tipo | Tipo de sucursal relevada
+       comercio | Comercio (razón social) correspondiente a la sucursal relevada
+           tipo | Tipo de sucursal relevada (hipermercado o supermercado)
            DPR1 | Nivel de precio del producto relevado en relación al mismo producto dentro del período 1
            DPR2 | Nivel de precio del producto relevado en relación al mismo producto dentro del período 2
            DPR3 | Nivel de precio del producto relevado en relación al mismo producto dentro del período 3
            DPR4 | Nivel de precio del producto relevado en relación al mismo producto dentro del período 4
            DPRT | Nivel de precio del producto relevado en relación al mismo producto para todas las mediciones
-            DV1 | Nivel de variación precio del producto relevado en relación al mismo producto entre el período 1 y el 2
-            DV2 | Nivel de variación precio del producto relevado en relación al mismo producto entre el período 2 y el 3
-            DV3 | Nivel de variación precio del producto relevado en relación al mismo producto entre el período 3 y el 4
-            DVT | Nivel de variación precio del producto relevado en relación al mismo producto entre la primera medición y la última
+            DV1 | Nivel de variación de precio del producto relevado en relación al mismo producto entre el período 1 y el 2
+            DV2 | Nivel de variación de precio del producto relevado en relación al mismo producto entre el período 2 y el 3
+            DV3 | Nivel de variación de precio del producto relevado en relación al mismo producto entre el período 3 y el 4
+            DVT | Nivel de variación de precio del producto relevado en relación al mismo producto entre la primera medición y la última
     termino_XXX | Presencia del término XXX en el producto relevado (existen 234 columnas de este tipo dado el vocabulario elaborado)
-
+    
 # Análisis realizados
 
 Esta serie de análisis requirió de la realización de muchas iteraciones, las cuales involucraron en primer lugar los reagrupamientos por comercio y región descriptos en la sección previa. La razón de estos reagrupamientos se sustentó principalmente en que no se encontraban reglas de asociación que incluyeran atributos con cierto nivel de atomización (por ejemplo, las comunas que tenían 15 valores distintos o las unidades de negocio, de las cuales había 11). 
@@ -137,7 +135,7 @@ Esta serie de análisis requirió de la realización de muchas iteraciones, las 
 También requirió del armado de conjuntos de datos con distintas combinaciones de atributos y de la inspección del conjunto de reglas resultantes. Este proceso resultó sumamente laborioso por tener que buscar combinaciones de atributos que se enfocaran en la pregunta a responder. Aún así, luego se tuvo que iterar sobre distintos *subsets* de reglas para eliminar asociaciones triviales o que no aportaran información relevante. En todos los casos, salvo que se indique lo contrario se buscaron reglas con los siguientes parámetros:
 
   * Soporte mínimo: 0,02.
-  * Confianza mínima: 0,7.
+  * Confianza mínima: 0,6.
   * Lift mínimo: 1,5.
 
 ## Enfoque descriptivo
@@ -154,7 +152,7 @@ Las reglas 1, 3 y 6 confirman lo que ya se había encontrado en el trabajo anter
 
 ### Búsqueda de factores que expliquen la desaceleración (o no) de precios en las últimas mediciones
 
-En las consignas del trabajo se sugiere que hay una desaceleración de aumento precios en las últimas mediciones (asociadas al período 4). Lo primero que se hizo fue investigar la veracidad de dicha afirmación. En primer lugar de confeccionó un mapa de calor donde el valor de cada celda representa para cada interperíodo o transición (DV1: P1-P2, DV2: P2-P3, DV3: P3-P4) el porcentaje de los datos para cada categoría de nivel de aumento de precios. A partir de este gráfico no se observa una desaceleración marcada y evidente, sino más bien un descenso en la categoría *mantiene* y un aumento de las categorías *aumento leve* y *disminución leve*.
+En las consignas del trabajo se sugiere que hay una desaceleración de aumento precios en las últimas mediciones (asociadas al período 4). Lo primero que se hizo fue investigar la veracidad de dicha afirmación. En primer lugar de confeccionó un mapa de calor donde el valor de cada celda representa para cada interperíodo o transición (DV1: P1-P2, DV2: P2-P3, DV3: P3-P4) el porcentaje de los datos para cada categoría de nivel de variación de precios. A partir de este gráfico no se observa una desaceleración marcada y evidente, sino más bien un descenso en la categoría *mantiene* y un aumento de las categorías *aumento leve* y *disminución leve*.
 
 Para profundizar un poco más, se realizó también un análisis de correspondencia simple entre ambas variables (interperíodo y nivel de aumento). En el *biplot simétrico* se observa que el interperíodo inicial está asociado principalmente a *mantenimiento de precios*, mientras que el segundo está más vinculado a *aumentos moderados*. A su vez, estos dos interperíodos son más similares entre si en cuanto al aumento de precios que en relación al último. El último interperíodo está bastante más alejado de los primeros y se asocia principalmente a *aumentos leves*. 
 
@@ -174,7 +172,7 @@ Las reglas restantes (3, 5 y 6) aplican a todos los comercios y zonas en general
 
 ### Exploración de reglas asociadas al comportamiento de los precios de un lote de productos seleccionado
 
-Para cerrar la subsección de análisis exploratorio, realizamos un análisis de reglas de asociación vinculadas un cierto grupo de bebidas: a) vinos; b) gaseosas; y c) cervezas. A tal fin, se utilzó el conjunto de datos integrado que se describió en la sección de preparación de datos. A partir de ese conjunto de datos, se eliminaron aquellos relevamientos correspondientes a productos que no pertenecieran a alguna de las categorías indicadas. De los datos restantes, nos quedamos con los atributos correspondientes a zonas, comercios, niveles totales de precios y variaciones y los términos asociados al producto relevado. A continuación se generaron las reglas de asociación con un nivel de confianza mínimo de 0,7 a fin de limitar el conjunto de reglas obtenidas y poder inspeccionarlas individualmente. Finalmente, se seleccionaron aquellas que se muestran en la siguiente tabla.
+Para cerrar la subsección de análisis exploratorio, realizamos un análisis de reglas de asociación vinculadas un cierto grupo de bebidas: a) vinos; b) gaseosas; y c) cervezas. A tal fin, se utilizó el conjunto de datos integrado que se describió en la sección de preparación de datos. A partir de ese conjunto de datos, se eliminaron aquellos relevamientos correspondientes a productos que no pertenecieran a alguna de las categorías indicadas. De los datos restantes, nos quedamos con los atributos correspondientes a zonas, comercios, niveles totales de precios y variaciones y los términos asociados al producto relevado. A continuación se generaron las reglas de asociación con un nivel de confianza mínimo de 0,7 a fin de limitar el conjunto de reglas obtenidas y poder inspeccionarlas individualmente. Finalmente, se seleccionaron aquellas que se muestran en la siguiente tabla.
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis'}
 TablaReglas(reglas.bebidas.seleccionadas)
@@ -196,23 +194,23 @@ Una vez generado el conjunto de datos buscado, procedimos a buscar las reglas pa
 grid.arrange(grafico.evolucion.metricas)
 ```
 
-Se destacan dos reglas dos reglas con alto grado de confianza durante todos los períodos. Son aquellas que indican (son sutiles diferencias) que el comercio con nivel de precio *muy caro* es *Jumbo* **independientemente** del período que se considere. Esto fue previamente descubierto en el trabajo previo. También observamos reglas similares para productos *muy baratos* o de precio *medio* asociados a *Carrefour* y *Coto*. Esto también es consistente con lo encontrado en el trabajo anterior.
+Se destacan dos reglas dos reglas con alto grado de confianza durante todos los períodos. Son aquellas que indican (son sutiles diferencias) que el comercio con nivel de precio *muy caro* es *Jumbo* **independientemente** del período que se considere. Esto fue previamente descubierto en el trabajo anterior (ver mapa de calor de 4.2.2). También observamos reglas similares para productos *muy baratos* o de precio *medio* asociados a *Carrefour* y *Coto*. Esto también es consistente con lo encontrado en el trabajo anterior.
 
-Resultan también de interés una de las reglas que no se encuentra en todos los períodos (por no superar alguno de los umbrales). Por ejemplo, se observa que en los períodos 2 y 4 los *supermercados* de zona *norte* con nivel de precio *levemente caro* corresponden a *Jumbo* con nivel de confiaza aproximado a 0,6 (que en líneas generales siempre es *muy caro*). Sin embargo, en líneas generales el conocimiento aportado por este análisis no es significativamente nuevo.
+Resulta también de interés una de las reglas que no se encuentra en todos los períodos (por no superar alguno de los umbrales). Por ejemplo, se observa que en los períodos 2 y 4 los *supermercados* de zona *norte* con nivel de precio *levemente caro* corresponden a *Jumbo* con nivel de confiaza aproximado a 0,6 (que en líneas generales siempre es *muy caro*). No obstante, en líneas generales el conocimiento aportado por este análisis no es significativamente nuevo.
 
 ### Validación de resultados expuestos en el trabajo práctico previo
 
 A lo largo de los análisis anteriores, hemos encontrado reglas de asociación que ratificaron los hallazgos realizados en el trabajo previo [2]. Las más notorias fueron aquellas que vinculaban los niveles de precios *muy barato*, *medio* y *muy caro* con las cadenas de comercios *Carrefour*, *Coto* y *Jumbo* respectivamente. Sin embargo, recordemos que fue necesario reagrupar las comunas y los comercios para que los datos no estuvieran tan atomizados y eso nos imposibilitara cumplir con el requisito de soporte mínimo.
 
-Por tal motivo, en este análisis proponemos validar todo lo analizado en el trabajo previo (mediante análisis exploratorios a partir de gráficos) y el actual (mediante reglas de asociación) utilizando análisis de correspondencia simple. Esta metodología nos permitirá encontrar mayor detalle, dado que analizaremos todas las comunas y todas las unidades de negocios relevadas contrastándolas contra los niveles de precios discretizados para todo el período de análisis (DPRT).
+Por tal motivo, en este análisis proponemos validar todo lo analizado en el trabajo previo (mediante análisis exploratorios a partir de gráficos) y el actual (mediante reglas de asociación) utilizando análisis de correspondencias simple. Esta metodología nos permitirá encontrar mayor detalle, dado que analizaremos todas las comunas y todas las unidades de negocios relevadas contrastándolas contra los niveles de precios discretizados para todo el período de análisis (DPRT).
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, results='asis', fig.align='center', fig.cap="Análisis de correspondencias de niveles de de precios en relación a comunas y comercios.", fig.width=10}
 grid.arrange(grafico.ca.nivel.precios.comuna, grafico.ca.nivel.precios.comercio, nrow = 1)
 ```
 
-En el *biplot simétrico de la izquierda*, observamos una interesante asociación entre los niveles de precios y las comunas. La dimensión 1, que capta casi el 77% de la inercia, representa en forma ordenada los niveles de precio desde *muy barato* hasta *muy caro*. Esto significa que la proyección de los valores de las comunas sobre dicha dimensión marca la asociación de las mismas con los niveles de precio. Esto confirma por ejemplo que Caballito (Comuna 6) es el barrio que tiene los precios más elevados, mientras que la Comuna 9 (de zona Sur) es la que tiene los precios más bajos. 
+En el *biplot simétrico de la izquierda*, observamos una interesante asociación entre los niveles de precios y las comunas. La dimensión 1, que capta casi el 77% de la inercia, representa en forma ordenada los niveles de precio desde *muy barato* hasta *muy caro*. Esto significa que la proyección de los *scores* vinculados a las comunas sobre dicha dimensión marca la asociación de las mismas con los niveles de precio. Esto confirma por ejemplo que Caballito (Comuna 6) es el barrio que tiene los precios más elevados, mientras que la Comuna 9 (de zona Sur) es la que tiene los precios más bajos. 
 
-La dimensión 2 captura poco más del 20% de la inercia y representa distancia de niveles de precios a precios medios. Los valores negativos están asociados a cercanía a precios medios, mientras que valores positivos están más asociados a niveles de precios más extremos (bajos y elevados). Se observa entonces que hay comunas como la 13 (zona Norte) donde hay coexistencia de precios moderadamente baratos y moderadamente caros. Por otro lado, las comunas como las 3, 5, 7 y 8 (zona centro y sur) tienen muy cercanos a niveles medios.
+La dimensión 2 captura poco más del 20% de la inercia y representa distancia de niveles de precios a precios medios. Los valores negativos están asociados a cercanía a precios medios, mientras que valores positivos están más asociados a niveles de precios más extremos (bajos y elevados). Se observa entonces que hay comunas como la 13 (zona Norte) donde hay mayor coexistencia de precios relativamente extremos (moderadamente baratos y moderadamente caros). Por otro lado, las comunas como las 3, 5, 7 y 8 (zona centro y sur) tienen mayoritariamente precios de niveles medios.
 
 Finalmente, el *biplot simétrico de la derecha*, tiene dimensiones que representan los niveles de precios del mismo modo que el anterior: la dimensión 1 (casi 83% de la inercia) ordena niveles de precios de menor a mayor y la dimensión 2 (11% de la inercia) ordena por distancia respecto a niveles medios de precio. Esto ratifica lo encontrado en el trabajo previo y mediante reglas: a) *Hipermercados Carrefour*, *Carrefour Market* y *Día* son los comercios con precios más bajos; b) *Coto* es el comercio con precios más cercanos al nivel medio; y c) *Jumbo* y *Disco* son los comercios con precios más elevados. 
 
@@ -222,7 +220,7 @@ A lo largo de *todos* los análisis, hemos podido encontrar asociaciones que han
 
 También resultó de gran utilidad la tipificación de productos a partir de las descripciones de los mismos. El uso de herramientas de *text mining* nos permitió categorizar de forma programática los productos y buscar con facilidad reglas asociadas a los mismos (4.1.3). A partir de ellas, se encontraron asociaciones interesantes por el hecho de ser inesperadas. Por ejemplo, comercios (*Carrefour*) que disminuyeron el valor de los vinos en contraste con lo que se hubiera esperado en un contexto inflacionario.
 
-Complementar el uso de reglas de asociación con análisis de correspondencias (AC) también resultó ser de gran importancia para poder comprender las variaciones de precios entre períodos (4.2.1). Los resultados del AC nos permitieron comprender mejor las asociaciones entre transiciones y niveles de aumento de precios a fin de orientar la búsqueda de reglas sin necesidad de tener que realizar demasiadas iteraciones ni inspecciones. El AC también sirvió para agregar valor a la validación (4.2.2) en aspectos donde las reglas de asociación resultaron ser limitantes. Nos referimos a la necesidad de dicretizar las unidades de negocio y las comunas para que su nivel de atomización no nos impidiera encontrar reglas vinculadas a dichas variables. En este sentido, el AC nos permitió asociar niveles de precio con todas las comunas y todas las unidades de negocio (nuevamente, ratificando todo los encontrado en el trabajo previo).
+Complementar el uso de reglas de asociación con análisis de correspondencias (AC) también resultó ser de gran importancia para poder entender las variaciones de precios entre períodos (4.2.1). Los resultados del AC nos permitieron comprender mejor las asociaciones entre transiciones y niveles de aumento de precios a fin de orientar la búsqueda de reglas sin necesidad de tener que realizar demasiadas iteraciones ni inspecciones. El AC también sirvió para agregar valor a la validación (4.2.2) en aspectos donde las reglas de asociación resultaron ser limitantes. Nos referimos a la necesidad de dicretizar las unidades de negocio y las comunas para que su nivel de atomización no nos impidiera encontrar reglas vinculadas a dichas variables. En este sentido, el AC nos permitió asociar niveles de precio con todas las comunas y todas las unidades de negocio (nuevamente, ratificando todo lo hallado en el trabajo previo y agregando información adicional).
 
 A partir de lo expuesto, consideramos sumamente importante destacar que el uso de múltiples herramientas de análisis (*reglas de asociación*, *text mining* y *análisis de correspondencias*) resultó esencial e imprescindible para este trabajo. Creemos que el uso de reglas de asociación para obtener conocimiento sobre este conjunto de datos no hubiera sido lo suficientemente apropiado de no haberse complementado con las herramientas anteriormente mencionadas. Es por ello que resaltamos la riqueza de abordar el análisis desde diversos enfoques y con distintas herramientas.
 
