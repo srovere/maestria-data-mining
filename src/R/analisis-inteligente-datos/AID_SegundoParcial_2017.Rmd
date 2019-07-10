@@ -17,14 +17,17 @@ output:
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE }
 # Inicializacion de ambiente
 rm(list = objects())
+require(ADGofTest)
 require(biotools)
 require(Cairo)
+require(car)
 require(dplyr)
 require(ggplot2)
 require(Hotelling)
 require(MASS)
 require(plotly)
 require(readr)
+require(readxl)
 require(tidyr)
 options(bitmapType = "cairo")
 ```
@@ -39,7 +42,7 @@ rownames(indicadores) <- indicadores$Pais
 indicadores <- as.matrix(dplyr::select(indicadores, -Pais))
 ```
 
-## a. Clustering jerárquico
+## Clustering jerárquico
 
 Primero hacemos un PCA para reducir la dimensionalidad y encontrar factores ocultos o variables latentes.
 
@@ -110,7 +113,7 @@ plotly::plot_ly(data = scores.grupos.jer, x = ~Comp.1, y = ~Comp.2, z = ~Comp.3,
          title = "Clustering jerárquico")
 ```
 
-## b. Cluster no jerárquico
+## Cluster no jerárquico
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE }
 cluster.kmeans   <- stats::kmeans(x = scores, centers = 4, iter.max = 100)
@@ -125,7 +128,7 @@ plotly::plot_ly(data = scores.grupos.km, x = ~Comp.1, y = ~Comp.2, z = ~Comp.3, 
          title = "Clustering con K-means")
 ```
 
-## c. Selección de la cantidad de clusters
+## Selección de la cantidad de clusters
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE }
 metricas <- purrr::map_dfr(
   .x = seq(from = 2, to = nrow(scores)-1),
@@ -156,14 +159,14 @@ empleados <- readr::read_delim(file = "empleados.csv", delim = ";") %>%
   dplyr::mutate(sexo = as.integer(as.factor(sexo))) 
 ```
 
-## a. Test a realizar
+## Test a realizar
 
 Se tienen 2 poblaciones, cada una de las cuales tiene asociadas 7 variables. Se desea probar si las medias de ambas poblaciones son iguales o no. Para ello, se plantea el test de Hotelling para comparación de medias multivariadas en 2 poblaciones diferentes. Sean $\mu$<sub>1</sub> y $\mu$<sub>2</sub> las medias para cada población, el test a llevar a cabo tiene las siguientes hipótesis:
 
   * H<sub>0</sub>: $\mu$<sub>1</sub> = $\mu$<sub>2</sub>
   * H<sub>1</sub>: $\mu$<sub>1</sub> != $\mu$<sub>2</sub>
   
-## b. Realización del test
+## Realización del test
 
 ```{r, echo=FALSE, warnings=FALSE, message=TRUE }
 print(Hotelling::hotelling.test(x = .~ minoria, data = empleados))
@@ -189,7 +192,7 @@ biotools::boxM(data = as.matrix(dplyr::select(empleados, -minoria)),
 
 Como se observa, no se satisface la normalidad para ninguno de los dos grupos. Tampoco la condición de homocedasticidad. El discrimiante cuadrático se aplica cuando hay condición de normalidad multivariante, pero no de homocedasticidad. Sin embargo, también es robusto a la ausencia de normalidad multivariante. Por tal motivo aplicamos dicho método.
 
-## c. QDA
+## QDA
 
 Analizamos primero el poder de predicción con el método *ingenuo* (evaluar la clasificación con el mismo conjunto de datos de entrenamiento).
 
@@ -217,7 +220,7 @@ sprintf("Clasifica correstamente el %.2f%% de los casos", 100 * mean(qda.validac
 
 Para evitar seleccionar un conjunto de validación que sea "bueno" o "malo", se debería hacer *k-fold cross validation* a fin de realizar múltiples entrenamientos y validaciones. Luego, se debería promediar el *accuracy* obtenido para cada *fold*.
 
-## d. Excluimos el último individuo, re-entrenamos y predecimos su clase.
+## Excluimos el último individuo, re-entrenamos y predecimos su clase.
 
 ```{r, echo=FALSE, warnings=FALSE, message=TRUE }
 conjunto.entrenamiento <- empleados[-nrow(empleados), ]
@@ -229,3 +232,58 @@ print(paste0("Clasificación real: ", conjunto.validacion$minoria, ". Clasficiac
 ```
 
 # ANOVA
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Carga de datos.
+presion <- readxl::read_excel(path = "presion.xlsx") %>%
+  tidyr::gather(key = tratamiento, value = presion)
+```
+
+## Modelo
+
+Se tienen 5 poblaciones, cada una de las cuales tiene recibe un tratamiento para la hipertensión. Sea $\mu$<sub>i</sub> la media de la presión sistólica medida para la población <sub>i</sub>. Se desea probar si las medias de todas poblaciones son iguales o no. Para ello, se realiza una ANOVA, con las siguientes hipótesis:
+
+  * H<sub>0</sub>: $\mu$<sub>1</sub> = $\mu$<sub>2</sub> = ... = $\mu$<sub>5</sub>
+  * H<sub>1</sub>: $\exists$ (i, j) / $\mu$<sub>i</sub> != $\mu$<sub>j</sub>
+  
+## Prueba y validación de supuestos
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Carga de datos.
+aov.presion <- stats::aov(presion~tratamiento, data = presion)
+residuos    <- stats::residuals(aov.presion)
+
+cat("Test de normalidad (Shapiro-Wilk) de los residuos")
+stats::shapiro.test(residuos)
+
+cat("Test de homocedasticidad (Levene)")
+leveneTest(presion~tratamiento, data = presion)
+```
+
+## Conclusiones
+
+Dado que se cumplen las condiciones de normalidad y homocedasticidad, podemos concluir en base a los resultados de la ANOVA:
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+summary(aov.presion)
+```
+
+Dado que el *p-valor* es muy pequeño, podemos afirmar que existen diferencias estadísticamente siginificativas como para rechazar la igualdad de medias. Finalmente, realizamos el test de Tukey para encontrar mayor información:
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+stats::TukeyHSD(aov.presion, conf.level=0.95)
+```
+
+Vemos por ejemplo que hay diferencias significativas entre los grupos *dosis alta/dieta hiposódica* y *dosis media/dieta hiposódica*. En ambos casos hay evidencia de que la media de los grupos a los que les suministró dosis en cantidades media o alta es **menor** que la de aquellos que solamente hicieron dieta. 
+
+En menor medida, hay diferencias (aunque no tan significativas como las anteriores) entre *dieta+dosis baja/dieta hiposódica*, *dosis baja/dieta hiposódica hiposódica*, *dosis alta/dosis baja* y *dosis media/dieta+dosis baja*. En todos los casos, los primeros grupos parecen tener medias *menores* que los últimos.
+
+No se detectan diferencias significativas entre los grupos *dosis alta/dosis media*, *dosis media/dosis baja*, *dosis media/dieta+dosis baja* y *dosis baja/dieta+dosis baja*. En estos casos se podría llegar a decir que las medias para cada combinación de par de grupos es similar.
+
+## Uso de transformaciones
+
+Se podría haber utilizado transformaciones de Box-Cox para el caso de que no se cumpliera alguno de los supuestos (normalidad y homocedasticidad) o ambos. en este caso, se elige el valor de $\lambda$ que maximiza la función de verosimilitud. A continuación se aplica la siguiente transformación:
+
+Y = X <sup>$\lambda$</sup>
+
+Con esta nueva variable Y sea realiza el test de ANOVA y se analizan los supuestos. Si los supuestos se cumplen, entonces es posible concluir a partir de los resultados de la ANOVA. De no ser así, se puede hacer un test no paramétrico como el de Kruskal-Wallis.
