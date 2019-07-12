@@ -1,0 +1,84 @@
+---
+title: "Segundo examen parcial"
+subtitle: "Análisis Inteligente de Datos (2018)"
+author:
+  - Santiago Luis Rovere (srovere@gmail.com)
+date: '`r format(Sys.Date(), "%d de %B de %Y")`'
+output:
+  html_document:
+    toc: true
+    number_sections: yes
+  pdf_document:
+    number_sections: yes
+  html_notebook:
+    number_sections: yes
+---
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Inicializacion de ambiente
+rm(list = objects())
+require(ADGofTest)
+require(biotools)
+require(Cairo)
+require(car)
+require(dplyr)
+require(factoextra)
+require(ggplot2)
+require(Hotelling)
+require(MASS)
+require(plotly)
+require(readr)
+require(readxl)
+require(tidyr)
+options(bitmapType = "cairo")
+```
+
+# Comparación de medias multivariadas de dos poblaciones
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Carga de datos. 
+anticuerpos <- readxl::read_excel(path = "anticuerpos.xls") %>%
+  dplyr::select(-`Nro Pac.`)
+```
+
+## Test a realizar
+
+Se tienen 2 poblaciones, cada una de las cuales tiene asociadas 4 variables. Se desea probar si las medias de ambas poblaciones son iguales o no. Para ello, se plantea el test de Hotelling para comparación de medias multivariadas en 2 poblaciones diferentes. Sean $\mu$<sub>1</sub> y $\mu$<sub>2</sub> las medias para cada población, el test a llevar a cabo tiene las siguientes hipótesis:
+
+  * H<sub>0</sub>: $\mu$<sub>1</sub> = $\mu$<sub>2</sub>
+  * H<sub>1</sub>: $\mu$<sub>1</sub> != $\mu$<sub>2</sub>
+  
+```{r, echo=FALSE, warnings=FALSE, message=TRUE }
+print(Hotelling::hotelling.test(x = .~ Grupo, data = anticuerpos))
+```
+
+Se rechaza la hipótesis nula con un *p-valor* aproximadamente igual a 0.01, por lo que suponemos que cada grupo tiene media distinta. Procedemos entonces a clasificar cada grupo haciendo análisis discriminante. Verificamos normalidad multivariada (test de Shapiro-Wilk multivariado) y homocedasticidad (test M de Box).
+
+```{r, echo=FALSE, warnings=FALSE, message=TRUE }
+# Normalidad multivariadad por grupos
+for (grupo in unique(anticuerpos$Grupo)) {
+  cat(paste0("Analizando normalidad para grupo ", grupo))
+  matriz.datos <- anticuerpos %>%
+    dplyr::filter(Grupo == grupo) %>%
+    dplyr::select(-Grupo) %>%
+    as.matrix()
+  print(mvnormtest::mshapiro.test(t(matriz.datos)))
+}
+
+# Homocedasticidad
+biotools::boxM(data = as.matrix(dplyr::select(anticuerpos, -Grupo)), 
+     grouping = as.matrix(dplyr::select(anticuerpos, Grupo)))
+```
+
+No se rechaza ni la normalidad multivariada por grupos ni la homocedasticidad. Por tal motivo, se cumplen los supuestos para realizar un discriminante lineal (LDA).
+
+## LDA y análisis del poder discriminante
+
+```{r, echo=FALSE, warnings=FALSE, message=TRUE }
+modelo.lda <- MASS::lda(Grupo ~ ., data = anticuerpos, CV = TRUE)
+print("Matriz de contingencia")
+table(modelo.lda$class, anticuerpos$Grupo)
+sprintf("Clasifica correctamente el %.2f%% de los casos", 100 * mean(modelo.lda$class == anticuerpos$Grupo))
+```
+
+De por si la regla es bastante mala aún analizando su poder con el método ingenuo (que tienen a sobrestimar el poder de predicción de la misma por evaluar la precisión con los mismos datos que se usaron para efectuar el ajuste). La propabilidad *a priori* de pertenecer a cada grupo es de 0.5, mientras que la regla clasifica correctamente el 55% de los casos. Es prácticamente lo mismo que asignar los grupos al azar utilizando las probabilidades a priori.

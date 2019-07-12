@@ -150,7 +150,7 @@ ggplot2::ggplot(data = metricas) +
   )
 ```
 
-# Comparación de medias de dos poblaciones
+# Comparación de medias multivariadas de dos poblaciones
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE }
 # Carga de datos. Pasamos el sexo a factor y luego a numero para convertirlo a numerico
@@ -172,7 +172,7 @@ Se tienen 2 poblaciones, cada una de las cuales tiene asociadas 7 variables. Se 
 print(Hotelling::hotelling.test(x = .~ minoria, data = empleados))
 ```
 
-Se rechaza la hipótesis nula con un *p-valor* significativamente bajo, por lo que podemos afirmar que cada grupo tiene media distinta. Procedemos entonces a clasificiar cada grupo haciendo análisis discriminante. Verificanos normalidad multivariada (test de Shapiro-Wilk multivariado) y homocedasticidad (test M de Box).
+Se rechaza la hipótesis nula con un *p-valor* significativamente bajo, por lo que podemos afirmar que cada grupo tiene media distinta. Procedemos entonces a clasificar cada grupo haciendo análisis discriminante. Verificamos normalidad multivariada (test de Shapiro-Wilk multivariado) y homocedasticidad (test M de Box).
 
 ```{r, echo=FALSE, warnings=FALSE, message=TRUE }
 # Normalidad multivariadad por grupos
@@ -200,7 +200,7 @@ Analizamos primero el poder de predicción con el método *ingenuo* (evaluar la 
 modelo.qda <- MASS::qda(minoria ~ ., data = empleados, CV = TRUE)
 print("Matriz de contingencia")
 table(modelo.qda$class, empleados$minoria)
-sprintf("Clasifica correstamente el %.2f%% de los casos", 100 * mean(modelo.qda$class == empleados$minoria))
+sprintf("Clasifica correctamente el %.2f%% de los casos", 100 * mean(modelo.qda$class == empleados$minoria))
 ```
 
 Ahora realizamos *cross-validation* excluyendo 20% de los datos para validación.
