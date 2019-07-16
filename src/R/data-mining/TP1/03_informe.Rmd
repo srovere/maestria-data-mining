@@ -18,7 +18,7 @@ lang: es
 ---
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE }
-# Borrar bariables del ambiente
+# Borrar variables del ambiente
 rm(list = objects())
 
 # Carga de paquetes necesarios para hacer los gráficos
