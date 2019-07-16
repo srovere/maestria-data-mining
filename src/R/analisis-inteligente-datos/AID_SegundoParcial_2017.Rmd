@@ -25,11 +25,15 @@ require(dplyr)
 require(ggplot2)
 require(Hotelling)
 require(MASS)
+require(NbClust)
 require(plotly)
 require(readr)
 require(readxl)
 require(tidyr)
 options(bitmapType = "cairo")
+
+# Inicializamos la semilla en 0
+set.seed(0)
 ```
 
 # Clustering
@@ -72,7 +76,7 @@ loadings.largo <- data.frame(loadings) %>%
 ggplot(data = loadings.largo, mapping = ggplot2::aes(x = Variable, y = Loading, fill = Loading)) +
   ggplot2::geom_bar(stat = 'identity') +
   ggplot2::facet_wrap(~Componente, ncol = 1) +
-  ggplot2::scale_fill_distiller(type = "div", palette = "Spectral") +
+  ggplot2::scale_fill_distiller(type = "div", palette = "RdBu", direction = 1) +
   ggplot2::labs(x = "Variable", y = "Loading") +
   ggplot2::theme_bw() +
   ggplot2::theme(
@@ -131,23 +135,36 @@ plotly::plot_ly(data = scores.grupos.km, x = ~Comp.1, y = ~Comp.2, z = ~Comp.3, 
 ## Selección de la cantidad de clusters
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE }
 metricas <- purrr::map_dfr(
-  .x = seq(from = 2, to = nrow(scores)-1),
+  .x = seq(from = 2, to = 15),
   .f = function(k) {
-    cluster.kmeans.k <- stats::kmeans(x = scores, centers = k, iter.max = 100)
-    return (data.frame(k = k, metrica = 'WSS', valor = cluster.kmeans.k$tot.withinss, stringsAsFactors = FALSE) %>%
-              dplyr::bind_rows(data.frame(k = k, metrica = 'BSS', valor = cluster.kmeans.k$betweenss, stringsAsFactors = FALSE)))
+    cluster.kmeans.k  <- stats::kmeans(x = scores, centers = k, iter.max = 100)
+    cluster.kmeans.k1 <- stats::kmeans(x = scores, centers = k+1, iter.max = 100)
+    BSS.k             <- cluster.kmeans.k$betweenss
+    WSS.k             <- cluster.kmeans.k$tot.withinss
+    WSS.k1            <- cluster.kmeans.k1$tot.withinss
+    F.k.k1            <- (WSS.k - WSS.k1) / (WSS.k1 / (nrow(scores) - k - 1))
+    F.comparacion     <- stats::qf(0.95, ncol(scores), ncol(scores)*(nrow(scores)-k-1))
+    return (data.frame(k = k, WSS = WSS.k, BSS = BSS.k, F.k.k1 = F.k.k1, F.comparacion = F.comparacion, stringsAsFactors = FALSE) %>%
+              dplyr::mutate(Aumentar = F.k.k1 > F.comparacion, WSS.BSS.rate = WSS/BSS)) 
   }
 )
 ggplot2::ggplot(data = metricas) +
-  ggplot2::geom_line(mapping = ggplot2::aes(x = k, y = valor, col = metrica)) +
+  ggplot2::geom_line(mapping = ggplot2::aes(x = k, y = WSS)) +
   ggplot2::geom_vline(xintercept = 4, linetype = "dotted") +
   ggplot2::labs(x = "Cantidad de clusters", y = "Valor", col = "Métrica",
                 title = "Métricas para distintos números de clusters",
-                subtitle = "Comparación de within-cluster sum of squares vs. between-cluster sum of squares") +
+                subtitle = "Comparación de WSS para distintos valores de k") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'bottom'
   )
+
+# Uso de NbClust para determinar el mejor valor de "k".
+invisible({
+  pdf(file = NULL)
+  resultados.k <- suppressWarnings(suppressMessages(NbClust::NbClust(data = scores, method = "kmeans", index = "all")))
+  dev.off()
+})
 ```
 
 # Comparación de medias multivariadas de dos poblaciones
