@@ -1,0 +1,363 @@
+---
+title: "Repaso para segundo examen parcial"
+subtitle: "Análisis Inteligente de Datos (2019)"
+author:
+  - Santiago Luis Rovere (srovere@gmail.com)
+date: '`r format(Sys.Date(), "%d de %B de %Y")`'
+output:
+  html_document:
+    toc: true
+    number_sections: yes
+  pdf_document:
+    number_sections: yes
+  html_notebook:
+    number_sections: yes
+---
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Inicializacion de ambiente
+rm(list = objects())
+require(ADGofTest)
+require(biotools)
+require(Cairo)
+require(car)
+require(dplyr)
+require(ggbiplot)
+require(ggplot2)
+require(Hotelling)
+require(MASS)
+require(NbClust)
+require(plotly)
+require(readr)
+require(readxl)
+require(tidyr)
+options(bitmapType = "cairo")
+
+# Inicializamos la semilla en 0
+set.seed(0)
+```
+
+# ANOVA
+
+```{r echo=FALSE, warnings=FALSE, messages=FALSE}
+calcio <- readxl::read_xls("Calcio.xls") %>%
+  dplyr::mutate(lote = as.factor(Lote)) %>%
+  dplyr::select(calcio, lote)
+```
+
+## Modelo
+
+Se tienen 5 lotes, cada uno de los cuales tiene materias primas con un cierto contenido de calcio. Sea $\mu$<sub>i</sub> la media del contenido de calcio para (en alguna unidad determinada) para la población <sub>i</sub>. Se desea probar si las medias de todas poblaciones son iguales o no. Para ello, se realiza una ANOVA, con las siguientes hipótesis:
+
+  * H<sub>0</sub>: $\mu$<sub>1</sub> = $\mu$<sub>2</sub> = ... = $\mu$<sub>5</sub>
+  * H<sub>1</sub>: $\exists$ (i, j) / $\mu$<sub>i</sub> != $\mu$<sub>j</sub>
+  
+Los supuestos que deben cumplirse para poder realizar la ANOVA son:
+
+  * Independencia de las observaciones.
+  * Normalidad de los residuos.
+  * Homocedasticidad de los residuos.
+  
+## Prueba y validación de supuestos
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Carga de datos.
+aov.calcio <- stats::aov(calcio~lote, data = calcio)
+residuos   <- stats::residuals(aov.calcio)
+
+cat("Test de normalidad (Shapiro-Wilk) de los residuos")
+stats::shapiro.test(residuos)
+
+cat("Test de homocedasticidad (Levene)")
+leveneTest(aov.calcio)
+```
+
+## Conclusiones
+
+Dado que se cumplen las condiciones de normalidad y homocedasticidad, podemos concluir en base a los resultados de la ANOVA:
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+summary(aov.calcio)
+```
+
+Dado que el *p-valor* es pequeño (0.0036) en relación al nivel de significación 0.05 (alrededor de un orden de magnitud menor), podemos afirmar que existen diferencias estadísticamente siginificativas como para rechazar la igualdad de medias. Finalmente, realizamos el test de Tukey para encontrar mayor información:
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+medias <- dplyr::group_by(calcio, lote) %>%
+  dplyr::summarise(media = mean(calcio))
+ggplot2::ggplot(data = calcio) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = lote, y = calcio, fill = lote), show.legend = FALSE) +
+  ggplot2::geom_point(data = medias, mapping = ggplot2::aes(x = lote, y = media, col = 'media')) +
+  ggplot2::scale_color_manual(name = "Referencias", values = c("media" = "red"), labels = c("media" = "Media por grupo")) +
+  ggplot2::labs(title = "Contenido de calcio de materias primas", subtitle = "Comparación de medias por lote", 
+                x = "Lote", y = "Contenido de calcio", fill = "") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+stats::TukeyHSD(aov.calcio, conf.level=0.95)
+```
+
+Según el test de Tukey, se encuentran diferencias significativas entre los grupos 4 y 5 en relación al 2 y el 3 (aunque por ejemplo el p-valor del test entre los grupos 2 y 4 da 0.093 por lo que no se rechazaría la diferencia de medias). Sin embargo, la inspección visual del gráfico muestra diferencias sustanciales entre los grupos 1, 2 y 3 vs. los grupos 4 y 5.
+
+Si el fabricante tuviera dos líneas de productos, una con alto y otra con bajo contenido de calcio, se podrían seleccionar los lotes 3 y 5 respectivamente.
+
+# Análisis discriminante.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+cancer <- readxl::read_excel("cancer.xls") %>%
+  dplyr::select(-ID)
+```
+
+## Análisis de medias
+
+Los vectores de medias (general y por grupos son los siguientes)
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+print(colMeans(as.matrix(dplyr::select(cancer, -Class))))
+for (clase in unique(cancer$Class)) {
+  print(sprintf("Vector de medias para la clase %d", clase, "\n\n"))
+  print(colMeans(as.matrix(cancer %>% dplyr::filter(Class == clase) %>% dplyr::select(-Class))))
+}
+```
+
+A priori observamos que las medias son significativamente diferentes. Para confirmarlo, realizamos el test de Hotelling para comparar medias multivariadas. Para ello se necesita normalidad multivariante por grupos y homocedasticidad.
+
+```{r, echo=FALSE, warnings=FALSE, message=TRUE }
+# Normalidad multivariadad por grupos
+for (clase in unique(cancer$Class)) {
+  print(sprintf("Analizando normalidad multivariante para la clase %d", clase, "\n\n"))
+  matriz.datos <- cancer %>%
+    dplyr::filter(Class == clase) %>%
+    dplyr::select(-Class) %>%
+    as.matrix()
+  print(mvnormtest::mshapiro.test(t(matriz.datos)))
+}
+
+# Homocedasticidad
+print(sprintf("Analizando homocedasticidad"))
+biotools::boxM(data = as.matrix(dplyr::select(cancer, -Class)), 
+     grouping = as.matrix(dplyr::select(cancer, Class)))
+```
+
+No se cumplen los supuestos para realizar el test de Hotelling, pero de todos modos es clara la diferencia de los vectores medios según se observa en el siguiente gráfico.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, fig.width=10 }
+cancer.largo <- cancer %>%
+  tidyr::gather(key = Variable, value = Valor, -Class) %>%
+  dplyr::mutate(Clase = as.factor(Class))
+medias <- dplyr::group_by(cancer.largo, Clase, Variable) %>%
+  dplyr::summarise(Media = mean(Valor))
+ggplot2::ggplot(data = cancer.largo) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = "", y = Valor, group = Clase, fill = Clase)) +
+  ggplot2::facet_wrap(~Variable, scales = "free") +
+  ggplot2::labs(title = "Contenido de calcio de materias primas", subtitle = "Comparación de medias por lote",
+                x = "Lote", y = "Contenido de calcio", fill = "Clase (0 = maligno, 1 = benigno)") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+Se observa además que probablemente todas las variables sean buenas para discriminar. Hacemos la comparación de medias univariadas para confirmarlo.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+for (variable in unique(cancer.largo$Variable)) {
+  print(sprintf("Analizando diferencia de medias para la variable %s", variable, "\n\n"))
+  datos.variable   <- cancer.largo %>%
+    dplyr::filter(Variable == variable)
+  datos.variable.0 <- dplyr::filter(datos.variable, Clase == 0) %>% dplyr::pull(Valor)
+  datos.variable.1 <- dplyr::filter(datos.variable, Clase == 1) %>% dplyr::pull(Valor)
+  test.variable    <- t.test(datos.variable.0, datos.variable.1)
+  print(sprintf("Variable %s. p-valor = %f\n", variable, test.variable$p.value))
+}
+```
+
+Los *p-valor* para todos los tests dan valores prácticamente iguales a 0, lo cual confirma la hipótesis anterior. Dado que no hay normalidad multivariante ni homocedasticidad, se puede utilizar QDA. QDA se utiliza habitualmente para casos donde hay normalidad multivariante y falta de homocedasticidad. sin embargo, también es robusto a la falta de normalidad multivariante. Por tal motivo, se procede a utilizar QDA.
+
+## QDA
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+modelo.qda <- MASS::qda(Class ~ ., data = cancer, CV = TRUE)
+print("Matriz de contingencia")
+table(modelo.qda$class, cancer$Class, dnn = c("Datos reales", "Datos predichos"))
+sprintf("Clasifica correctamente el %.2f%% de los casos", 100 * mean(modelo.qda$class == cancer$Class))
+```
+
+Se observa que el QDA arroja resultados muy buenos cuando se verifica la capacidad discriminante con el método ingenuo. Si realizamos *cross-validation* utilizando un 70% de los datos para entrenar y 30% para validar, se obtiene lo siguiente.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+set.seed(0) # Fijo la semilla para que todos obtengamos los mismos resultados
+filas.validacion       <- sample.int(n = nrow(cancer), size = 0.3 * nrow(cancer))
+conjunto.entrenamiento <- cancer[-filas.validacion, ]
+conjunto.validacion    <- cancer[filas.validacion, ]
+qda.entrenamiento      <- MASS::qda(x = dplyr::select(conjunto.entrenamiento, -Class), grouping = conjunto.entrenamiento$Class)
+qda.validacion         <- stats::predict(qda.entrenamiento, dplyr::select(conjunto.validacion, -Class))
+
+print("Matriz de contingencia")
+table(qda.validacion$class, conjunto.validacion$Class, dnn = c("Datos reales", "Datos predichos"))
+sprintf("Clasifica correctamente el %.2f%% de los casos", 100 * mean(qda.validacion$class == conjunto.validacion$Class))
+```
+
+En este caso, la capacidad discriminante del QDA también es excelente. Esto se debe a que cualquiera de las variables prácticamente puede discriminar a cualquier a de los grupos utilizando su media.
+
+# Clustering
+
+Leemos el conjunto de datos de ciudad y escalamos las variables.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+cities           <- readxl::read_xlsx("city.xlsx") %>%
+  as.data.frame()
+rownames(cities) <- cities$city
+cities           <- dplyr::select(cities, -city) %>%
+  as.matrix()
+cities.original  <- cities
+cities           <- scale(cities)
+```
+
+## Clustering jerárquico
+
+Utilizamos clustering jerárquico ascendente (se parte de clusters que contienen una sola ciudad y se los aglomera de acuerdo a un cierto criterio de proximidad hasta llegar a un único cluster). Los criterios de proximidad entre clusters son los siguientes:
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Matriz de distancias entre "individuos"
+matriz.distancia <- dist(x = cities, method = "euclidean")
+
+# Clusters con metodos de calculo de distancia entre clusters
+hc_complete <- hclust(d = matriz.distancia, method = "complete")
+hc_average  <- hclust(d = matriz.distancia, method = "average")
+hc_single   <- hclust(d = matriz.distancia, method = "single")
+hc_ward.D2  <- hclust(d = matriz.distancia, method = "ward.D2")
+hc_ward.D   <- hclust(d = matriz.distancia, method = "ward.D")
+hc_centroid <- hclust(d = matriz.distancia, method = "centroid")
+
+cor(x = matriz.distancia, cophenetic(hc_complete)) # Coeficiente Cofenetico
+cor(x = matriz.distancia, cophenetic(hc_average)) # Coeficiente Cofenetico
+cor(x = matriz.distancia, cophenetic(hc_single)) # Coeficiente Cofenetico
+cor(x = matriz.distancia, cophenetic(hc_ward.D2)) # Coeficiente Cofenetico
+cor(x = matriz.distancia, cophenetic(hc_ward.D)) # Coeficiente Cofenetico
+cor(x = matriz.distancia, cophenetic(hc_centroid)) # Coeficiente Cofenetico
+```
+
+El coeficiente de correlación cofenético con mayor valor (0.93) es aquel correspondiente al método de distancia *average*. Lo utilizamos ya que es el que mejor representa las distancias originales.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+factoextra::fviz_dend(x = hc_average, k = 4, cex = 0.6) + 
+  ggplot2::geom_hline(yintercept = 3.35, linetype = "dashed") +
+  ggplot2::labs(x = "Ciudad", y = "Altura", 
+                title = "Clasificación de ciudades de Estados Unidos",
+                subtitle = "Clustering jerárquico") +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+En estos casos, encontrar la cantidad de clusters óptimos es un poco subjetiva. Uno de los criterios implica evaluar en qué momento comienzan a generarse saltos muy grandes en las distancias. Como se observa, tanto *Chicago* como *Phoenix* parece ser outliers ya que son ciudades aglomeramientos de un sólo elementos. Por otro lado, vemos otros dos clusters que se diferencia bastante entre si.
+
+## Clustering no jerárquico
+
+Utilizamos el método de *K-means* para realizar un clustering no jerárquico. Previemente, realizamos un análisis de la cantidad de clusters. Se observa que para *k = 4* se produce un quiebre bastante importante y se comienza a estabilidad el valor de WSS (este método se llama método del codo - Elbow method).
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+set.seed(0)
+km.cluster <- NULL
+metricas <- purrr::map_dfr(
+  .x = seq(from = 2, to = 14),
+  .f = function(k) {
+    cluster.kmeans.k  <- stats::kmeans(x = cities, centers = k, iter.max = 100)
+    cluster.kmeans.k1 <- stats::kmeans(x = cities, centers = k+1, iter.max = 100)
+    if (k == 4) {
+      km.cluster <<- cluster.kmeans.k
+    }
+    BSS.k             <- cluster.kmeans.k$betweenss
+    WSS.k             <- cluster.kmeans.k$tot.withinss
+    WSS.k1            <- cluster.kmeans.k1$tot.withinss
+    F.k.k1            <- (WSS.k - WSS.k1) / (WSS.k1 / (nrow(cities) - k - 1))
+    F.comparacion     <- stats::qf(0.95, ncol(cities), ncol(cities)*(nrow(cities)-k-1))
+    return (data.frame(k = k, WSS = WSS.k, BSS = BSS.k, F.k.k1 = F.k.k1, F.comparacion = F.comparacion, stringsAsFactors = FALSE) %>%
+              dplyr::mutate(Aumentar = F.k.k1 > F.comparacion, WSS.BSS.rate = WSS/BSS)) 
+  }
+)
+ggplot2::ggplot(data = metricas) +
+  ggplot2::geom_line(mapping = ggplot2::aes(x = k, y = WSS)) +
+  ggplot2::geom_vline(xintercept = 4, linetype = "dotted") +
+  ggplot2::labs(x = "Cantidad de clusters", y = "Valor", col = "Métrica",
+                title = "Métricas para distintos números de clusters",
+                subtitle = "Comparación de WSS para distintos valores de k") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+## Caracterización
+
+Seleccionamos el cluster no jerárquico y visualizamos los clusters reduciendo la dimensionalidad utilizando ACP.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+factoextra::fviz_cluster(object = km.cluster, data = cities, show.clust.cent = TRUE, ellipse.type = "euclid", star.plot = TRUE, repel = TRUE, labelsize = 10) + 
+  ggplot2::labs(title = "Caracterización de ciudades aglomeradas", subtitle = "Utilización de ACP para reducir dimensionalidad") +
+  ggplot2::theme_bw() + 
+  ggplot2::theme(
+    legend.position = "none",
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+Para entender qué representan las dimensiones, realizamos un ACP, un gráfico de los loadings y un biplot para las primeras 2 dimensiones, las cuales representan el 72% de la varianza.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# PCA
+pca            <- stats::princomp(x = cities, cor = TRUE)
+prop.varianzas <- (pca$sdev ^ 2) / sum((pca$sdev ^ 2))
+```
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Loadings
+scores         <- pca$scores[, 1:2]
+loadings       <- pca$loadings[, 1:2] 
+loadings.largo <- data.frame(loadings) %>%
+  dplyr::mutate(Variable = rownames(.)) %>%
+  tidyr::gather(key = Componente, value = Loading, -Variable)
+ggplot(data = loadings.largo, mapping = ggplot2::aes(x = Variable, y = Loading, fill = Loading)) +
+  ggplot2::geom_bar(stat = 'identity') +
+  ggplot2::facet_wrap(~Componente, ncol = 1) +
+  ggplot2::scale_fill_distiller(type = "div", palette = "RdBu", direction = 1) +
+  ggplot2::labs(x = "Variable", y = "Loading") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'none',
+    axis.text.x = ggplot2::element_text(angle = 90)
+  )
+```
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Tabla de ciudades original
+knitr::kable(cities.original)
+```
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Biplot
+clases <- as.factor(km.cluster$cluster)
+ggbiplot::ggbiplot(pcobj = pca, labels = names(km.cluster$cluster), groups = clases,
+                   ellipse = TRUE) +
+  ggplot2::scale_colour_brewer(name = 'Grupo', type = "qual", palette = "Set1") +
+  ggplot2::labs(x = sprintf("Componente 1 (%0.2f%%)", 100*prop.varianzas[1]),
+                y = sprintf("Componente 2 (%0.2f%%)", 100*prop.varianzas[2]),
+                title = "Caracterización de ciudades de Estdos Unidos",
+                subtitle = "Análisis de componenes principales") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  ) + ggplot2::coord_fixed(ratio = 0.5, ylim = c(-3, 3))
+```
