@@ -194,7 +194,7 @@ Una vez generado el conjunto de datos buscado, procedimos a buscar las reglas pa
 grid.arrange(grafico.evolucion.metricas)
 ```
 
-Se destacan dos reglas dos reglas con alto grado de confianza durante todos los períodos. Son aquellas que indican (son sutiles diferencias) que el comercio con nivel de precio *muy caro* es *Jumbo* **independientemente** del período que se considere. Esto fue previamente descubierto en el trabajo anterior (ver mapa de calor de 4.2.2). También observamos reglas similares para productos *muy baratos* o de precio *medio* asociados a *Carrefour* y *Coto*. Esto también es consistente con lo encontrado en el trabajo anterior.
+Se destacan dos reglas dos reglas con alto grado de confianza durante todos los períodos. Son aquellas que indican (con sutiles diferencias) que el comercio con nivel de precio *muy caro* es *Jumbo* **independientemente** del período que se considere. Esto fue previamente descubierto en el trabajo anterior (ver mapa de calor de 4.2.2). También observamos reglas similares para productos *muy baratos* o de precio *medio* asociados a *Carrefour* y *Coto*. Esto también es consistente con lo encontrado en el trabajo anterior.
 
 Resulta también de interés una de las reglas que no se encuentra en todos los períodos (por no superar alguno de los umbrales). Por ejemplo, se observa que en los períodos 2 y 4 los *supermercados* de zona *norte* con nivel de precio *levemente caro* corresponden a *Jumbo* con nivel de confiaza aproximado a 0,6 (que en líneas generales siempre es *muy caro*). No obstante, en líneas generales el conocimiento aportado por este análisis no es significativamente nuevo.
 
