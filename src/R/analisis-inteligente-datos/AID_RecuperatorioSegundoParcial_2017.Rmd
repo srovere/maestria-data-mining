@@ -1,0 +1,389 @@
+---
+title: "Recuperatorio Segundo Parcial de 2017"
+subtitle: "Análisis Inteligente de Datos (2019)"
+author:
+  - Santiago Luis Rovere (srovere@gmail.com)
+date: '`r format(Sys.Date(), "%d de %B de %Y")`'
+output:
+  html_document:
+    toc: true
+    number_sections: yes
+  pdf_document:
+    number_sections: yes
+  html_notebook:
+    number_sections: yes
+---
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Inicializacion de ambiente
+rm(list = objects())
+require(ADGofTest)
+require(biotools)
+require(Cairo)
+require(car)
+require(dplyr)
+require(ggbiplot)
+require(ggcorrplot)
+require(ggplot2)
+require(Hotelling)
+require(MASS)
+require(NbClust)
+require(plotly)
+require(readr)
+require(readxl)
+require(rrcov)
+require(tidyr)
+options(bitmapType = "cairo")
+
+# Inicializamos la semilla en 0
+set.seed(0)
+```
+
+# Ejercicio 1
+
+Se leen los datos y se pasan los datos todos a segundos a fin de que esto nos pueda aportar algún dato más a la hora de explicar la clasificación.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Leermos
+records <- readxl::read_xls("records_masculinos.xls") %>%
+  as.data.frame()
+rownames(records) <- records$PAIS
+records <- dplyr::select(records, -PAIS)
+
+# Transformamos a segundos
+for (j in seq(from = 4, to = ncol(records))) {
+  records[, j] <- records[, j] * 60
+}
+colnames(records) <- c("100m", "200m", "400m", "800m", "1500m", "5000m", "10000m", "Maratón")
+```
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+matriz.correlacion <- cor(records)
+ggcorrplot::ggcorrplot(matriz.correlacion, hc.order = TRUE, type = "lower",
+   lab = TRUE)
+```
+
+## Clustering jerárquico para variables (columnas)
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Trasponemos la matriz para que las columnas sean los paises y las filas sean las actividades.
+records.variables <- records %>%
+  as.matrix() %>%
+  t()
+
+# Calculamos la matriz de distancia entre individuos (euclídea)
+matriz.distancia <- dist(x = records.variables, method = "euclidean")
+
+# Clusters con metodos de calculo de distancia entre clusters
+hc_complete <- hclust(d = matriz.distancia, method = "complete")
+hc_average  <- hclust(d = matriz.distancia, method = "average")
+hc_single   <- hclust(d = matriz.distancia, method = "single")
+hc_ward.D2  <- hclust(d = matriz.distancia, method = "ward.D2")
+hc_ward.D   <- hclust(d = matriz.distancia, method = "ward.D")
+hc_centroid <- hclust(d = matriz.distancia, method = "centroid")
+
+# Calculamos los coeficientes de correlación cofenética
+coeficientes.correlacion.cofenetica <- c(
+  "Complete linkage" = cor(x = matriz.distancia, cophenetic(hc_complete)),
+  "Average linkage" = cor(x = matriz.distancia, cophenetic(hc_average)),
+  "Single linkage" = cor(x = matriz.distancia, cophenetic(hc_single)),
+  "WARD" = cor(x = matriz.distancia, cophenetic(hc_ward.D2)),
+  "WARD v2" = cor(x = matriz.distancia, cophenetic(hc_ward.D)),
+  "Centroide" = cor(x = matriz.distancia, cophenetic(hc_centroid))
+)
+print(coeficientes.correlacion.cofenetica)
+```
+
+Dado que los coeficientes de correlación cofenéticos son todos muy parecidos (y de valor elevado), seleccionamos el de *average linkage* (que es el de valor más alto).
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, fig.height=7 }
+factoextra::fviz_dend(x = hc_average, k = 4, cex = 0.6) +
+  ggplot2::geom_hline(yintercept = 200, linetype = "dashed") +
+  ggplot2::labs(x = "Actividad", y = "Altura",
+                title = "Clasificación de actividades deportivas masculinas según récords por países",
+                subtitle = "Clustering jerárquico") +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+Dado que no podemos hacer reducción de dimensionalidad para visualizar el cluster en términos de coordenadas de cada individuo - porque la cantidad de observaciones (actividades) es menor que la cantidad de variables (países) -, analizamos directamente el dendograma. Se observa claramente que las actividades están agrupadas por distancia. 
+
+Las actividades con distancias similares tienen valores de récords más cercanos entre sí, como era de esperarse. Mientras que la maratón, dada su distancia en metros, tiene valores de récords mucho más alejados de las demás actividades. Esta sería el criterio por el cual se organizan los aglomerados. Ahora procedemos a realizar la aglomeración por país.
+
+## Clustering jerárquico para países (filas)
+
+Realizamos PCA para reducir dimensionalidad y poder interpretar mejor la clasificación.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Trasponemos la matriz para que las columnas sean los paises y las filas sean las actividades.
+records.paises <- records %>%
+  as.matrix()
+
+# Hacemos PCA para reducir dimensionalidad
+pca            <- stats::princomp(x = records.paises, cor = TRUE)
+prop.varianzas <- (pca$sdev ^ 2) / sum((pca$sdev ^ 2))
+
+# Graficamos el porcentaje de varianza representada por cada componente
+ggplot(data = data.frame(proporcion = 100 * cumsum(prop.varianzas), componente = 1:length(prop.varianzas)),
+       mapping = ggplot2::aes(x = componente, y = proporcion, fill = componente)) +
+  ggplot2::scale_x_continuous(breaks = 1:length(prop.varianzas)) +
+  ggplot2::geom_bar(stat = 'identity') +
+  ggplot2::geom_text(mapping = ggplot2::aes(y = proporcion + 1, label = sprintf("%0.2f", proporcion))) +
+  ggplot2::labs(x = "Componente", y = "Porcentaje acumulado de varianza explicada") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = 'none')
+```
+
+Se observa que las 2 primeras dimensiones capturan más del 93% de la varianza. Además, en la figura siguiente se observa que la primera componente (casi 83% de la varianza) es de tamaño y la segunda (casi 11% de la varianza) de forma. La primera pesa de forma aproximadamente proporcional el tiempo logrado en cada actividad, mientras que la segunda contrasta los tiempos de las actividades con recorrido más corto (con peso positivo) con las de recorrido más largo (con peso negativo). 
+
+Cabe destacar de este modo, que los países con valores más negativos en la componente 1 tienen mejores records (ya que valores más altos de la componete representan tiempos más largos). Mientras que valores negativos en la segunda componente representan países con mejor desempeño en actividades cortas. Contrariamente, valores positivos en la segunda componente muestran países con mejor desempeño en actividades largas. En base a estas dos componentes se realizará el clustering.
+
+```{r}
+# Loadings
+scores         <- pca$scores[, 1:2]
+loadings       <- pca$loadings[, 1:2] 
+loadings.largo <- data.frame(loadings) %>%
+  dplyr::mutate(Variable = rownames(.)) %>%
+  tidyr::gather(key = Componente, value = Loading, -Variable)
+ggplot(data = loadings.largo, mapping = ggplot2::aes(x = Variable, y = Loading, fill = Loading)) +
+  ggplot2::geom_bar(stat = 'identity') +
+  ggplot2::facet_wrap(~Componente, ncol = 1) +
+  ggplot2::scale_fill_distiller(type = "div", palette = "RdBu", direction = 1) +
+  ggplot2::labs(x = "Variable", y = "Loading") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'none',
+    axis.text.x = ggplot2::element_text(angle = 90)
+  )
+```
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Calculamos la matriz de distancia entre individuos (euclídea)
+matriz.distancia <- dist(x = scores, method = "euclidean")
+
+# Clusters con metodos de calculo de distancia entre clusters
+hc_complete <- hclust(d = matriz.distancia, method = "complete")
+hc_average  <- hclust(d = matriz.distancia, method = "average")
+hc_single   <- hclust(d = matriz.distancia, method = "single")
+hc_ward.D2  <- hclust(d = matriz.distancia, method = "ward.D2")
+hc_ward.D   <- hclust(d = matriz.distancia, method = "ward.D")
+hc_centroid <- hclust(d = matriz.distancia, method = "centroid")
+
+# Calculamos los coeficientes de correlación cofenética
+coeficientes.correlacion.cofenetica <- c(
+  "Complete linkage" = cor(x = matriz.distancia, cophenetic(hc_complete)),
+  "Average linkage" = cor(x = matriz.distancia, cophenetic(hc_average)),
+  "Single linkage" = cor(x = matriz.distancia, cophenetic(hc_single)),
+  "WARD" = cor(x = matriz.distancia, cophenetic(hc_ward.D2)),
+  "WARD v2" = cor(x = matriz.distancia, cophenetic(hc_ward.D)),
+  "Centroide" = cor(x = matriz.distancia, cophenetic(hc_centroid))
+)
+print(coeficientes.correlacion.cofenetica)
+```
+
+Dado que la métrica de *average linkage* representa mejor las distancias entre individuos, la aplicamos para generar el aglomerado.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, fig.height=7 }
+factoextra::fviz_dend(x = hc_average, k = 7, cex = 0.6, k_colors = NULL, color_labels_by_k = FALSE) +
+  ggplot2::labs(x = "Ciudad", y = "Altura",
+                title = "Clasificación de records masculinos por país según récords por actividades",
+                subtitle = "Clustering jerárquico") +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, fig.height=7 }
+# ii. Biplot para PC1 y PC2 y mostrar en colores los grupos
+clases <- as.factor(stats::cutree(tree = hc_average, k = 7))
+ggbiplot::ggbiplot(pcobj = pca, labels = names(clases), groups = clases,
+                   ellipse = TRUE) +
+  ggplot2::scale_colour_brewer(name = 'Región', type = "qual", palette = "Set1") +
+  ggplot2::labs(x = sprintf("Componente 1 (%0.2f%%)", 100*prop.varianzas[1]),
+                y = sprintf("Componente 2 (%0.2f%%)", 100*prop.varianzas[2])) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = 'right') +
+  ggplot2::coord_fixed(ratio = 0.5)
+```
+
+Aquí se visualiza el biplot con la clasificación de países. Debe ternerse en cuenta que los colores no son los mismo que en el dendograma. Se confirma que los países *potencia*, cuyos récords de tiempo son más bajos, se corresponden con valores más bajos de la primera componente.
+
+## Clustering jerárquico vs. no jerárquico
+
+Los clusterings jerárquicos generan aglomerados anidados, lo cual permite ver una extructura subyacente en el conjunto de datos. Es ideal para representar taxonomías. Tienen un mayor costo computacional dada la necesidad de tener que calcular matrices de distancia entre todos los individuos/clusters, lo cual lo hace particularmente costoso cuando se cuentra con un conjunto de datos muy grande. No requieren la definición de la cantidad de aglomerados, sino que el usuario es quien lo evalúa a posteriori haciendo uso del dendograma y ciertas métricas.
+
+Los clusterings no jerárquicos (como es el caso del K-means) generan aglomerados de *partición*. Es decir, cada cluster es mutuamente excluyente con los demás en términos de los individuos que los componen. Esta es una diferencia importante con respecto a los clusterings jerárquicos, donde los clusters son anidados. En el caso del *k-means*, se requiere conocimiento previo de la cantidad de aglomerados a construir. Además, dado que el algoritmo inicializa los centroides de los aglomerados, la selección de dicha inicialización puede conducir a mínimos locales (en la función de costo) en vez de máximos globales. Es computacionalmente más eficiente que el clustering jerárquico, por lo que conviene ser utilizado cuando se cuenta con un gran conjunto de datos.
+
+# Ejercicio 2
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Leemos el conjunto de datos
+anticuerpos <- readxl::read_xls("anticuerpos.xls") %>%
+  dplyr::select(-`Nro Pac.`) %>%
+  dplyr::mutate(Grupo = as.factor(Grupo))
+
+# Hacemos un boxplot por variable
+anticuerpos.largo <- anticuerpos %>%
+  tidyr::gather(key = Variable, value = Valor, -Grupo)
+ggplot2::ggplot(data = anticuerpos.largo) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = Grupo, y = Valor, fill = Grupo), show.legend = FALSE) +
+  ggplot2::facet_wrap(~Variable, scales = "free") +
+  #ggplot2::geom_point(data = medias, mapping = ggplot2::aes(x = lote, y = media, col = 'media')) +
+  ggplot2::scale_color_manual(name = "Referencias", values = c("media" = "red"), labels = c("media" = "Media por grupo")) +
+  ggplot2::labs(title = "Anticuerpos por grupo", subtitle = "Comparación de medias por grupo", 
+                x = "Lote", y = "Contenido de calcio", fill = "") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+A simple vista se observa que en las variables tienen aproximadamente la misma mediana (a excepción de albúmina) y varianza parecida. Establemente entonces como hipótesis de interés, la igualdad de medias multivariadas por grupo y procedemos a realizar el test correspondiente. Las hipótesis planteadas son:
+
+ * H<sub>0</sub>: $\mu$<sub>1</sub> = $\mu$<sub>2</sub>
+ * H<sub>1</sub>: $\mu$<sub>1</sub> != $\mu$<sub>2</sub>
+
+Es decir, que existen 2 grupos y 4 variables (colesterol, albúmina, calcio y áurico). Realizamos el test de *Hotelling*, probando inicialmente la normalidad multivariaza por grupos y la igualdad de matrices de covarianza.
+
+```{r, echo=FALSE, warnings=FALSE, message=TRUE }
+# Normalidad multivariadad general y por grupos
+for (grupo in unique(anticuerpos$Grupo)) {
+  cat(paste0("Analizando normalidad para grupo ", grupo))
+  matriz.datos <- anticuerpos %>%
+    dplyr::filter(Grupo == grupo) %>%
+    dplyr::select(-Grupo) %>%
+    as.matrix()
+  print(mvnormtest::mshapiro.test(t(matriz.datos)))
+}
+
+# Homocedasticidad
+biotools::boxM(data = as.matrix(dplyr::select(anticuerpos, -Grupo)),
+     grouping = as.matrix(dplyr::select(anticuerpos, Grupo)))
+```
+
+Se rechaza la normalidad multivariante para el grupo 2, por lo que la distribución de sus datos es diferente que para el grupo 1 (cuya normalidad multivariente no es rechazada). Sin embargo, dada la cantidad de observaciones por grupo, podemos considerar que el estadístico utilizado para el test de Hotelling (basado en el promedio muestral de cada grupo) tiene distribución asintóticamente normal. Dado que el supuesto de homocedasticidad se cumple, procedemos a realizar el test de Hotelling.
+
+```{r, echo=FALSE, warnings=FALSE, message=TRUE }
+print(Hotelling::hotelling.test(x = .~ Grupo, data = anticuerpos))
+
+for (variable in unique(anticuerpos.largo$Variable)) {
+  print(sprintf("Analizando diferencia de medias para la variable %s", variable, "\n\n"))
+  datos.variable   <-anticuerpos.largo %>%
+    dplyr::filter(Variable == variable)
+  datos.variable.0 <- dplyr::filter(datos.variable, Grupo == 1) %>% dplyr::pull(Valor)
+  datos.variable.1 <- dplyr::filter(datos.variable, Grupo == 2) %>% dplyr::pull(Valor)
+  test.variable    <- t.test(datos.variable.0, datos.variable.1)
+  print(sprintf("Variable %s. p-valor = %f\n", variable, test.variable$p.value))
+}
+```
+
+Haciendo la comparación de medias de forma univariada, vemos que la variable más discriminante resulta ser la **Albúmina**.
+
+## QDA
+
+El test rechaza la hipótesis de igualdad de medias si tomamos un nivel de significancia de 0.05. Luego, es razonable pensar que los grupos pueden ser clasificados por sus medias. Dado que no se cumple la normalidad multivariada por población, no deberíamos poder aplicar análisis discriminante dado que es condición necesaria para LDA como para QDA. 
+
+Sin embargo, el método de QDA es más robusto a la falta de normalidad multivariada. Además, existe existe el método QDA robusto. En este caso, los resultados arrojados por ambos son similares. Se muestra en este caso la discriminación utilizando QDA clásico.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+anticuerpos.albumina <- dplyr::select(anticuerpos, Grupo, Albúmina)
+modelo.qda           <- MASS::qda(Grupo~., data = anticuerpos.albumina)
+prediccion           <- predict(modelo.qda)
+print("Matriz de contingencia utilizando método ingenuo")
+table(prediccion$class, anticuerpos.albumina$Grupo, dnn = c("Datos reales", "Datos predichos"))
+sprintf("Clasifica correctamente el %.2f%% de los casos", 100 * mean(prediccion$class == anticuerpos.albumina$Grupo))
+```
+
+Si bien el *accuracy* con el método ingenuo es de 60.64%, a priori ya habíamos observado que las distribuciones de los valores estaban muy solapadas lo cual implica una dificultad importante a la hora de clasificar. Ahora procedemos a verificar el poder de la prueba con el método de *cross-validation*. Seleccionamos un 70% de los datos para realizar el entrenamiento y validamos contra el 30% de los datos restantes.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+set.seed(0) # Fijo la semilla para que todos obtengamos los mismos resultados
+filas.validacion       <- sample.int(n = nrow(anticuerpos.albumina), size = 0.3 * nrow(anticuerpos.albumina))
+conjunto.entrenamiento <- anticuerpos.albumina[-filas.validacion, ]
+conjunto.validacion    <- anticuerpos.albumina[filas.validacion, ]
+qda.entrenamiento      <- MASS::qda(Grupo~., data = conjunto.entrenamiento)
+qda.validacion         <- predict(qda.entrenamiento, dplyr::select(conjunto.validacion, -Grupo))
+
+print("Matriz de contingencia")
+table(qda.validacion$class, conjunto.validacion$Grupo, dnn = c("Datos reales", "Datos predichos"))
+sprintf("Clasifica correctamente el %.2f%% de los casos", 100 * mean(qda.validacion$class == conjunto.validacion$Grupo))
+```
+
+La clasificación sigue siendo bastante pobre. En este caso el *accuracy* es más bajo que con el método ingenuo, lo que es esperable.
+
+# Ejercicio 3
+
+```{r echo=FALSE, warnings=FALSE, messages=FALSE}
+tornillos <- readr::read_delim("Tornillos.csv", delim = "\t") %>%
+  tidyr::gather(key = Lote, value = Longitud) %>%
+  dplyr::mutate(Lote = as.factor(Lote)) %>%
+  as.data.frame()
+```
+
+## Modelo
+
+Se tienen 5 lotes, cada uno de los cuales tiene tornillos con una cierta longitud. Sea $\mu$<sub>i</sub> la media de la longitud de los tornillos (en cm.) para para la población <sub>i</sub>. Se desea probar si las medias de todas poblaciones son iguales o no. Para ello, se realiza una ANOVA, con las siguientes hipótesis:
+
+  * H<sub>0</sub>: $\mu$<sub>1</sub> = $\mu$<sub>2</sub> = ... = $\mu$<sub>5</sub>
+  * H<sub>1</sub>: $\exists$ (i, j) / $\mu$<sub>i</sub> != $\mu$<sub>j</sub>
+  
+Los supuestos que deben cumplirse para poder realizar la ANOVA son:
+
+  * Independencia de las observaciones.
+  * Normalidad de los residuos.
+  * Homocedasticidad de los residuos.
+  
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Carga de datos.
+aov.tornillos <- stats::aov(Longitud~Lote, data = tornillos)
+residuos      <- stats::residuals(aov.tornillos)
+
+cat("Test de normalidad (Shapiro-Wilk) de los residuos")
+stats::shapiro.test(residuos)
+
+cat("Test de homocedasticidad (Levene)")
+leveneTest(Longitud~Lote, data = tornillos)
+```
+
+Tal como se observa, se satisface el supuesto de normalidad de los residuos, pero no así el supuesto de homocedasticidad. Por lo tanto intentamos una transformación de *Box-Cox* en busca de homocedasticidad.
+
+```{r warnings=FALSE, message=FALSE}
+MASS::boxcox(Longitud~Lote, data = tornillos, plotit = TRUE)
+```
+
+Encontramos que para $\lambda = 0.5, se maximiza la función de versimilitud. Realizamos nuevamente la ANOVA y validamos los supuestos.
+
+```{r warnings=FALSE, message=FALSE}
+aov.tornillos.box.cox <- aov(Longitud^0.5 ~ Lote, data = tornillos)
+residuos.box.cox      <- stats::residuals(aov.tornillos.box.cox)
+
+cat("Test de normalidad (Shapiro-Wilk) de los residuos")
+stats::shapiro.test(residuos.box.cox)
+
+cat("Test de homocedasticidad (Levene)")
+leveneTest(aov.tornillos.box.cox)
+```
+
+No se rechaza ningún supuesto, aunque el test de Levene no rechaza por apenas un poco (p-valor = 0.07). Sin embargo, esto nos permite confiar en los resultados de la ANOVA. Entonces ahora aplicamos el test de Tukey para analizar los intervalos de confianza de diferencia de medias apareados con un nivel de significancia del 95%.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+stats::TukeyHSD(aov.tornillos.box.cox, conf.level=0.95)
+
+ggplot2::ggplot(data = tornillos) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = Lote, y = Longitud, fill = Lote), show.legend = FALSE) +
+  ggplot2::labs(title = "Análisis de longitud de tornillos", subtitle = "Comparación por lote", 
+                x = "Lote", y = "Longitud (en cm.)", fill = "") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+Como puede observarse en los intervalos de confianza, donde existe diferencia estadísticamente más significativa es entre los lotes 3 y 4. Vemos que los lotes 1, 2 y 5 son MUY simulares entre sí (con un p-valor de más de 0.99). A la diferencia entre los lotes 1-3, 2-3, 5-3, 1-4, 2-4 y 5-4 es notable gráficamente (ver boxplots) aunque el p-valor del test de Tukey no alcanza para rechazar la igualdad de medias con un nivel de significancia del 95%. Esto significa que el intervalo de confianza para la diferencia de medias, contiene al valor 0, aunque con un p-valor bajo.
