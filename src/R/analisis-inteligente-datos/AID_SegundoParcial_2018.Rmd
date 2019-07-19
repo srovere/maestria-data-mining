@@ -75,10 +75,11 @@ No se rechaza ni la normalidad multivariada por grupos ni la homocedasticidad. P
 ## LDA y análisis del poder discriminante
 
 ```{r, echo=FALSE, warnings=FALSE, message=TRUE }
-modelo.lda <- MASS::lda(Grupo ~ ., data = anticuerpos, CV = TRUE)
+modelo.lda <- MASS::lda(Grupo ~ ., data = anticuerpos, CV = FALSE)
+prediccion <- stats::predict(modelo.lda, dplyr::select(anticuerpos, -Grupo))
 print("Matriz de contingencia")
-table(modelo.lda$class, anticuerpos$Grupo)
-sprintf("Clasifica correctamente el %.2f%% de los casos", 100 * mean(modelo.lda$class == anticuerpos$Grupo))
+table(prediccion$class, anticuerpos$Grupo)
+sprintf("Clasifica correctamente el %.2f%% de los casos", 100 * mean(prediccion$class == anticuerpos$Grupo))
 ```
 
-De por si la regla es bastante mala aún analizando su poder con el método ingenuo (que tienen a sobrestimar el poder de predicción de la misma por evaluar la precisión con los mismos datos que se usaron para efectuar el ajuste). La propabilidad *a priori* de pertenecer a cada grupo es de 0.5, mientras que la regla clasifica correctamente el 55% de los casos. Es prácticamente lo mismo que asignar los grupos al azar utilizando las probabilidades a priori.
+De por si la regla es bastante mala aún analizando su poder con el método ingenuo (que tienen a sobrestimar el poder de predicción de la misma por evaluar la precisión con los mismos datos que se usaron para efectuar el ajuste). La propabilidad *a priori* de pertenecer a cada grupo es de 0.5, mientras que la regla clasifica correctamente el 58% de los casos. Es prácticamente lo mismo que asignar los grupos al azar utilizando las probabilidades a priori.

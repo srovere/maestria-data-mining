@@ -292,7 +292,7 @@ Sin embargo, el método de QDA es más robusto a la falta de normalidad multivar
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE }
 anticuerpos.albumina <- dplyr::select(anticuerpos, Grupo, Albúmina)
-modelo.qda           <- MASS::qda(Grupo~., data = anticuerpos.albumina)
+modelo.qda           <- MASS::qda(Grupo~., data = anticuerpos.albumina, CV = FALSE)
 prediccion           <- predict(modelo.qda)
 print("Matriz de contingencia utilizando método ingenuo")
 table(prediccion$class, anticuerpos.albumina$Grupo, dnn = c("Datos reales", "Datos predichos"))

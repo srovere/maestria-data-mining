@@ -182,10 +182,11 @@ Los *p-valor* para todos los tests dan valores prácticamente iguales a 0, lo cu
 ## QDA
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE }
-modelo.qda <- MASS::qda(Class ~ ., data = cancer, CV = TRUE)
+modelo.qda <- MASS::qda(Class ~ ., data = cancer, CV = FALSE)
+prediccion <- stats::predict(modelo.qda, dplyr::select(cancer, -Class))
 print("Matriz de contingencia")
-table(modelo.qda$class, cancer$Class, dnn = c("Datos reales", "Datos predichos"))
-sprintf("Clasifica correctamente el %.2f%% de los casos", 100 * mean(modelo.qda$class == cancer$Class))
+table(prediccion$class, cancer$Class, dnn = c("Datos reales", "Datos predichos"))
+sprintf("Clasifica correctamente el %.2f%% de los casos", 100 * mean(prediccion$class == cancer$Class))
 ```
 
 Se observa que el QDA arroja resultados muy buenos cuando se verifica la capacidad discriminante con el método ingenuo. Si realizamos *cross-validation* utilizando un 70% de los datos para entrenar y 30% para validar, se obtiene lo siguiente.

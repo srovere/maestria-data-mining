@@ -214,10 +214,11 @@ Como se observa, no se satisface la normalidad para ninguno de los dos grupos. T
 Analizamos primero el poder de predicción con el método *ingenuo* (evaluar la clasificación con el mismo conjunto de datos de entrenamiento).
 
 ```{r, echo=FALSE, warnings=FALSE, message=TRUE }
-modelo.qda <- MASS::qda(minoria ~ ., data = empleados, CV = TRUE)
+modelo.qda <- MASS::qda(minoria ~ ., data = empleados, CV = FALSE)
+prediccion <- stats::predict(modelo.qda, dplyr::select(empleados, -minoria))
 print("Matriz de contingencia")
-table(modelo.qda$class, empleados$minoria)
-sprintf("Clasifica correctamente el %.2f%% de los casos", 100 * mean(modelo.qda$class == empleados$minoria))
+table(prediccion$class, empleados$minoria)
+sprintf("Clasifica correctamente el %.2f%% de los casos", 100 * mean(prediccion$class == empleados$minoria))
 ```
 
 Ahora realizamos *cross-validation* excluyendo 20% de los datos para validación.
