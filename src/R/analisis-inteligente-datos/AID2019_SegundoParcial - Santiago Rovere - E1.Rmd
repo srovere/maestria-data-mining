@@ -1,0 +1,158 @@
+---
+title: "Segundo Parcial"
+subtitle: "Análisis Inteligente de Datos (2019)"
+author:
+  - Santiago Luis Rovere (srovere@gmail.com)
+date: '`r format(Sys.Date(), "%d de %B de %Y")`'
+output:
+  html_document:
+    toc: false
+    number_sections: yes
+  pdf_document:
+    number_sections: yes
+  html_notebook:
+    number_sections: yes
+---
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Inicializacion de ambiente
+rm(list = objects())
+require(ADGofTest)
+require(car)
+require(dplyr)
+require(ggbiplot)
+require(ggplot2)
+require(Hotelling)
+require(MASS)
+require(NbClust)
+require(plotly)
+require(readr)
+require(readxl)
+require(tidyr)
+
+# Inicializamos la semilla en 0
+set.seed(0)
+```
+
+# Ejercicio 1 
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+leches <- readxl::read_xlsx("leches.xlsx") %>%
+  as.data.frame()
+rownames(leches) <- leches$`Mamífero`
+leches <- dplyr::select(leches, -`Mamífero`)
+
+# Hacemos PCA para reducir dimensionalidad
+pca            <- stats::princomp(x = leches, cor = TRUE)
+prop.varianzas <- (pca$sdev ^ 2) / sum((pca$sdev ^ 2))
+```
+
+Dado que existe alta correlación entre los atributos, aplicamos ACP (utilizando la matriz de correlación para eliminar posibles distorsiones debidas al uso de distintas unidades) a fin de reducir la dimensionalidad y poder encontrar variables ocultas que nos permitan explicar mejor la categorización. Las primeras dos componenten explican casi el 98% de la varianza, con lo cual nos quedamos con ellas.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, eval=FALSE }
+# Graficamos el porcentaje de varianza representada por cada componente
+ggplot(data = data.frame(proporcion = 100 * cumsum(prop.varianzas), componente = 1:length(prop.varianzas)),
+       mapping = ggplot2::aes(x = componente, y = proporcion, fill = componente)) +
+  ggplot2::scale_x_continuous(breaks = 1:length(prop.varianzas)) +
+  ggplot2::geom_bar(stat = 'identity') +
+  ggplot2::geom_text(mapping = ggplot2::aes(y = proporcion + 1, label = sprintf("%0.2f", proporcion))) +
+  ggplot2::labs(x = "Componente", y = "Porcentaje acumulado de varianza explicada") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = 'none')
+```
+
+El gráfico de loadings muestra que la primera componente contrasta el contenido de agua y lactosa con el contenido de grasa y proteínas. Valores negativos representan leches ricas en grasas y proteínas y  valores positivos, leches con abundancia de agua y lactosa. La segunda componente contrasta el contenido de proteínas y agua con el contenido de grasa (la lactosa tiene un bajo loading por lo que podría despreciarse). Ambas componentes son de forma dado que los loadings son de signo distinto.
+
+``````{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Loadings
+scores         <- pca$scores[, 1:2]
+loadings       <- pca$loadings[, 1:2] 
+loadings.largo <- data.frame(loadings) %>%
+  dplyr::mutate(Variable = rownames(.)) %>%
+  tidyr::gather(key = Componente, value = Loading, -Variable)
+ggplot(data = loadings.largo, mapping = ggplot2::aes(x = Variable, y = Loading, fill = Loading)) +
+  ggplot2::geom_bar(stat = 'identity') +
+  ggplot2::facet_wrap(~Componente, nrow = 1) +
+  ggplot2::scale_fill_distiller(type = "div", palette = "RdBu", direction = 1) +
+  ggplot2::labs(x = "Variable", y = "Loading") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'none',
+    axis.text.x = ggplot2::element_text(angle = 90)
+  )
+```
+
+A continuación procedemos a seleccionar las métricas de distancia. Para medir distancia entre individuos seleccionamos la distancia euclídea por ser apropiado para medir distancia de los scores provenientes del ACP. Para el caso de las distancias entre clusters, se busca una métrica cuyo coeficiente de correlación cofenética represente mejor la distancia entre individuos.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Calculamos la matriz de distancia entre individuos (euclídea)
+matriz.distancia <- dist(x = scores, method = "euclidean")
+
+# Clusters con metodos de calculo de distancia entre clusters
+hc_complete <- hclust(d = matriz.distancia, method = "complete")
+hc_average  <- hclust(d = matriz.distancia, method = "average")
+hc_single   <- hclust(d = matriz.distancia, method = "single")
+hc_ward.D2  <- hclust(d = matriz.distancia, method = "ward.D2")
+hc_ward.D   <- hclust(d = matriz.distancia, method = "ward.D")
+hc_centroid <- hclust(d = matriz.distancia, method = "centroid")
+
+# Calculamos los coeficientes de correlación cofenética
+coeficientes.correlacion.cofenetica <- c(
+  "Complete linkage" = cor(x = matriz.distancia, cophenetic(hc_complete)),
+  "Average linkage" = cor(x = matriz.distancia, cophenetic(hc_average)),
+  "Single linkage" = cor(x = matriz.distancia, cophenetic(hc_single)),
+  "WARD" = cor(x = matriz.distancia, cophenetic(hc_ward.D2)),
+  "WARD v2" = cor(x = matriz.distancia, cophenetic(hc_ward.D)),
+  "Centroide" = cor(x = matriz.distancia, cophenetic(hc_centroid))
+)
+#print(coeficientes.correlacion.cofenetica)
+```
+
+En este caso, la distancia entre centroides, resulta ser la más apropiada (con coeficiente 0.85). Por tal motivo, entonces utilizamos el método de *K-means* que se basa en la distancia a centroides para generar los aglomerados. Además, este método nos permite explorar distintos valores de *k* utilizando la métrica WSS y el método del codo. Se busca un valor de *k* a partir del cual se estabilice el WSS (similar al criterio del bastón roto para ACP). 
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+set.seed(0)
+km.cluster <- NULL
+metricas <- purrr::map_dfr(
+  .x = seq(from = 2, to = 14),
+  .f = function(k) {
+    cluster.kmeans.k  <- stats::kmeans(x = scores, centers = k, iter.max = 100)
+    if (k == 4) {
+      km.cluster <<- cluster.kmeans.k
+    }
+    WSS.k             <- cluster.kmeans.k$tot.withinss
+    return (data.frame(k = k, WSS = WSS.k, stringsAsFactors = FALSE)) 
+  }
+)
+ggplot2::ggplot(data = metricas) +
+  ggplot2::geom_line(mapping = ggplot2::aes(x = k, y = WSS)) +
+  ggplot2::geom_vline(xintercept = 4, linetype = "dotted") +
+  ggplot2::labs(x = "Cantidad de clusters", y = "WSS", col = "Métrica",
+                title = "Métricas para distintos números de clusters",
+                subtitle = "Comparación de WSS para distintos valores de k") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+En este caso, queda claro que k = 4 es una buena elección. Los clusters quedan conformados de la siguiente manera considerando los scores de las primeras 2 componentes principales.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, fig.height=7 }
+# ii. Biplot para PC1 y PC2 y mostrar en colores los grupos
+clases <- as.factor(km.cluster$cluster)
+ggbiplot::ggbiplot(pcobj = pca, labels = names(clases), groups = clases,
+                   ellipse = TRUE) +
+  ggplot2::scale_colour_brewer(name = 'Cluster', type = "qual", palette = "Set1") +
+  ggplot2::labs(x = sprintf("Componente 1 (%0.2f%%)", 100*prop.varianzas[1]),
+                y = sprintf("Componente 2 (%0.2f%%)", 100*prop.varianzas[2])) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = 'right') +
+  ggplot2::coord_fixed(ratio = 0.5)
+```
+
+Observamos que las leches de foca y delfín conforman un cluster (3) por contener alta cantidad de grasa y proteínas. Los demás clusters están claramente caracterizados por sus scores de la componente 1. El cluster 1 corresponde a leches con contenido más considerable de grasas y proteínas que de agua y lactosa. El cluster 2 corresponde a leches con contenido de lactosa y agua mayor al de grasa y proteínas. Finalemente, el cluster 4 corresponde a leches con gran contenido de agua y lactosa. A su vez, las leches de los clusters 1 y 2 contienen más proteínas y agua que grasa. Los clusters 3 y 4 tienen valores negativos de la componente 2, por lo que el valor de la grasa es más significativo que el de agua y proteínas. 
+
+Se pide finalmente testear los vectores medios para 2 clusters seleccionados. Para este caso de distribuciones multivariadas habría que aplicar el test de Hotelling. El problema es que ninguna selección de clusters posible reúne los supuestos necesarios para realizar dicho test (normalidad multivariada por grupo y homocedasticidad). Incluso tampoco es posible asumir normalidad asintótica, ya que los grupos tienen pocos individuos.

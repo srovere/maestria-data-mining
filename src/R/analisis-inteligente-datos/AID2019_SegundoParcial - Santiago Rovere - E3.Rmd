@@ -1,0 +1,130 @@
+---
+title: "Segundo Parcial"
+subtitle: "Análisis Inteligente de Datos (2019)"
+author:
+  - Santiago Luis Rovere (srovere@gmail.com)
+date: '`r format(Sys.Date(), "%d de %B de %Y")`'
+output:
+  html_document:
+    toc: false
+    number_sections: yes
+  pdf_document:
+    number_sections: yes
+  html_notebook:
+    number_sections: yes
+---
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Inicializacion de ambiente
+rm(list = objects())
+require(ADGofTest)
+require(biotools)
+require(car)
+require(dplyr)
+require(ggplot2)
+require(Hotelling)
+require(MASS)
+require(readxl)
+require(rrcov)
+require(tidyr)
+
+# Inicializamos la semilla en 0
+set.seed(0)
+```
+
+# Ejercicio 3
+
+Se cargan los datos y se realizan boxplots de variables por grupo. Ya de entrada se ve que hay variables que no cumplen el supuesto de normalidad (por falta de simetría). También se observa que no se cumplen los supuestos de homocedasticidad. Es interesante notar que la edad del conductor podría ser una buena variable para hacer una posterior discriminación, dado que las medias por tipo de accidente parecen ser suficientemente diferentes.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Leemos el conjunto de datos
+vehiculos <- readxl::read_xls("vehiculos.xls") %>%
+  dplyr::mutate(grave = as.factor(grave)) %>%
+  dplyr::select(-vehiculo)
+
+# Hacemos un boxplot por variable
+vehiculos.largo <- vehiculos %>%
+  tidyr::gather(key = Variable, value = Valor, -grave)
+ggplot2::ggplot(data = vehiculos.largo) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = grave, y = Valor, fill = grave), show.legend = FALSE) +
+  ggplot2::facet_wrap(~Variable, scales = "free") +
+  ggplot2::labs(title = "Accidentes", subtitle = "Boxplots de variables por nivel de gravedad",
+                x = "Nivel de gravedad", y = "Valor de la variable", fill = "") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+Realizamos el test de Hotelling tal como se pide. Como se anticipó anteriormente, no se cumplen los supuestos de normalidad ni de homocedasticidad (se realizaron los tests respectivos para probar normalidad multivariante por grupo y homocedasticidad), por lo que no pueden sacarse conclusiones a partir del test de Hotelling.
+
+```{r, echo=FALSE, warnings=FALSE, message=TRUE }
+# Normalidad multivariadad general y por grupos
+for (grupo in unique(vehiculos$grave)) {
+  cat(paste0("Analizando normalidad para grupo ", grupo))
+  matriz.datos <- vehiculos %>%
+    dplyr::filter(grave == grupo) %>%
+    dplyr::select(-grave) %>%
+    as.matrix()
+  print(mvnormtest::mshapiro.test(t(matriz.datos)))
+}
+
+# Homocedasticidad
+biotools::boxM(data = as.matrix(dplyr::select(vehiculos, -grave)),
+     grouping = as.matrix(dplyr::select(vehiculos, grave)))
+```
+
+Lo que hacemos entonces es testear la diferencia de medias para cada variable (con t-Student) con el fin de ver qué variables pueden discriminar mejor. Vemos que a nivel univariado, la única variable que rechaza la igualdad de medias es la *edad del conductor*.
+
+```{r, echo=FALSE, warnings=FALSE, message=TRUE }
+for (variable in unique(vehiculos.largo$Variable)) {
+  print(sprintf("Analizando diferencia de medias para la variable %s", variable, "\n\n"))
+  datos.variable   <- vehiculos.largo %>%
+    dplyr::filter(Variable == variable)
+  datos.variable.0 <- dplyr::filter(datos.variable, grave == "si") %>% dplyr::pull(Valor)
+  datos.variable.1 <- dplyr::filter(datos.variable, grave == "no") %>% dplyr::pull(Valor)
+  test.variable    <- t.test(datos.variable.0, datos.variable.1)
+  print(sprintf("Variable %s. p-valor = %f\n", variable, test.variable$p.value))
+}
+```
+
+También se pide analizar los supuestos para aplicar LDA, que son normalidad multivariante por grupo y homocedasticidad. Dado que ya se indicó que no se cumplen, quedan las opciones de QDA clásico (que supone normalidad multivariante, aunque es más robusto a la falta de esta) o QDA robusto. Analizamos ambos casos para ver qué método discrimina mejor. Comenzamos por QDA clásico.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+modelo.qda <- MASS::qda(grave~., data = vehiculos, CV = FALSE)
+prediccion <- predict(modelo.qda)
+print("Matriz de contingencia utilizando método ingenuo")
+table(prediccion$class, vehiculos$grave, dnn = c("Datos reales", "Datos predichos"))
+sprintf("Método ingenuo: clasifica correctamente el %.2f%% de los casos", 100 * mean(prediccion$class == vehiculos$grave))
+
+set.seed(0) # Fijo la semilla para que todos obtengamos los mismos resultados
+filas.validacion       <- sample.int(n = nrow(vehiculos), size = 0.3 * nrow(vehiculos))
+conjunto.entrenamiento <- vehiculos[-filas.validacion, ]
+conjunto.validacion    <- vehiculos[filas.validacion, ]
+qda.entrenamiento      <- MASS::qda(grave~., data = conjunto.entrenamiento)
+qda.validacion         <- predict(qda.entrenamiento, dplyr::select(conjunto.validacion, -grave))
+
+print("Matriz de contingencia")
+table(qda.validacion$class, conjunto.validacion$grave, dnn = c("Datos reales", "Datos predichos"))
+sprintf("Uso de 70%% de los datos para entrenar y 30%% para validar: clasifica correctamente el %.2f%% de los casos", 100 * mean(qda.validacion$class == conjunto.validacion$grave))
+```
+
+Observamos que el poder de predicción mediante evaluación con el método ingenuo es de aproximadamente 82%. Tomando 70% de los datos para entrerar y dejando 30% de los mismos para validar, encontramos que el poder de predicción es de más del 83%. En ambos casos, los indicadores son muy buenos. Sin embargo, aplicamos QDA robusto para ver si estas métricas pueden ser mejoradas.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+modelo.qda.rob <- rrcov::QdaCov(grave~., data = vehiculos)
+prediccion     <- predict(modelo.qda.rob)
+print("Matriz de contingencia utilizando método ingenuo")
+table(prediccion@classification, vehiculos$grave, dnn = c("Datos reales", "Datos predichos"))
+sprintf("Método ingenuo: clasifica correctamente el %.2f%% de los casos", 100 * mean(prediccion@classification == vehiculos$grave))
+
+qda.entrenamiento <- rrcov::QdaCov(grave~., data = conjunto.entrenamiento)
+qda.validacion    <- predict(qda.entrenamiento, dplyr::select(conjunto.validacion, -grave))
+print("Matriz de contingencia")
+table(qda.validacion@classification, conjunto.validacion$grave, dnn = c("Datos reales", "Datos predichos"))
+sprintf("Uso de 70%% de los datos para entrenar y 30%% para validar: clasifica correctamente el %.2f%% de los casos", 100 * mean(qda.validacion@classification == conjunto.validacion$grave))
+```
+
+En este caso, observamos que con el QDA robusto, se obtienen peores métricas que con el QDA estándar (75% con el método ingenuo y 58% utilizando los mismos conjuntos de entrenamiento y validación). Por lo tanto, claramente conviene utilizar la discriminación con QDA estándar.

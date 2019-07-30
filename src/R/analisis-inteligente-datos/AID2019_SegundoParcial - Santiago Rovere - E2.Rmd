@@ -1,0 +1,105 @@
+---
+title: "Segundo Parcial"
+subtitle: "Análisis Inteligente de Datos (2019)"
+author:
+  - Santiago Luis Rovere (srovere@gmail.com)
+date: '`r format(Sys.Date(), "%d de %B de %Y")`'
+output:
+  html_document:
+    toc: false
+    number_sections: yes
+  pdf_document:
+    number_sections: yes
+  html_notebook:
+    number_sections: yes
+---
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+# Inicializacion de ambiente
+rm(list = objects())
+require(ADGofTest)
+require(car)
+require(dplyr)
+require(ggplot2)
+require(MASS)
+require(tidyr)
+
+# Inicializamos la semilla en 0
+set.seed(0)
+```
+
+# Ejercicio 2
+
+```{r echo=FALSE, warnings=FALSE, messages=FALSE}
+cervezas <- data.frame(
+  A = c(31.5, 32, 32.7, 30.9),
+  B = c(32.3, 31.9, 33, 31.7),
+  C = c(28.8, 27.6, 29.1, 27.7),
+  D = c(24.5, 25.3, 24.9, 26.1),
+  E = c(25.4, 26.3, 23.9, 24.1)
+) %>%
+  tidyr::gather(key = Marca, value = Calorias) %>%
+  dplyr::mutate(Marca = as.factor(Marca))
+```
+
+Se tienen 5 lotes, cada uno de los cuales tiene cervezas con un cierto valor calórico. Sea $\mu$<sub>i</sub> la media del contenido calórico de la cerveza (en calorías cada 100ml) para la población <sub>i</sub>. Se desea probar si las medias de todas poblaciones son iguales o no. Para ello, se realiza una ANOVA, con las siguientes hipótesis:
+
+  * H<sub>0</sub>: $\mu$<sub>1</sub> = $\mu$<sub>2</sub> = ... = $\mu$<sub>5</sub>
+  * H<sub>1</sub>: $\exists$ (i, j) / $\mu$<sub>i</sub> != $\mu$<sub>j</sub>
+  
+Los supuestos que deben cumplirse para poder realizar la ANOVA son:
+
+  * Independencia de las observaciones.
+  * Normalidad de los residuos.
+  * Homocedasticidad de los residuos.
+  
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+aov.cervezas <- stats::aov(Calorias~Marca, data = cervezas)
+residuos     <- stats::residuals(aov.cervezas)
+
+# cat("Test de normalidad (Shapiro-Wilk) de los residuos")
+# stats::shapiro.test(residuos)
+# 
+# cat("Test de homocedasticidad (Levene)")
+# leveneTest(aov.cervezas)
+```
+
+Dado que se cumplen los supuestos de normalidad y homocedasticidad habiendo aplicado los tests de Shapiro y Levene respectivamente (asumimos esto porque ninguno de los tests rechaza las hipótesis nulas correspondientes de normalidad y homocedasticidad), los resultados de la ANOVA son confiables. Por lo que procedemos a analizarlos con un nivel de significancia del 95%.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+summary(aov.cervezas)
+```
+
+El test de ANOVA rechaza con un *p-valor* muy pequeño, por lo que el rechazo de la igualdad de medias tiene una significancia estadística muy importante. Esto puede verse claramente en los boxplots.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+ggplot2::ggplot(data = cervezas) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = Marca, y = Calorias, fill = Marca), show.legend = FALSE) +
+  ggplot2::labs(title = "Análisis de calorías de cervezass", subtitle = "Comparación por marca", 
+                x = "Marca", y = "Calorías cada 100ml", fill = "") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+Ahora procedemos a unificar las marcas A y B dentro de las categorías *cervezas blancas* y las marcas C, D y E dentro de las categorías *cerveza negra*. Realizamos nuevamente un contraste (como son solamente 2 poblaciones utilizamos t-Student para comparación de medias) a fin de corroborar que el contenido calórico de ambos grupos es diferente (lo cual ya puede evidenciarse a priori en los boxplots). Claramente el test rechaza la hipótesis nula con un *p-valor* muy pequeño, lo que nos permite afirmar con seguridad que las medias no son iguales.
+
+```{r echo=FALSE, warnings=FALSE, messages=FALSE}
+# Test de Welch
+datos.tipo.b <- dplyr::filter(cervezas, Marca %in% c("A", "B")) %>% dplyr::pull(Calorias)
+datos.tipo.n <- dplyr::filter(cervezas, Marca %in% c("C", "D", "E")) %>% dplyr::pull(Calorias)
+t.test(datos.tipo.b, datos.tipo.n)
+```
+
+Se solicita realizar el test de *Tukey* para analizar la diferencias entre los tipos de cervezas. Como no es posible realizar la ANOVA de ninguna manera debido a la falta de homocedasticidad de este nuevo conjunto de datos (que tampoco puede lograrse mediante transformaciones de Box-Cox), resulta imposible aplicar Tukey (ya que require una ANOVA previa). De todos modos, con el test previo ya alcanza para mostrar que las medias de ambos grupos son distintas con alto grado de significacia estadísticas.
+
+Finalemente, se pide analizar las marcas de a pares con el test de *Tukey* con un nivel de confianza del 95%.
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE }
+stats::TukeyHSD(aov.cervezas, conf.level=0.95)
+```
+
+Esta información es consistente con el boxplot mostrado. Las cervezas A y B contienen al cero con un p-valor muy alto. Lo mismo sucede con las marcas D y E. Esto implica que dichos pares de cervezas pueden tener medias parecidas o eventualmente iguales. Todas las demás comparaciones, arrojan intervalos de confianza cuyos límites tienen el mismo signo, por lo que el cero queda excluído con alto nivel de significancia. Esto implica con alto nivel de significancia estadísticas que dichos pares de cerveza no tienen medias iguales.
