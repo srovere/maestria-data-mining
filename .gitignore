@@ -15,3 +15,6 @@ src/R/data-mining/TP2/*.pdf
 src/python/aprendizaje-automatico/TP1/.idea
 src/python/aprendizaje-automatico/TP1/output/*
 src/python/aprendizaje-automatico/TP2/.ipynb_checkpoints/
+src/R/data-mining-eyf/derby.log
+src/R/data-mining-eyf/input/*.txt
+src/R/data-mining-eyf/metastore_db/*
