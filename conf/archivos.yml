@@ -1,3 +1,5 @@
 # Archivos a generar
 src:
   R:
+    data-mining-eyf:
+      configuracion.yml: 0
