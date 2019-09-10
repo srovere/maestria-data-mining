@@ -67,4 +67,6 @@ resultados.rpart <- ps_grid_search_rpart(set.datos, "clase", config$semillas,
                                          minbucket = c(7, 10, 15), 
                                          maxdepth = c(5, 10, 15, 20))
 end.time         <- proc.time()
+elapsed.time     <- end.time[3] - start.time[3]
+cat("Tiempo:", elapsed.time, "segundos")
 # ------------------------------------------------------------------------------
