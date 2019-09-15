@@ -71,11 +71,26 @@ grilla.parametros <- purrr::cross_df(list(
   mb = c(7, 10, 15), 
   md = c(5, 10, 15, 20)
 ))
-resultados.rpart  <- ps_grid_search(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
-                                    proporcion_train = 0.7, funcion_modelo = m_arbol_decision, 
-                                    grilla.parametros = grilla.parametros)
-end.time          <- proc.time()
-elapsed.time      <- end.time[3] - start.time[3]
+resultados.rpart.gs  <- ps_grid_search(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
+                                       proporcion_train = 0.7, funcion_modelo = m_arbol_decision, 
+                                       grilla.parametros = grilla.parametros)
+end.time             <- proc.time()
+elapsed.time         <- end.time[3] - start.time[3]
 cat("Tiempo:", elapsed.time, "segundos")
 
+# Optimizacion bayesiana
+start.time         <- proc.time()
+limites.parametros <- list(
+  xval = c(0, 0),
+  cp = c(0.0001, 0.001),
+  ms = c(20, 100),
+  mb = c(7, 15),
+  md = c(5, 20)
+)
+resultados.rpart.bo <- ps_bayesian_optimization(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
+                                                proporcion_train = 0.7, funcion_modelo = m_arbol_decision, 
+                                                limites.parametros = limites.parametros)
+end.time          <- proc.time()
+elapsed.time      <- end.time[3] - start.time[3]
+cat("Tiempo:", elapsed.time, "segundos")  
 # ------------------------------------------------------------------------------
