@@ -4,8 +4,8 @@
 rm(list = ls()); gc()
 Sys.setenv(TZ = "UTC")
 list.of.packages <- c("caret", "data.table", "doSNOW", "dplyr", "foreach", 
-                      "futile.logger", "parallel", "R6", "rpart", "snow", "utils", 
-                      "yaml")
+                      "futile.logger", "parallel", "R6", "rBayesianOptimization",
+                      "rpart", "snow", "utils", "yaml")
 for (pack in list.of.packages) {
   if (! require(pack, character.only = TRUE)) {
     stop(paste0("Paquete no encontrado: ", pack))
@@ -40,6 +40,7 @@ rm(archivo.config, args); gc()
 # -----------------------------------------------------------------------------#
 source(file = paste0(config$dir$lib, "/io.r"), echo = FALSE)
 source(file = paste0(config$dir$lib, "/feature_engineering.r"), echo = FALSE)
+source(file = paste0(config$dir$lib, "/model.r"), echo = FALSE)
 source(file = paste0(config$dir$lib, "/parameter_search.r"), echo = FALSE)
 source(file = paste0(config$dir$lib, "/performance.r"), echo = FALSE)
 
@@ -58,15 +59,23 @@ set.datos <- leer_set_datos(config$dir$input, "201902") %>%
 # -----------------------------------------------------------------------------#
 # --- IV. Realizar ejecucion de prueba ----
 # -----------------------------------------------------------------------------#
-logger$info("Realizando prueba de ajuste con DT")
 
-start.time       <- proc.time()
-resultados.rpart <- ps_grid_search_rpart(set.datos, "clase", config$semillas,
-                                         cp = c(0.0001, 0.0005, 0.001),
-                                         minsplit = c(20, 50, 100), 
-                                         minbucket = c(7, 10, 15), 
-                                         maxdepth = c(5, 10, 15, 20))
-end.time         <- proc.time()
-elapsed.time     <- end.time[3] - start.time[3]
+# Grid search paralelizado
+logger$info("Realizando prueba de ajuste con DT y Grid Search (paralelizado)")
+
+start.time        <- proc.time()
+grilla.parametros <- purrr::cross_df(list(
+  xval = 0,
+  cp = c(0.0001, 0.0005, 0.001), 
+  ms = c(20, 50, 100), 
+  mb = c(7, 10, 15), 
+  md = c(5, 10, 15, 20)
+))
+resultados.rpart  <- ps_grid_search(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
+                                    proporcion_train = 0.7, funcion_modelo = m_arbol_decision, 
+                                    grilla.parametros = grilla.parametros)
+end.time          <- proc.time()
+elapsed.time      <- end.time[3] - start.time[3]
 cat("Tiempo:", elapsed.time, "segundos")
+
 # ------------------------------------------------------------------------------
