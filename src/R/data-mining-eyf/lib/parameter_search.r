@@ -66,7 +66,7 @@ ps_grid_search <- function(set.datos, clase, semillas, proporcion_train = 0.7, f
   return (resultados)
 }
 
-# Optimizacion bayesiana (TODO)
+# Optimizacion bayesiana (single core)
 ps_bayesian_optimization <- function(set.datos, clase, semillas, proporcion_train = 0.7, funcion_modelo, limites.parametros,
                                      init_points = 50, n_iter = 50, acq = "ucb", kappa = 2.576, eps = 0.001) {
   # i. Definir closure para funcion objetivo
