@@ -68,43 +68,53 @@ ps_grid_search <- function(set.datos, clase, semillas, proporcion_train = 0.7, f
 
 # Optimizacion bayesiana (TODO)
 ps_bayesian_optimization <- function(set.datos, clase, semillas, proporcion_train = 0.7, funcion_modelo, limites.parametros,
-                                     init_points = 10, n_iter = 20, acq = "ucb", kappa = 2.576, eps = 0.001) {
+                                     init_points = 50, n_iter = 50, acq = "ucb", kappa = 2.576, eps = 0.001) {
   # i. Definir closure para funcion objetivo
-  funcion_objetivo_closure <- function(funcion_modelo, training.set, test.set, clase, proporcion_train) {
+  funcion_objetivo_closure <- function(funcion_modelo, semillas, training.sets, test.sets, clase, proporcion_train) {
       funcion <- function(...) {
         parametros.modelo <- list(...)
-        modelo            <- funcion_modelo(set.datos = training.set, clase = clase, parametros = parametros.modelo)
-        test_prediccion   <- as.data.frame(predict(modelo, test.set, type = "prob"))
-        ganancia_test     <- pe_ganancia(probabilidades = test_prediccion$`1`, clase = test$clase, proporcion = 1 - proporcion_train)
-        roc_auc_test      <- pe_auc_roc(probabilidades = test_prediccion$`1`, clase = test$clase)  
-        return (list(Score = ganancia_test, Pred = 0))
+        ganancias_test    <- purrr::imap(
+          .x = semillas,
+          .f = function(semilla, posicion) {
+            set.seed(semilla)
+            modelo            <- funcion_modelo(set.datos = training.sets[[posicion]], clase = clase, parametros = parametros.modelo)
+            test_prediccion   <- as.data.frame(predict(modelo, test.sets[[posicion]], type = "prob"))
+            ganancia_test     <- pe_ganancia(probabilidades = test_prediccion$`1`, clase = test.sets[[posicion]]$clase, 
+                                             proporcion = 1 - proporcion_train)
+            return (ganancia_test)
+          }
+        ) %>% unlist()
+        return (list(Score = mean(ganancias_test), Pred = 0))
       }
       return (funcion)
   }
   
-  resultados <- purrr::map_dfr(
+  # ii. Definir sets de datos para cada semilla
+  training.sets <- list()
+  test.sets     <- list()
+  purrr::iwalk(
     .x = semillas,
-    .f = function(semilla, set.datos, limites.parametros, proporcion_train, funcion_objetivo) {
+    .f = function(semilla, posicion) {
       # ii. Definir conjuntos de train y test
       set.seed(semilla)
-      train_casos <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
-      train       <- set.datos[  train_casos, ]
-      test        <- set.datos[ -train_casos, ]
+      train_casos               <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
+      training.sets[[posicion]] <<- set.datos[  train_casos, ]
+      test.sets[[posicion]]     <<- set.datos[ -train_casos, ]
+    }
+  )
       
-      # iii. Definir funcion objetivo
-      funcion_objetivo <- funcion_objetivo_closure(funcion_modelo, train, test, clase, proporcion_train)
+  # iii. Definir funcion objetivo
+  funcion_objetivo <- funcion_objetivo_closure(funcion_modelo, semillas, training.sets, test.sets, clase, proporcion_train)
       
-      # iv. Efectuar optimizacion bayesiana
-      resultados.semilla <- rBayesianOptimization::BayesianOptimization(FUN = funcion_objetivo, bounds = limites.parametros, 
-                                                                        verbose = TRUE, init_points = init_points, n_iter = n_iter, 
-                                                                        acq = acq, kappa = kappa, eps = eps)
+  # iv. Efectuar optimizacion bayesiana
+  resultados <- rBayesianOptimization::BayesianOptimization(FUN = funcion_objetivo, bounds = limites.parametros, 
+                                                            verbose = TRUE, init_points = init_points, n_iter = n_iter, 
+                                                            acq = acq, kappa = kappa, eps = eps)
       
-      # v. Devolver resultados
-      return (
-        resultados.semilla %>%
-          dplyr::mutate(semilla = semilla, proporcion_train = proporcion_train)
-      )
-  }, set.datos = set.datos, limites.parametros = limites.parametros, proporcion_train = proporcion_train, 
-     funcion_objetivo = funcion_objetivo, init_points = init_points, n_iter = n_iter, acq = acq, kappa = kappa, eps = eps)
-  return (resultados)
+  # v. Devolver resultados
+  return (
+    resultados$History %>%
+      dplyr::rename(ganancia_test = Value) %>%
+      dplyr::select(-Round)
+  )
 }
