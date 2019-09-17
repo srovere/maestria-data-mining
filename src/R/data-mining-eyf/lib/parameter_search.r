@@ -1,7 +1,7 @@
 # Set de funciones para realizar explortacion de parametros
 
 # Grid search paralelizado
-ps_grid_search <- function(set.datos, clase, semillas, proporcion_train = 0.7, funcion_modelo, grilla.parametros) {
+ps_grid_search <- function(set.datos, clase, semillas, proporcion_train = 0.7, funcion_modelo, funcion_prediccion, grilla.parametros) {
   resultados <- purrr::map_dfr(
     .x = semillas,
     .f = function(semilla, set.datos, grilla.parametros, proporcion_train, funcion_modelo) {
@@ -42,7 +42,7 @@ ps_grid_search <- function(set.datos, clase, semillas, proporcion_train = 0.7, f
                                              .verbose = FALSE) %dopar% {
         modelo          <- funcion_modelo(set.datos = train, clase = clase, semilla = semilla,
                                           parametros = as.list(input.value))
-        test_prediccion <- as.data.frame(predict(modelo, test, type = "prob"))
+        test_prediccion <- funcion_prediccion(set.datos.test = test, clase = clase, modelo = modelo)
         ganancia_test   <- pe_ganancia(probabilidades = test_prediccion$`1`, clase = test$clase, proporcion = 1 - proporcion_train)
         roc_auc_test    <- pe_auc_roc(probabilidades = test_prediccion$`1`, clase = test$clase)
         return (
@@ -63,8 +63,8 @@ ps_grid_search <- function(set.datos, clase, semillas, proporcion_train = 0.7, f
 }
 
 # Optimizacion bayesiana (single core)
-ps_bayesian_optimization <- function(set.datos, clase, semillas, proporcion_train = 0.7, funcion_modelo, limites.parametros,
-                                     init_points = 50, n_iter = 50, acq = "ucb", kappa = 2.576, eps = 0.001) {
+ps_bayesian_optimization <- function(set.datos, clase, semillas, proporcion_train = 0.7, funcion_modelo, funcion_prediccion,
+                                     limites.parametros, init_points = 50, n_iter = 50, acq = "ucb", kappa = 2.576, eps = 0.001) {
   # i. Definir closure para funcion objetivo
   funcion_objetivo_closure <- function(funcion_modelo, semillas, training.sets, test.sets, clase, proporcion_train) {
       funcion <- function(...) {
@@ -74,7 +74,7 @@ ps_bayesian_optimization <- function(set.datos, clase, semillas, proporcion_trai
           .f = function(semilla, posicion) {
             modelo            <- funcion_modelo(set.datos = training.sets[[posicion]], clase = clase, semilla = semilla,
                                                 parametros = parametros.modelo)
-            test_prediccion   <- as.data.frame(predict(modelo, test.sets[[posicion]], type = "prob"))
+            test_prediccion   <- funcion_prediccion(set.datos.test = test.sets[[posicion]], clase = clase, modelo = modelo)
             ganancia_test     <- pe_ganancia(probabilidades = test_prediccion$`1`, clase = test.sets[[posicion]]$clase, 
                                              proporcion = 1 - proporcion_train)
             return (ganancia_test)

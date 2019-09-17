@@ -5,7 +5,7 @@ rm(list = ls()); gc()
 Sys.setenv(TZ = "UTC")
 list.of.packages <- c("caret", "data.table", "doSNOW", "dplyr", "foreach", 
                       "futile.logger", "parallel", "R6", "rBayesianOptimization",
-                      "rpart", "snow", "utils", "yaml")
+                      "rpart", "snow", "utils", "xgboost", "yaml")
 for (pack in list.of.packages) {
   if (! require(pack, character.only = TRUE)) {
     stop(paste0("Paquete no encontrado: ", pack))
@@ -43,6 +43,7 @@ source(file = paste0(config$dir$lib, "/feature_engineering.r"), echo = FALSE)
 source(file = paste0(config$dir$lib, "/model.r"), echo = FALSE)
 source(file = paste0(config$dir$lib, "/parameter_search.r"), echo = FALSE)
 source(file = paste0(config$dir$lib, "/performance.r"), echo = FALSE)
+source(file = paste0(config$dir$lib, "/prediction.r"), echo = FALSE)
 
 logger <- Logger$new(log.level = INFO)
 # ------------------------------------------------------------------------------
@@ -60,9 +61,7 @@ set.datos <- leer_set_datos(config$dir$input, "201902") %>%
 # --- IV. Realizar ejecucion de prueba ----
 # -----------------------------------------------------------------------------#
 
-# Grid search paralelizado
-logger$info("Realizando prueba de ajuste con DT y Grid Search (paralelizado)")
-
+# Grid search paralelizado (arboles de decision)
 start.time        <- proc.time()
 grilla.parametros <- purrr::cross_df(list(
   xval = 0,
@@ -73,7 +72,7 @@ grilla.parametros <- purrr::cross_df(list(
 ))
 resultados.rpart.gs  <- ps_grid_search(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
                                        proporcion_train = 0.7, funcion_modelo = m_arbol_decision, 
-                                       grilla.parametros = grilla.parametros)
+                                       funcion_prediccion = pr_basica, grilla.parametros = grilla.parametros)
 end.time             <- proc.time()
 elapsed.time         <- end.time[3] - start.time[3]
 cat("Tiempo:", elapsed.time, "segundos")
@@ -82,7 +81,7 @@ resultados.rpart.gs.promedio <- resultados.rpart.gs %>%
   dplyr::summarise(ganancia_promedio = mean(ganancia_test), ganancia_desvio = sd(ganancia_test),
                    roc_auc_promedio = mean(roc_auc_test), roc_auc_desvio = sd(roc_auc_test))
 
-# Optimizacion bayesiana
+# Optimizacion bayesiana (arboles de decision)
 start.time         <- proc.time()
 limites.parametros <- list(
   xval = c(0, 0),
@@ -93,8 +92,57 @@ limites.parametros <- list(
 )
 resultados.rpart.bo <- ps_bayesian_optimization(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
                                                 proporcion_train = 0.7, funcion_modelo = m_arbol_decision, 
-                                                limites.parametros = limites.parametros)
+                                                funcion_prediccion = pr_basica, limites.parametros = limites.parametros)
 end.time          <- proc.time()
 elapsed.time      <- end.time[3] - start.time[3]
 cat("Tiempo:", elapsed.time, "segundos")  
+
+# 
+# Optimizacion bayesiana (XGBoost)
+# start.time         <- proc.time()
+# limites.parametros <- list(
+#   eta = c(0.01, 0.3),
+#   max_depth = c(20, 40),
+#   gamma = c(1, 5),
+#   subsample = c(0.5, 0.8),
+#   colsample_bytree = c(0.5, 0.9),
+#   nrounds = c(100, 500)
+# )
+# 
+# funcion_modelo    <- m_xgboost_closure(booster = "gbtree", objective = "binary:logistic", eval_metric = "mlogloss")
+# resultados.xbg.bo <- ps_bayesian_optimization(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
+#                                               proporcion_train = 0.7, funcion_modelo = funcion_modelo, 
+#                                               init_points = 2, n_iter = 2,
+#                                               funcion_prediccion = pr_xgboost, limites.parametros = limites.parametros)
+# end.time          <- proc.time()
+# elapsed.time      <- end.time[3] - start.time[3]
+# cat("Tiempo:", elapsed.time, "segundos") 
+
+set.seed(config$semillas[1])
+train_casos <- caret::createDataPartition(set.datos[, "clase"], p = 0.7, list = FALSE)
+train       <- set.datos[  train_casos, ]
+test        <- set.datos[ -train_casos, ]
+xgb.train   <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(train, -clase)),
+                                    label = as.matrix(dplyr::select(train, clase)))
+xgb.test    <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(test, -clase)),
+                                    label = as.matrix(dplyr::select(test, clase)))
+
+parametros <- list(
+  booster = "gbtree",
+  objective = "binary:logistic",
+  eval_metric = "logloss",
+  #tree_method = 'gpu_hist',
+  eta = 0.01,
+  max_depth = 25,
+  gamma = 0,
+  subsample = 0.75,
+  colsample_bytree = 1
+)
+
+set.seed(config$semillas[1])
+modelo         <- xgboost::xgb.train(data = xgb.train, nrounds = 1000, verbose = 2, 
+                                     nthread = parallel::detectCores(), params = parametros)
+xgb.pred.test  <- data.frame(pred = predict(modelo, xgb.test, reshape = T))
+pe_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 0.3)
+
 # ------------------------------------------------------------------------------
