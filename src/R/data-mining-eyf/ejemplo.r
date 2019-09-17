@@ -77,6 +77,10 @@ resultados.rpart.gs  <- ps_grid_search(set.datos = set.datos, clase = "clase", s
 end.time             <- proc.time()
 elapsed.time         <- end.time[3] - start.time[3]
 cat("Tiempo:", elapsed.time, "segundos")
+resultados.rpart.gs.promedio <- resultados.rpart.gs %>% 
+  dplyr::group_by(xval, cp, ms, mb, md) %>% 
+  dplyr::summarise(ganancia_promedio = mean(ganancia_test), ganancia_desvio = sd(ganancia_test),
+                   roc_auc_promedio = mean(roc_auc_test), roc_auc_desvio = sd(roc_auc_test))
 
 # Optimizacion bayesiana
 start.time         <- proc.time()

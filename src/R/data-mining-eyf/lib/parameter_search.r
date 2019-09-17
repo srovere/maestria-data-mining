@@ -40,19 +40,15 @@ ps_grid_search <- function(set.datos, clase, semillas, proporcion_train = 0.7, f
                                              .errorhandling = 'pass',
                                              .packages = c("dplyr", "caret"),
                                              .verbose = FALSE) %dopar% {
-        modelo           <- funcion_modelo(set.datos = set.datos, clase = clase, parametros = as.list(input.value))
-        train_prediccion <- as.data.frame(predict(modelo, train, type = "prob"))
-        test_prediccion  <- as.data.frame(predict(modelo, test, type = "prob"))
-        ganancia_train   <- pe_ganancia(probabilidades = train_prediccion$`1`, clase = train$clase, proporcion = proporcion_train)
-        roc_auc_train    <- pe_auc_roc(probabilidades = train_prediccion$`1`, clase = train$clase)
-        ganancia_test    <- pe_ganancia(probabilidades = test_prediccion$`1`, clase = test$clase, proporcion = 1 - proporcion_train)
-        roc_auc_test     <- pe_auc_roc(probabilidades = test_prediccion$`1`, clase = test$clase)
+        modelo          <- funcion_modelo(set.datos = train, clase = clase, semilla = semilla,
+                                          parametros = as.list(input.value))
+        test_prediccion <- as.data.frame(predict(modelo, test, type = "prob"))
+        ganancia_test   <- pe_ganancia(probabilidades = test_prediccion$`1`, clase = test$clase, proporcion = 1 - proporcion_train)
+        roc_auc_test    <- pe_auc_roc(probabilidades = test_prediccion$`1`, clase = test$clase)
         return (
           input.value %>%
             dplyr::mutate(semilla = semilla, 
                           proporcion_train = proporcion_train,
-                          ganancia_train = ganancia_train, 
-                          roc_auc_train = roc_auc_train, 
                           ganancia_test = ganancia_test, 
                           roc_auc_test = roc_auc_test)
         )
@@ -76,8 +72,8 @@ ps_bayesian_optimization <- function(set.datos, clase, semillas, proporcion_trai
         ganancias_test    <- purrr::imap(
           .x = semillas,
           .f = function(semilla, posicion) {
-            set.seed(semilla)
-            modelo            <- funcion_modelo(set.datos = training.sets[[posicion]], clase = clase, parametros = parametros.modelo)
+            modelo            <- funcion_modelo(set.datos = training.sets[[posicion]], clase = clase, semilla = semilla,
+                                                parametros = parametros.modelo)
             test_prediccion   <- as.data.frame(predict(modelo, test.sets[[posicion]], type = "prob"))
             ganancia_test     <- pe_ganancia(probabilidades = test_prediccion$`1`, clase = test.sets[[posicion]]$clase, 
                                              proporcion = 1 - proporcion_train)
