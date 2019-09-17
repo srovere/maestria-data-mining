@@ -134,13 +134,13 @@ parametros <- list(
   #tree_method = 'gpu_hist',
   eta = 0.01,
   max_depth = 25,
-  gamma = 0,
+  gamma = 3,
   subsample = 0.75,
   colsample_bytree = 1
 )
 
 set.seed(config$semillas[1])
-modelo         <- xgboost::xgb.train(data = xgb.train, nrounds = 1000, verbose = 2, 
+modelo         <- xgboost::xgb.train(data = xgb.train, nrounds = 750, verbose = 2, 
                                      nthread = parallel::detectCores(), params = parametros)
 xgb.pred.test  <- data.frame(pred = predict(modelo, xgb.test, reshape = T))
 pe_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 0.3)
