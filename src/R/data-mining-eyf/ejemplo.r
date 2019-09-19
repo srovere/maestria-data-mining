@@ -118,6 +118,7 @@ cat("Tiempo:", elapsed.time, "segundos")
 # elapsed.time      <- end.time[3] - start.time[3]
 # cat("Tiempo:", elapsed.time, "segundos") 
 
+start.time  <- proc.time()
 set.seed(config$semillas[1])
 train_casos <- caret::createDataPartition(set.datos[, "clase"], p = 0.7, list = FALSE)
 train       <- set.datos[  train_casos, ]
@@ -144,5 +145,7 @@ modelo         <- xgboost::xgb.train(data = xgb.train, nrounds = 750, verbose = 
                                      nthread = parallel::detectCores(), params = parametros)
 xgb.pred.test  <- data.frame(pred = predict(modelo, xgb.test, reshape = T))
 pe_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 0.3)
-
+end.time       <- proc.time()
+elapsed.time   <- end.time[3] - start.time[3]
+cat("Tiempo:", elapsed.time, "segundos") 
 # ------------------------------------------------------------------------------
