@@ -13,12 +13,13 @@ m_arbol_decision <- function(set.datos, clase, semilla, parametros) {
 }
 
 # XGBoost
-m_xgboost_closure <- function(booster = "gbtree", objective = "binary:logistic", eval_metric = "mlogloss") {
+m_xgboost_closure <- function(booster = "gbtree", objective = "binary:logistic", eval_metric = "mlogloss", tree_method = "hist") {
   funcion <- function(set.datos, clase, semilla, parametros) {
     set.seed(semilla)
     parametros$booster     <- booster
     parametros$objective   <- objective
     parametros$eval_metric <- eval_metric
+    parametros$tree_method <- tree_method
     parametros$max_depth   <- as.integer(round(parametros$max_depth))
     xgb.train              <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(set.datos, -!!clase)),
                                                    label = as.matrix(dplyr::select(set.datos, !!clase)))

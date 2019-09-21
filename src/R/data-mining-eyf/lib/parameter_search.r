@@ -1,7 +1,45 @@
 # Set de funciones para realizar explortacion de parametros
 
-# Grid search paralelizado
+# Grid search secuencias
 ps_grid_search <- function(set.datos, clase, semillas, proporcion_train = 0.7, funcion_modelo, funcion_prediccion, grilla.parametros) {
+  resultados <- purrr::map_dfr(
+    .x = semillas,
+    .f = function(semilla, set.datos, grilla.parametros, proporcion_train, funcion_modelo) {
+      # i. Definir conjuntos de train y test
+      set.seed(semilla)
+      train_casos <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
+      train       <- set.datos[  train_casos, ]
+      test        <- set.datos[ -train_casos, ]
+      
+      # ii. Definir parametros como "iterables" y barra de progreso
+      number.of.values    <- nrow(grilla.parametros)
+      input.values        <- iterators::iter(obj = grilla.parametros, by = 'row')
+      
+      # iii. Ejecutar de forma secuencial
+      resultados.semilla <- foreach::foreach(input.value = input.values,
+                                             .errorhandling = 'pass',
+                                             .verbose = FALSE) %do% {
+                                               modelo          <- funcion_modelo(set.datos = train, clase = clase, semilla = semilla,
+                                                                                 parametros = as.list(input.value))
+                                               test_prediccion <- funcion_prediccion(set.datos.test = test, clase = clase, modelo = modelo)
+                                               ganancia_test   <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test$clase, proporcion = 1 - proporcion_train)
+                                               roc_auc_test    <- pe_auc_roc(probabilidades = test_prediccion$PBaja, clase = test$clase)
+                                               return (
+                                                 input.value %>%
+                                                   dplyr::mutate(semilla = semilla, 
+                                                                 proporcion_train = proporcion_train,
+                                                                 ganancia_test = ganancia_test, 
+                                                                 roc_auc_test = roc_auc_test)
+                                               )
+                                             }
+      
+      return (as.data.frame(data.table::rbindlist(resultados.semilla)))
+    }, set.datos = set.datos, grilla.parametros = grilla.parametros, proporcion_train = proporcion_train, funcion_modelo = funcion_modelo)
+  return (resultados)
+}
+
+# Grid search paralelizado
+ps_parallel_grid_search <- function(set.datos, clase, semillas, proporcion_train = 0.7, funcion_modelo, funcion_prediccion, grilla.parametros) {
   resultados <- purrr::map_dfr(
     .x = semillas,
     .f = function(semilla, set.datos, grilla.parametros, proporcion_train, funcion_modelo) {
@@ -43,8 +81,8 @@ ps_grid_search <- function(set.datos, clase, semillas, proporcion_train = 0.7, f
         modelo          <- funcion_modelo(set.datos = train, clase = clase, semilla = semilla,
                                           parametros = as.list(input.value))
         test_prediccion <- funcion_prediccion(set.datos.test = test, clase = clase, modelo = modelo)
-        ganancia_test   <- pe_ganancia(probabilidades = test_prediccion$`1`, clase = test$clase, proporcion = 1 - proporcion_train)
-        roc_auc_test    <- pe_auc_roc(probabilidades = test_prediccion$`1`, clase = test$clase)
+        ganancia_test   <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test$clase, proporcion = 1 - proporcion_train)
+        roc_auc_test    <- pe_auc_roc(probabilidades = test_prediccion$PBaja, clase = test$clase)
         return (
           input.value %>%
             dplyr::mutate(semilla = semilla, 
@@ -75,7 +113,7 @@ ps_bayesian_optimization <- function(set.datos, clase, semillas, proporcion_trai
             modelo            <- funcion_modelo(set.datos = training.sets[[posicion]], clase = clase, semilla = semilla,
                                                 parametros = parametros.modelo)
             test_prediccion   <- funcion_prediccion(set.datos.test = test.sets[[posicion]], clase = clase, modelo = modelo)
-            ganancia_test     <- pe_ganancia(probabilidades = test_prediccion$`1`, clase = test.sets[[posicion]]$clase, 
+            ganancia_test     <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test.sets[[posicion]]$clase, 
                                              proporcion = 1 - proporcion_train)
             return (ganancia_test)
           }
