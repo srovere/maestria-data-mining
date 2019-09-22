@@ -111,10 +111,9 @@ xgb.test    <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(test, -clase)
 parametros <- list(
   booster = "gbtree",
   objective = "binary:logistic",
-  eval_metric = "logloss",
   tree_method = 'hist',
   eta = 0.01,
-  max_depth = 25,
+  max_depth = 10,
   gamma = 3,
   subsample = 0.5,
   colsample_bytree = 1
@@ -122,6 +121,7 @@ parametros <- list(
 
 set.seed(config$semillas[1])
 modelo         <- xgboost::xgb.train(data = xgb.train, nrounds = 500, verbose = 2, 
+                                     feval = pe_perdida_xgboost, watchlist = list(train = xgb.train, test = xgb.test),
                                      nthread = parallel::detectCores(), params = parametros)
 xgb.pred.test  <- data.frame(pred = predict(modelo, xgb.test, reshape = T))
 pe_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 0.3)
@@ -129,11 +129,11 @@ end.time       <- proc.time()
 elapsed.time   <- end.time[3] - start.time[3]
 cat("Tiempo:", elapsed.time, "segundos")
 
-# --- XGBoost con gris search de hiperparametros
+# --- XGBoost con grid search de hiperparametros
 start.time        <- proc.time()
 grilla.parametros <- purrr::cross_df(list(
   eta = c(0.01, 0.05, 0.1),
-  max_depth = c(20, 25, 30),
+  max_depth = c(10, 15, 20),
   gamma = c(1, 3, 5),
   subsample = c(0.5, 0.75, 1),
   colsample_bytree = c(1),
@@ -151,4 +151,24 @@ resultados.xgb.gs.promedio <- resultados.xgb.gs %>%
   dplyr::group_by(eta, max_depth, gamma, subsample, colsample_bytree, nrounds) %>% 
   dplyr::summarise(ganancia_promedio = mean(ganancia_test), ganancia_desvio = sd(ganancia_test),
                    roc_auc_promedio = mean(roc_auc_test), roc_auc_desvio = sd(roc_auc_test))
+
+# --- XGBoost con optimizacion bayesiana
+start.time         <- proc.time()
+limites.parametros <- list(
+  eta = c(0.001, 0.01),
+  max_depth = c(10, 20),
+  gamma = c(1, 5),
+  subsample = c(0.5, 1),
+  colsample_bytree = c(0.5, 1),
+  nrounds = c(500, 500)
+)
+
+funcion_modelo    <- m_xgboost_closure(booster = "gbtree", objective = "binary:logistic", eval_metric = pe_perdida_xgboost, tree_method = "hist")
+resultados.xgb.bo <- ps_bayesian_optimization(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
+                                              proporcion_train = 0.7, funcion_modelo = funcion_modelo, init_points = 32, n_iter = 25,
+                                              funcion_prediccion = pr_xgboost, limites.parametros = limites.parametros)
+end.time          <- proc.time()
+elapsed.time      <- end.time[3] - start.time[3]
+cat("Tiempo:", elapsed.time, "segundos")
+save(resultados.xgb.bo, file = "/home/santiago/xgboost.bo.RData")
 # ------------------------------------------------------------------------------
