@@ -15,3 +15,10 @@ pe_auc_roc = function(probabilidades, clase, punto_corte = 0.025) {
   auc      <- unlist(auc_t@y.values)
   return (auc)
 }
+
+# Funcion de perdida para XGBoost
+pe_perdida_xgboost <- function(preds, dtrain) {
+  clases  <- xgboost::getinfo(dtrain, "label")
+  perdida <- -pe_ganancia(preds, clases, proporcion = 1, punto_corte = 0.025)
+  return(list(metric = "perdida", value = perdida))
+}
