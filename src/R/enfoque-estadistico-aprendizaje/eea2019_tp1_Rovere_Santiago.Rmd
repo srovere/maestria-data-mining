@@ -1,0 +1,394 @@
+---
+title: "Enfoque estadístico del aprendizaje: Trabajo Práctico nº 1"
+subtitle: "Análisis de un conjunto de datos de Properati"
+author:
+- Santiago Rovere (srovere@gmail.com), Facultad de Ingeniería, Universidad de Buenos Aires
+date: '`r format(Sys.Date(), "%d de %B de %Y")`'
+output:
+  prettydoc::html_pretty:
+    toc: TRUE
+    number_sections: yes
+    theme: cayman
+    highlight: github
+    math: katex
+    css: styles.css
+  html_document:
+    number_sections: yes
+  pdf_document:
+    number_sections: yes
+  html_notebook:
+    number_sections: yes
+lang: es
+---
+
+# Preparación de ambiente y lectura de datos
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Borrar variables del ambiente
+rm(list = objects())
+
+# Carga de paquetes necesarios para hacer los gráficos
+require(Cairo)
+require(GGally)
+require(knitr)
+require(prettydoc)
+require(tidyverse)
+
+# Uso de Cairo para renderizar los gráficos
+options(bitmapType = "cairo")
+
+# Cargar conjunto de datos
+datos <- readr::read_csv(file = "ar_properties.csv")
+
+# Mostrar estructura
+head(datos)
+```
+
+Ahora nos quedamos con los datos pedidos
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+datos.seleccionados <- datos %>%
+  dplyr::filter(
+    # propiedades de Capital Federal / Argentina
+    (l1 == "Argentina" & l2 == "Capital Federal") &
+    # cuyo precio está en dólares
+    (currency == "USD") &                                  
+     # cuyo tipo sea Departamento, PH o Casa
+    (property_type %in% c("Departamento", "PH", "Casa")) &
+    # y que sean publicadas para Venta
+    (operation_type == "Venta")                            
+  ) %>%
+  dplyr::select(id, l3, rooms, bedrooms, bathrooms, surface_total, 
+                surface_covered, price, property_type)
+```
+
+# Análisis exploratorio (I)
+
+Obtenemos la cantidad de valores únicos y de faltantes para cada variable
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+resumen.cantidad <- purrr::map_dfr(
+  .x = colnames(datos.seleccionados),
+  .f = function(variable) {
+    valores.variable <- datos.seleccionados %>%
+      dplyr::pull(!! variable)
+    return (
+      data.frame(
+        variable = variable, 
+        cantidad_unicos = length(unique(valores.variable)),
+        cantidad_faltantes = length(which(is.na(valores.variable))),
+        stringsAsFactors = FALSE
+      )
+    )
+  }
+)
+
+knitr::kable(
+  x = resumen.cantidad,
+  col.names = c("Variable", "Cantidad de valores únicos", 
+                "Cantidad de valores faltantes"),
+  align = c("l", "r", "r")
+)
+```
+
+Obtenemos la matriz de correlación para las variables numéricas
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Primero buscamos las variables numéricas
+variables.numericas <- purrr::map(
+  .x = colnames(datos.seleccionados),
+  .f = function(variable) {
+    return (ifelse(is.numeric(datos.seleccionados[[variable]]), variable, NA))
+  }
+) %>% purrr::keep(
+  .x = .,
+  .p = ~ ! is.na(.x)
+) %>% unlist()
+
+# Ahora seleccionamos esas variable y calculamos la matriz de correlación
+datos.seleccionados.variables.numericas <- datos.seleccionados %>%
+  dplyr::select(dplyr::one_of(variables.numericas))
+matriz.correlacion <- stats::cor(datos.seleccionados.variables.numericas, 
+                                 use = "complete.obs")
+
+knitr::kable(
+  x = matriz.correlacion,
+  digits = 3
+)
+```
+
+# Preparación de datos
+
+Dado que la variable **bedroom** contiene una alta proporción de valores faltantes y está altamente correlacionada con la variable **rooms**, entonces la eliminamos. Posteriormente, también eliminamos todas las observaciones que contengan algún dato faltantes.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+datos.sin.faltantes <- datos.seleccionados %>%
+  # ELimino el atributo bedrooms
+  dplyr::select(-bedrooms) %>%
+  # Calculo la cantidad de faltantes para cada observación
+  dplyr::mutate(
+    faltantes = purrr::pmap(
+      .l = .,
+      .f = function(...) {
+        # Devuelvo la cantidad de columnas que tienen atributo faltante
+        columnas <- list(...)
+        return (length(which(is.na(columnas))))
+      }
+    ) %>% unlist()
+  ) %>%
+  # Me quedo con las observaciones sin faltantes
+  dplyr::filter(faltantes == 0) %>%
+  # Elimino el atributo "faltantes"
+  dplyr::select(-faltantes)
+
+# Eliminamos bedrooms de las variables numéricas
+variables.numericas[-which(variables.numericas == "bedrooms")]
+```
+
+# Analisis exploratorios (II)
+
+Calculamos estadísticas descriptivas para la variable **precio** y realizamos un histograma de su distribución.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Realizamos una tabla con las estadísticas descriptivas
+cuartiles.precio                 <- quantile(datos.sin.faltantes$price, 
+                                             probs = c(0.25, 0.5, 0.75))
+estadisticas.descriptivas.precio <- datos.sin.faltantes %>%
+  dplyr::summarise(
+    Mínimo = min(price), 
+    Q1 = cuartiles.precio[1], 
+    Mediana = cuartiles.precio[2],
+    Media = mean(price), 
+    Q3 = cuartiles.precio[3],
+    Máximo = max(price)
+  )
+
+knitr::kable(
+  x = estadisticas.descriptivas.precio,
+  digits = 3
+)
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=8 }
+# Y ahora el histograma
+ggplot2::ggplot(data = datos.sin.faltantes) +
+  ggplot2::geom_histogram(mapping = ggplot2::aes(x = price/1000), 
+                          fill = "darkslategray4") +
+  ggplot2::scale_x_log10() +
+  ggplot2::labs(x = "Precio (en miles de USD)", y = "Frecuencia", 
+                title = "Histograma para la variable precio",
+                subtitle = "Valores en escala logarítmica") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+  )
+```
+
+Ahora calculamos las estadísticas descriptivas agrupando por **property_type**.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Realizamos una tabla con las estadísticas descriptivas
+estadisticas.descriptivas.precio.tipo.propiedad <- purrr::map_dfr(
+  .x = unique(datos.sin.faltantes$property_type),
+  .f = function(tipo_propiedad) {
+    datos.tipo.propiedad                  <- datos.sin.faltantes %>%
+      dplyr::filter(property_type == tipo_propiedad)
+    cuartiles.precio.tipo                 <- quantile(datos.tipo.propiedad$price,
+                                                      probs = c(0.25, 0.5, 0.75))
+    estadisticas.descriptivas.precio.tipo <- datos.tipo.propiedad %>%
+      dplyr::summarise(
+        Tipo = tipo_propiedad,
+        Mínimo = min(price), 
+        Q1 = cuartiles.precio.tipo[1], 
+        Mediana = cuartiles.precio.tipo[2],
+        Media = mean(price), 
+        Q3 = cuartiles.precio.tipo[3],
+        Máximo = max(price)
+      )
+  }
+)
+
+knitr::kable(
+  x = estadisticas.descriptivas.precio.tipo.propiedad,
+  digits = 3
+)
+```
+
+Para cada tipo de propiedad, elaboramos un boxplot. Se observan una cantidad importante de propiedades con precios atípicos (outliers) para cada tipo de propiedad.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=8 }
+ggplot2::ggplot(data = datos.sin.faltantes) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(y = price/1000, fill = property_type)) +
+  ggplot2::facet_wrap(~ property_type, nrow = 1, scales = "free") +
+  ggplot2::labs(y = "Precio (en miles de USD)",
+                title = "Boxplots de precio por tipo de propiedad",
+                fill = "Tipo de propiedad") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = "bottom",
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    axis.title.x = ggplot2::element_blank(),
+    axis.text.x = ggplot2::element_blank(),
+    axis.ticks.x = ggplot2::element_blank()
+  )
+```
+
+Finalmente, realizamos un correlograma de las variables numéricas.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=10 }
+datos.numericos <- datos.sin.faltantes %>%
+  dplyr::select(dplyr::one_of(variables.numericas))
+
+GGally::ggpairs(data = datos.numericos,
+                #upper = list(continuous = wrap("density", alpha = 0.5), combo = "box"),
+                lower = list(continuous = GGally::wrap("points", alpha = 0.3,    size=0.1),
+                             combo = GGally::wrap("dot", alpha = 0.4,            size=0.2) )) +
+  ggplot2::labs(title = "Asociación de variables tomadas de a pares", x = "", y = "") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = "bottom",
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+# Outliers
+
+Se eliminan los outliers de la variable **precio**. El criterio de eliminación se basa en la remoción de valores menores a *Q1 - 1.5IRQ* y mayores a *Q3 + 1.5IQR* para cada tipo de propiedad.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=10 }
+valores.corte <- estadisticas.descriptivas.precio.tipo.propiedad %>%
+  dplyr::mutate(precio_inferior = Q1 - 1.5 * (Q3 - Q1),
+                precio_superior = Q3 + 1.5 * (Q3 - Q1)) %>%
+  dplyr::rename(property_type = Tipo) %>%
+  dplyr::select(property_type, precio_inferior, precio_superior)
+
+datos.sin.outliers <- datos.sin.faltantes %>%
+  dplyr::inner_join(valores.corte, by = c("property_type")) %>%
+  dplyr::filter(price > precio_inferior & price < precio_superior) %>%
+  dplyr::select(-precio_inferior, -precio_superior)
+```
+
+# Analisis exploratorios (III)
+
+Luego de baer eliminado los outliers de **precio**, volvemos a realizar los mismos análisis exploratorios. Calculamos estadísticas descriptivas para la variable **precio** y realizamos un histograma de su distribución.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Realizamos una tabla con las estadísticas descriptivas
+cuartiles.precio                 <- quantile(datos.sin.outliers$price, 
+                                             probs = c(0.25, 0.5, 0.75))
+estadisticas.descriptivas.precio <- datos.sin.outliers %>%
+  dplyr::summarise(
+    Mínimo = min(price), 
+    Q1 = cuartiles.precio[1], 
+    Mediana = cuartiles.precio[2],
+    Media = mean(price), 
+    Q3 = cuartiles.precio[3],
+    Máximo = max(price)
+  )
+
+knitr::kable(
+  x = estadisticas.descriptivas.precio,
+  digits = 3
+)
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=8 }
+# Y ahora el histograma
+ggplot2::ggplot(data = datos.sin.outliers) +
+  ggplot2::geom_histogram(mapping = ggplot2::aes(x = price/1000), 
+                          fill = "darkslategray4") +
+  ggplot2::labs(x = "Precio (en miles de USD)", y = "Frecuencia", 
+                title = "Histograma para la variable precio (sin outliers))") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+  )
+```
+
+Ahora calculamos las estadísticas descriptivas agrupando por **property_type**.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Realizamos una tabla con las estadísticas descriptivas
+estadisticas.descriptivas.precio.tipo.propiedad <- purrr::map_dfr(
+  .x = unique(datos.sin.outliers$property_type),
+  .f = function(tipo_propiedad) {
+    datos.tipo.propiedad                  <- datos.sin.outliers %>%
+      dplyr::filter(property_type == tipo_propiedad)
+    cuartiles.precio.tipo                 <- quantile(datos.tipo.propiedad$price,
+                                                      probs = c(0.25, 0.5, 0.75))
+    estadisticas.descriptivas.precio.tipo <- datos.tipo.propiedad %>%
+      dplyr::summarise(
+        Tipo = tipo_propiedad,
+        Mínimo = min(price), 
+        Q1 = cuartiles.precio.tipo[1], 
+        Mediana = cuartiles.precio.tipo[2],
+        Media = mean(price), 
+        Q3 = cuartiles.precio.tipo[3],
+        Máximo = max(price)
+      )
+  }
+)
+
+knitr::kable(
+  x = estadisticas.descriptivas.precio.tipo.propiedad,
+  digits = 3
+)
+```
+
+Para cada tipo de propiedad, elaboramos un boxplot.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=8 }
+ggplot2::ggplot(data = datos.sin.outliers) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(y = price/1000, fill = property_type)) +
+  ggplot2::facet_wrap(~ property_type, nrow = 1, scales = "free") +
+  ggplot2::labs(y = "Precio (en miles de USD)",
+                title = "Boxplots de precio por tipo de propiedad",
+                subtitle = "Valores en escala logarítmica",
+                fill = "Tipo de propiedad") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = "bottom",
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    axis.title.x = ggplot2::element_blank(),
+    axis.text.x = ggplot2::element_blank(),
+    axis.ticks.x = ggplot2::element_blank()
+  )
+```
+
+Finalmente, realizamos un correlograma de las variables numéricas.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=10 }
+datos.numericos <- datos.sin.outliers %>%
+  dplyr::select(dplyr::one_of(variables.numericas))
+
+GGally::ggpairs(data = datos.numericos,
+                #upper = list(continuous = wrap("density", alpha = 0.5), combo = "box"),
+                lower = list(continuous = GGally::wrap("points", alpha = 0.3,    size=0.1),
+                             combo = GGally::wrap("dot", alpha = 0.4,            size=0.2) )) +
+  ggplot2::labs(title = "Asociación de variables tomadas de a pares", x = "", y = "") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = "bottom",
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+# Modelo lineal
+
+Efectuamos dos modelos lineales simples para predecir la variable **precio**. El primero, basado en la cantidad de habitaciones (*rooms*) y el segundo, en función de la superficie total (*surface_total*).
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=10 }
+modelo.habitaciones <- stats::lm(formula = price ~ rooms, data = datos.sin.outliers)
+summary(modelo.habitaciones)
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=10 }
+modelo.superficie <- stats::lm(formula = price ~ surface_total, data = datos.sin.outliers)
+summary(modelo.superficie)
+```

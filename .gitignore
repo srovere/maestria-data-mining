@@ -20,3 +20,4 @@ src/R/data-mining-eyf/derby.log
 src/R/data-mining-eyf/input/*.txt
 src/R/data-mining-eyf/metastore_db/*
 src/R/data-mining-cyt/TP1/input/*.csv
+src/R/enfoque-estadistico-aprendizaje/*.csv

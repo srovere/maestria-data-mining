@@ -1,0 +1,24 @@
+a {
+  color: white;
+}
+
+#TOC {
+  position: fixed;
+  color: #212121;
+  background-color: #f8f8f8;
+  left: 0px;
+  top: 25px;
+  width: 350px;
+  height: 100%;
+  overflow: auto;
+}
+
+#TOC a {
+  color: #212121;
+}
+
+body {
+  margin: auto;
+  margin-left: 350px;
+  line-height: 20px;
+}
