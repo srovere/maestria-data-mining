@@ -22,8 +22,8 @@ rm(list = objects())
 # Carga de paquetes necesarios para hacer los gráficos
 require(Cairo)
 require(GGally)
+require(ggpubr)
 require(knitr)
-require(prettydoc)
 require(tidyverse)
 
 # Uso de Cairo para renderizar los gráficos
@@ -120,7 +120,7 @@ Dado que la variable **bedrooms** contiene una alta proporción de valores falta
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 datos.sin.faltantes <- datos.seleccionados %>%
-  # ELimino el atributo bedrooms
+  # Elimino el atributo bedrooms
   dplyr::select(-bedrooms) %>%
   # Calculo la cantidad de faltantes para cada observación
   dplyr::mutate(
@@ -239,7 +239,6 @@ datos.numericos <- datos.sin.faltantes %>%
   dplyr::select(dplyr::one_of(variables.numericas))
 
 GGally::ggpairs(data = datos.numericos,
-                #upper = list(continuous = wrap("density", alpha = 0.5), combo = "box"),
                 lower = list(continuous = GGally::wrap("points", alpha = 0.3,    size=0.1),
                              combo = GGally::wrap("dot", alpha = 0.4,            size=0.2) )) +
   ggplot2::labs(title = "Asociación de variables tomadas de a pares", x = "", y = "") +
@@ -270,7 +269,7 @@ datos.sin.outliers <- datos.sin.faltantes %>%
 
 # Analisis exploratorios (III)
 
-Luego de baer eliminado los outliers de **precio**, volvemos a realizar los mismos análisis exploratorios. Calculamos estadísticas descriptivas para la variable **precio** y realizamos un histograma de su distribución.
+Luego de haber eliminado los outliers de **precio**, volvemos a realizar los mismos análisis exploratorios. Calculamos estadísticas descriptivas para la variable **precio** y realizamos un histograma de su distribución.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Realizamos una tabla con las estadísticas descriptivas
@@ -364,7 +363,6 @@ datos.numericos <- datos.sin.outliers %>%
   dplyr::select(dplyr::one_of(variables.numericas))
 
 GGally::ggpairs(data = datos.numericos,
-                #upper = list(continuous = wrap("density", alpha = 0.5), combo = "box"),
                 lower = list(continuous = GGally::wrap("points", alpha = 0.3,    size=0.1),
                              combo = GGally::wrap("dot", alpha = 0.4,            size=0.2) )) +
   ggplot2::labs(title = "Asociación de variables tomadas de a pares", x = "", y = "") +
@@ -380,12 +378,44 @@ GGally::ggpairs(data = datos.numericos,
 
 Efectuamos dos modelos lineales simples para predecir la variable **precio**. El primero, basado en la cantidad de habitaciones (*rooms*) y el segundo, en función de la superficie total (*surface_total*).
 
-```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=10 }
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=8 }
 modelo.habitaciones <- stats::lm(formula = price ~ rooms, data = datos.sin.outliers)
 summary(modelo.habitaciones)
 ```
 
-```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=10 }
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=8 }
+ggplot2::ggplot(data = datos.sin.outliers, mapping = ggplot2::aes(x = rooms, y = price)) +
+  ggplot2::geom_point() +
+  ggplot2::geom_smooth(method = "lm", se = TRUE) +
+  ggpubr::stat_regline_equation(mapping = ggplot2::aes(label =  paste(..eq.label.., ..adj.rr.label.., sep = "~~~~")), 
+                                label.y = 1e+6) +
+  ggplot2::labs(x = "Cantidad de habitaciones", y = "Precio (USD)",
+                title = "Modelo lineal para precio de inmuebles",
+                subtitle = "Precio basado en cantidad de habitaciones") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=8 }
 modelo.superficie <- stats::lm(formula = price ~ surface_total, data = datos.sin.outliers)
 summary(modelo.superficie)
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=8 }
+ggplot2::ggplot(data = datos.sin.outliers, mapping = ggplot2::aes(x = surface_total, y = price)) +
+  ggplot2::geom_point() +
+  ggplot2::geom_smooth(method = "lm", se = TRUE) +
+  ggpubr::stat_regline_equation(mapping = ggplot2::aes(label =  paste(..eq.label.., ..adj.rr.label.., sep = "~~~~")), 
+                                label.y = 1e+6) +
+  ggplot2::labs(x = "Superficie", y = "Precio (USD)",
+                title = "Modelo lineal para precio de inmuebles",
+                subtitle = "Precio basado en superficie") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
 ```
