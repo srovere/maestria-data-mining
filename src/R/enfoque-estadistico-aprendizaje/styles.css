@@ -1,24 +1,19 @@
-a {
+h1 {
+  font-weight: bold;
+  padding-top: 30px;
+}
+
+p {
+  padding-top: 30px;
+}
+
+table thead {
+  background-color: rgb(44, 62, 80);
+  font-size: 16px;
+  font-weight: bold;
   color: white;
 }
 
-#TOC {
-  position: fixed;
-  color: #212121;
-  background-color: #f8f8f8;
-  left: 0px;
-  top: 25px;
-  width: 350px;
-  height: 100%;
-  overflow: auto;
-}
-
-#TOC a {
-  color: #212121;
-}
-
-body {
-  margin: auto;
-  margin-left: 350px;
-  line-height: 20px;
+tr {
+  border-bottom: 1px solid rgb(44, 62, 80);
 }

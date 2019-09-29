@@ -5,23 +5,15 @@ author:
 - Santiago Rovere (srovere@gmail.com), Facultad de Ingeniería, Universidad de Buenos Aires
 date: '`r format(Sys.Date(), "%d de %B de %Y")`'
 output:
-  prettydoc::html_pretty:
-    toc: TRUE
-    number_sections: yes
-    theme: cayman
-    highlight: github
-    math: katex
-    css: styles.css
   html_document:
-    number_sections: yes
-  pdf_document:
-    number_sections: yes
-  html_notebook:
-    number_sections: yes
+    toc: TRUE
+    toc_float: TRUE
+    theme: flatly
+    css: styles.css
 lang: es
 ---
 
-# Preparación de ambiente y lectura de datos
+# Lectura de datos
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Borrar variables del ambiente
@@ -64,14 +56,17 @@ datos.seleccionados <- datos %>%
 
 # Análisis exploratorio (I)
 
-Obtenemos la cantidad de valores únicos y de faltantes para cada variable
+Obtenemos la cantidad de valores únicos y de faltantes para cada variable.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 resumen.cantidad <- purrr::map_dfr(
   .x = colnames(datos.seleccionados),
   .f = function(variable) {
+    # Seleccionamos los datos para una variable
     valores.variable <- datos.seleccionados %>%
       dplyr::pull(!! variable)
+    
+    # Calculamos la cantidad de valores únicos y de valores faltantes
     return (
       data.frame(
         variable = variable, 
@@ -83,6 +78,7 @@ resumen.cantidad <- purrr::map_dfr(
   }
 )
 
+# Mostramos una tabla con los valores calculados
 knitr::kable(
   x = resumen.cantidad,
   col.names = c("Variable", "Cantidad de valores únicos", 
@@ -111,6 +107,7 @@ datos.seleccionados.variables.numericas <- datos.seleccionados %>%
 matriz.correlacion <- stats::cor(datos.seleccionados.variables.numericas, 
                                  use = "complete.obs")
 
+# Mostramos una tabla considerando 3 dígitos decimales
 knitr::kable(
   x = matriz.correlacion,
   digits = 3
@@ -119,7 +116,7 @@ knitr::kable(
 
 # Preparación de datos
 
-Dado que la variable **bedroom** contiene una alta proporción de valores faltantes y está altamente correlacionada con la variable **rooms**, entonces la eliminamos. Posteriormente, también eliminamos todas las observaciones que contengan algún dato faltantes.
+Dado que la variable **bedrooms** contiene una alta proporción de valores faltantes y está altamente correlacionada con la variable **rooms**, entonces la eliminamos. Posteriormente, también eliminamos todas las observaciones que contengan algún dato faltantes.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 datos.sin.faltantes <- datos.seleccionados %>%
@@ -142,7 +139,7 @@ datos.sin.faltantes <- datos.seleccionados %>%
   dplyr::select(-faltantes)
 
 # Eliminamos bedrooms de las variables numéricas
-variables.numericas[-which(variables.numericas == "bedrooms")]
+variables.numericas <- variables.numericas[-which(variables.numericas == "bedrooms")]
 ```
 
 # Analisis exploratorios (II)
@@ -254,7 +251,7 @@ GGally::ggpairs(data = datos.numericos,
   )
 ```
 
-# Outliers
+# Tratamiento de outliers
 
 Se eliminan los outliers de la variable **precio**. El criterio de eliminación se basa en la remoción de valores menores a *Q1 - 1.5IRQ* y mayores a *Q3 + 1.5IQR* para cada tipo de propiedad.
 
