@@ -297,7 +297,7 @@ ggplot2::ggplot(data = datos.sin.outliers) +
   ggplot2::geom_histogram(mapping = ggplot2::aes(x = price/1000), 
                           fill = "darkslategray4") +
   ggplot2::labs(x = "Precio (en miles de USD)", y = "Frecuencia", 
-                title = "Histograma para la variable precio (sin outliers))") +
+                title = "Histograma para la variable precio (sin outliers)") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     plot.title = ggplot2::element_text(hjust = 0.5),
@@ -413,6 +413,41 @@ ggplot2::ggplot(data = datos.sin.outliers, mapping = ggplot2::aes(x = surface_to
   ggplot2::labs(x = "Superficie", y = "Precio (USD)",
                 title = "Modelo lineal para precio de inmuebles",
                 subtitle = "Precio basado en superficie") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+El modelo basado en **superficie total** es muy pobre. Posiblemente pueda mejorarse, eliminando *outliers* para esta variable (los cuales pueden observarse en cualquiera de los correlogramas). Se aplica el mismo criterio que para la variable *precio*.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=10 }
+# Calculamos los valores de Q1 y Q3, y a partir de estos, los valores de corte.
+cuartiles.superficie.total <- stats::quantile(datos.sin.outliers$surface_total, probs = c(0.25, 0.75))
+superficie.inferior        <- cuartiles.superficie.total[1] - 1.5 * (cuartiles.superficie.total[2] - cuartiles.superficie.total[1])
+superficie.superior        <- cuartiles.superficie.total[2] + 1.5 * (cuartiles.superficie.total[2] - cuartiles.superficie.total[1])
+
+# Ahora eliminalos los outliers de surface_total
+datos.sin.outliers.superficie <- datos.sin.outliers %>%
+  dplyr::filter(surface_total > superficie.inferior & surface_total < superficie.superior)
+
+# Ahora volvemos a ajustar el modelo
+modelo.superficie2 <- stats::lm(formula = price ~ surface_total, data = datos.sin.outliers.superficie)
+summary(modelo.superficie2)
+```
+
+Como se observa, este modelo no solamente es mucho mejor que el anterior basado en superficie, sino que también mejora la predicción basada en cantidad de habitaciones.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=8 }
+ggplot2::ggplot(data = datos.sin.outliers.superficie, mapping = ggplot2::aes(x = surface_total, y = price)) +
+  ggplot2::geom_point() +
+  ggplot2::geom_smooth(method = "lm", se = TRUE) +
+  ggpubr::stat_regline_equation(mapping = ggplot2::aes(label =  paste(..eq.label.., ..adj.rr.label.., sep = "~~~~")), 
+                                label.y = 1e+6) +
+  ggplot2::labs(x = "Superficie", y = "Precio (USD)",
+                title = "Modelo lineal para precio de inmuebles",
+                subtitle = "Precio basado en superficie (sin outliers)") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     plot.title = ggplot2::element_text(hjust = 0.5),
