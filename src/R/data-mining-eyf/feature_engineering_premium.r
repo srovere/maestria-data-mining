@@ -57,7 +57,8 @@ set.datos %<>%
   dplyr::group_by(numero_de_cliente) %>%
   dplyr::mutate(mcaja_ahorro_dolares_media_6 = fe_media_movil(mcaja_ahorro_dolares, 6),
                 mcaja_ahorro_dolares_minimo_6 = fe_minimo_movil(mcaja_ahorro_dolares, 6),
-                mcaja_ahorro_dolares_maximo_6 = fe_maximo_movil(mcaja_ahorro_dolares, 6))
+                mcaja_ahorro_dolares_maximo_6 = fe_maximo_movil(mcaja_ahorro_dolares, 6),
+                mcaja_ahorro_dolares_tendencia_6 = fe_tendencia_movil(mcaja_ahorro_dolares, 6))
 
 # Guardar archivo como RDS
 base::saveRDS(set.datos, file = paste0(config$dir$input, "/premium.rds"))
