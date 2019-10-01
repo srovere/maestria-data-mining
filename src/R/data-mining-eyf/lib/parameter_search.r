@@ -150,9 +150,10 @@ ps_bayesian_optimization <- function(set.datos, clase, semillas, proporcion_trai
   } else {
     # Creacion de funcion objetivo
     obj.fun <- smoof::makeSingleObjectiveFunction(
-      name    = "MBOObjectiveFunction",
-      fn      = funcion_objetivo,
-      par.set = limites.parametros
+      name     = "MBOObjectiveFunction",
+      fn       = funcion_objetivo,
+      par.set  = limites.parametros,
+      minimize = FALSE
     )
     
     # Definir initial design
