@@ -100,27 +100,30 @@ ps_parallel_grid_search <- function(set.datos, clase, semillas, proporcion_train
   return (resultados)
 }
 
-# Optimizacion bayesiana (single core)
+# Optimizacion bayesiana (con mlrMBO)
 ps_bayesian_optimization <- function(set.datos, clase, semillas, proporcion_train = 0.7, funcion_modelo, funcion_prediccion,
-                                     limites.parametros, init_points = 50, n_iter = 50, acq = "ucb", kappa = 2.576, eps = 0.001) {
+                                     limites.parametros, init_points = 50, n_iter = 50, logger,
+                                     file_persistence_interval = 600, file_persistence_path = NULL) {
   # i. Definir closure para funcion objetivo
   funcion_objetivo_closure <- function(funcion_modelo, semillas, training.sets, test.sets, clase, proporcion_train) {
-      funcion <- function(...) {
-        parametros.modelo <- list(...)
-        ganancias_test    <- purrr::imap(
-          .x = semillas,
-          .f = function(semilla, posicion) {
-            modelo            <- funcion_modelo(set.datos = training.sets[[posicion]], clase = clase, semilla = semilla,
-                                                parametros = parametros.modelo)
-            test_prediccion   <- funcion_prediccion(set.datos.test = test.sets[[posicion]], clase = clase, modelo = modelo)
-            ganancia_test     <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test.sets[[posicion]]$clase, 
-                                             proporcion = 1 - proporcion_train)
-            return (ganancia_test)
-          }
-        ) %>% unlist()
-        return (list(Score = mean(ganancias_test), Pred = 0))
-      }
-      return (funcion)
+    funcion <- function(x) {
+      parametros.modelo <- x
+      ganancias_test    <- purrr::imap(
+        .x = semillas,
+        .f = function(semilla, posicion) {
+          logger$info(paste0("Ejecutando con semilla ", semilla, " y parametros: ", 
+                             paste0(names(parametros.modelo), "=", parametros.modelo, collapse = ", ")))
+          modelo            <- funcion_modelo(set.datos = training.sets[[posicion]], clase = clase, semilla = semilla,
+                                              parametros = parametros.modelo)
+          test_prediccion   <- funcion_prediccion(set.datos.test = test.sets[[posicion]], clase = clase, modelo = modelo)
+          ganancia_test     <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test.sets[[posicion]]$clase, 
+                                           proporcion = 1 - proporcion_train)
+          return (ganancia_test)
+        }
+      ) %>% unlist()
+      return (mean(ganancias_test))
+    }
+    return (funcion)
   }
   
   # ii. Definir sets de datos para cada semilla
@@ -136,19 +139,36 @@ ps_bayesian_optimization <- function(set.datos, clase, semillas, proporcion_trai
       test.sets[[posicion]]     <<- set.datos[ -train_casos, ]
     }
   )
-      
+  
   # iii. Definir funcion objetivo
   funcion_objetivo <- funcion_objetivo_closure(funcion_modelo, semillas, training.sets, test.sets, clase, proporcion_train)
-      
+  
   # iv. Efectuar optimizacion bayesiana
-  resultados <- rBayesianOptimization::BayesianOptimization(FUN = funcion_objetivo, bounds = limites.parametros, 
-                                                            verbose = TRUE, init_points = init_points, n_iter = n_iter, 
-                                                            acq = acq, kappa = kappa, eps = eps)
-      
-  # v. Devolver resultados
-  return (
-    resultados$History %>%
-      dplyr::rename(ganancia_test = Value) %>%
-      dplyr::select(-Round)
-  )
+  if (! is.null(file_persistence_path) && file.exists(file_persistence_path)) {
+    # Retoma el procesamiento en donde lo dejo
+    resultados <- mlrMBO::mboContinue(file_persistence_path)
+  } else {
+    # Creacion de funcion objetivo
+    obj.fun <- smoof::makeSingleObjectiveFunction(
+      name    = "MBOObjectiveFunction",
+      fn      = funcion_objetivo,
+      par.set = limites.parametros
+    )
+    
+    # Definir initial design
+    design   <- ParamHelpers::generateDesign(n = init_points, par.set = getParamSet(obj.fun), fun = lhs::randomLHS)
+    
+    # Definir funcion de control
+    ctrl <- mlrMBO::makeMBOControl(save.on.disk.at.time = file_persistence_interval, 
+                                   save.file.path = file_persistence_path)
+    ctrl <- mlrMBO::setMBOControlTermination(ctrl, iters = n_iter)
+    
+    # Ejecutar
+    resultados <- mlrMBO::mbo(fun = obj.fun, 
+                              design = design, 
+                              control = ctrl, 
+                              show.info = TRUE)
+  }
+  
+  return (resultados)
 }

@@ -13,9 +13,14 @@ m_arbol_decision <- function(set.datos, clase, semilla, parametros) {
 }
 
 # XGBoost
-m_xgboost_closure <- function(booster = "gbtree", objective = "binary:logistic", eval_metric = "logloss", tree_method = "hist") {
+m_xgboost_closure <- function(booster = "gbtree", objective = "binary:logistic", eval_metric = "logloss", 
+                              tree_method = "hist", grow_policy = "lossguide", nrounds = 500) {
   funcion <- function(set.datos, clase, semilla, parametros) {
     # Uso de funciones objetivos y de evalacion personalizadas
+    if (! is.list(parametros)) {
+      parametros <- as.list(parametros)  
+    }
+    
     feval <- NULL
     if (class(eval_metric) == "function") {
       feval = eval_metric
@@ -33,12 +38,19 @@ m_xgboost_closure <- function(booster = "gbtree", objective = "binary:logistic",
     parametros$booster     <- booster
     parametros$tree_method <- tree_method
     parametros$max_depth   <- as.integer(round(parametros$max_depth))
-    xgb.train              <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(set.datos, -!!clase)),
-                                                   label = as.matrix(dplyr::select(set.datos, !!clase)))
-    modelo                 <- xgboost::xgb.train(data = xgb.train, nrounds = as.integer(round(parametros$nrounds)),
-                                                 obj = obj, feval = feval, nthread = parallel::detectCores(), 
-                                                 params = parametros)
-    return (modelo)
+    parametros$nrounds     <- nrounds
+    tryCatch({
+      xgb.train              <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(set.datos, -!!clase)),
+                                                     label = as.matrix(dplyr::select(set.datos, !!clase)))
+      modelo                 <- xgboost::xgb.train(data = xgb.train, nrounds = as.integer(round(parametros$nrounds)),
+                                                   obj = obj, feval = feval, nthread = parallel::detectCores(), 
+                                                   params = parametros)
+      return (modelo)
+    }, error = function(e) {
+      archivo.error <- paste0(getwd(), "/xgboost.error.RData")
+      save(semilla, parametros, feval, obj, e, file = archivo.error)
+      stop("Error al ejecutar XGBoost")
+    })
   }
   return (funcion)
 }
