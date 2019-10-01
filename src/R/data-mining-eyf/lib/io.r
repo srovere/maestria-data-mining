@@ -34,4 +34,3 @@ Logger <- R6Class("Logger",
 leer_set_datos <- function(input.dir, denominacion) {
   return (data.table::fread(paste0(input.dir, "/", denominacion, ".txt"), header=TRUE, sep="\t"))
 }
-
