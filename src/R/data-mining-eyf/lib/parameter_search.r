@@ -111,13 +111,11 @@ ps_bayesian_optimization <- function(set.datos, clase, semillas, proporcion_trai
       ganancias_test    <- purrr::imap(
         .x = semillas,
         .f = function(semilla, posicion) {
-          logger$info(paste0("Ejecutando con semilla ", semilla, " y parametros: ", 
-                             paste0(names(parametros.modelo), "=", parametros.modelo, collapse = ", ")))
-          modelo            <- funcion_modelo(set.datos = training.sets[[posicion]], clase = clase, semilla = semilla,
-                                              parametros = parametros.modelo)
-          test_prediccion   <- funcion_prediccion(set.datos.test = test.sets[[posicion]], clase = clase, modelo = modelo)
-          ganancia_test     <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test.sets[[posicion]]$clase, 
-                                           proporcion = 1 - proporcion_train)
+          modelo          <- funcion_modelo(set.datos = training.sets[[posicion]], clase = clase, semilla = semilla,
+                                            parametros = parametros.modelo)
+          test_prediccion <- funcion_prediccion(set.datos.test = test.sets[[posicion]], clase = clase, modelo = modelo)
+          ganancia_test   <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test.sets[[posicion]]$clase, 
+                                         proporcion = 1 - proporcion_train)
           return (ganancia_test)
         }
       ) %>% unlist()
@@ -170,6 +168,67 @@ ps_bayesian_optimization <- function(set.datos, clase, semillas, proporcion_trai
                               control = ctrl, 
                               show.info = TRUE)
   }
+  
+  return (resultados)
+}
+
+# Optimizacion con algoritmos geneticos (con GA)
+ps_ga_optimization <- function(set.datos, clase, semillas, proporcion_train = 0.7, funcion_modelo, funcion_prediccion,
+                               limites.parametros, parametros_prueba = NULL, max_iterations = 20, 
+                               tamano_poblacion = 50, run = 10, logger) {
+  # i. Definir closure para funcion objetivo
+  funcion_objetivo_closure <- function(funcion_modelo, nombres.parametros, semillas, training.sets, test.sets, clase, proporcion_train) {
+    funcion <- function(x) {
+      parametros.modelo        <- as.list(x)
+      names(parametros.modelo) <- nombres.parametros
+      logger$info(paste0("Ejecutando con parametros: ", paste0(names(parametros.modelo), "=", parametros.modelo, collapse = ", ")))
+      ganancias_test           <- purrr::imap(
+        .x = semillas,
+        .f = function(semilla, posicion) {
+          modelo          <- funcion_modelo(set.datos = training.sets[[posicion]], clase = clase, semilla = semilla,
+                                              parametros = parametros.modelo)
+          test_prediccion <- funcion_prediccion(set.datos.test = test.sets[[posicion]], clase = clase, modelo = modelo)
+          ganancia_test   <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test.sets[[posicion]]$clase, 
+                                         proporcion = 1 - proporcion_train)
+          return (ganancia_test)
+        }
+      ) %>% unlist()
+      return (mean(ganancias_test))
+    }
+    return (funcion)
+  }
+  
+  # ii. Definir sets de datos para cada semilla
+  training.sets <- list()
+  test.sets     <- list()
+  purrr::iwalk(
+    .x = semillas,
+    .f = function(semilla, posicion) {
+      # ii. Definir conjuntos de train y test
+      set.seed(semilla)
+      train_casos               <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
+      training.sets[[posicion]] <<- set.datos[  train_casos, ]
+      test.sets[[posicion]]     <<- set.datos[ -train_casos, ]
+    }
+  )
+  
+  # iii. Definir funcion objetivo
+  nombres.parametros <- names(limites.parametros)
+  funcion_objetivo   <- funcion_objetivo_closure(funcion_modelo, nombres.parametros, semillas, training.sets, 
+                                                 test.sets, clase, proporcion_train)
+  
+  # iv. Efectuar optimizacion con GA
+  parametros.inferiores <- unlist(purrr::map(.x = names(limites.parametros), ~ limites.parametros[[.x]][1]))
+  parametros.superiores <- unlist(purrr::map(.x = names(limites.parametros), ~ limites.parametros[[.x]][2]))
+  resultados <- GA::ga(
+    type = "real-valued", 
+    fitness = funcion_objetivo,
+    lower = parametros.inferiores, 
+    upper = parametros.superiores, 
+    popSize = tamano_poblacion, 
+    maxiter = max_iterations,
+    run = run
+  )
   
   return (resultados)
 }

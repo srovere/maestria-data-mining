@@ -4,8 +4,8 @@
 rm(list = ls()); gc()
 Sys.setenv(TZ = "UTC")
 list.of.packages <- c("caret", "data.table", "doSNOW", "dplyr", "foreach", 
-                      "futile.logger", "parallel", "R6", "mlrMBO", "rgenoud",
-                      "rpart", "snow", "utils", "xgboost", "yaml")
+                      "futile.logger", "GA", "parallel", "R6", "mlrMBO", "rgenoud",
+                      "ROCR", "rpart", "snow", "utils", "xgboost", "yaml")
 for (pack in list.of.packages) {
   if (! require(pack, character.only = TRUE)) {
     stop(paste0("Paquete no encontrado: ", pack))
@@ -60,42 +60,6 @@ set.datos <- leer_set_datos(config$dir$input, "201902") %>%
 # -----------------------------------------------------------------------------#
 # --- IV. Realizar ejecucion de prueba ----
 # -----------------------------------------------------------------------------#
-
-# --- Grid search paralelizado (arboles de decision)
-start.time        <- proc.time()
-grilla.parametros <- purrr::cross_df(list(
-  xval = 0,
-  cp = c(0.0001, 0.0005, 0.001), 
-  ms = c(20, 50, 100), 
-  mb = c(7, 10, 15), 
-  md = c(5, 10, 15, 20)
-))
-resultados.rpart.gs  <- ps_parallel_grid_search(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
-                                                proporcion_train = 0.7, funcion_modelo = m_arbol_decision, 
-                                                funcion_prediccion = pr_basica, grilla.parametros = grilla.parametros)
-end.time             <- proc.time()
-elapsed.time         <- end.time[3] - start.time[3]
-logger$info("Tiempo:", elapsed.time, "segundos")
-resultados.rpart.gs.promedio <- resultados.rpart.gs %>% 
-  dplyr::group_by(xval, cp, ms, mb, md) %>% 
-  dplyr::summarise(ganancia_promedio = mean(ganancia_test), ganancia_desvio = sd(ganancia_test),
-                   roc_auc_promedio = mean(roc_auc_test), roc_auc_desvio = sd(roc_auc_test))
-
-# --- Optimizacion bayesiana (arboles de decision)
-start.time         <- proc.time()
-limites.parametros <- list(
-  xval = c(0, 0),
-  cp = c(0.0001, 0.001),
-  ms = c(20, 100),
-  mb = c(7, 15),
-  md = c(5, 20)
-)
-resultados.rpart.bo <- ps_bayesian_optimization(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
-                                                proporcion_train = 0.7, funcion_modelo = m_arbol_decision, 
-                                                funcion_prediccion = pr_basica, limites.parametros = limites.parametros)
-end.time          <- proc.time()
-elapsed.time      <- end.time[3] - start.time[3]
-logger$info("Tiempo:", elapsed.time, "segundos")  
 
 # --- XGBoost - una sola corrida
 start.time  <- proc.time()
@@ -176,4 +140,27 @@ end.time          <- proc.time()
 elapsed.time      <- end.time[3] - start.time[3]
 logger$info(paste0("Tiempo:", elapsed.time, "segundos"))
 save(resultados.xgb.bo, file = "/home/santiago/xgboost.mbo.RData")
+
+# --- XGBoost con optimizacion basada en algoritmos geneticos
+start.time         <- proc.time()
+limites.parametros <- list(
+  eta = c(0.001, 0.01),
+  max_depth = c(10, 20),
+  gamma = c(1, 5),
+  subsample = c(0.5, 1),
+  colsample_bytree = c(0.5, 1),
+  min_child_weight = c(1, 10)
+)
+
+funcion_modelo    <- m_xgboost_closure(booster = "gbtree", objective = "binary:logistic", eval_metric = pe_perdida_xgboost, 
+                                       tree_method = "hist", grow_policy = "lossguide", nrounds = 500)
+resultados.xgb.ga <- ps_ga_optimization(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
+                                        proporcion_train = 0.7, funcion_modelo = funcion_modelo, 
+                                        max_iterations = 20, tamano_poblacion = 50, run = 10,
+                                        funcion_prediccion = pr_xgboost, limites.parametros = limites.parametros, 
+                                        logger = logger)
+end.time          <- proc.time()
+elapsed.time      <- end.time[3] - start.time[3]
+logger$info(paste0("Tiempo:", elapsed.time, "segundos"))
+save(resultados.xgb.bo, file = "/home/santiago/xgboost.ga.RData")
 # ------------------------------------------------------------------------------
