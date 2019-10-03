@@ -161,14 +161,14 @@ limites.parametros <- ParamHelpers::makeParamSet(
   ParamHelpers::makeNumericParam("gamma", lower = 1, upper = 5),
   ParamHelpers::makeNumericParam("subsample", lower = 0.5, upper = 1),
   ParamHelpers::makeNumericParam("colsample_bytree", lower = 0.5, upper = 1),
-  ParamHelpers::makeIntegerParam("min_child_weight", lower = 1, upper = 10)
+  ParamHelpers::makeNumericParam("min_child_weight", lower = 1, upper = 10)
 )
 
 funcion_modelo    <- m_xgboost_closure(booster = "gbtree", objective = "binary:logistic", eval_metric = pe_perdida_xgboost, 
                                        tree_method = "hist", grow_policy = "lossguide", nrounds = 500)
 resultados.xgb.bo <- ps_bayesian_optimization(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
                                               proporcion_train = 0.7, funcion_modelo = funcion_modelo, 
-                                              n_iter = 50, init_points = 4 * length(limites.parametros$pars),
+                                              n_iter = 100, init_points = 5 * length(limites.parametros$pars),
                                               funcion_prediccion = pr_xgboost, 
                                               limites.parametros = limites.parametros, logger = logger,
                                               file_persistence_path = paste0(getwd(), "/output/xgboost.mbo.RData"))
