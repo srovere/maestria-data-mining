@@ -35,12 +35,25 @@ rm(archivo.config, args); gc()
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
-# --- III. Cargar funciones de librerias propias. Crear logger ----
+# --- III. Cargar codigo necesario. Crear logger y carpetas ----
 # -----------------------------------------------------------------------------#
+
+# i. Carga de codigo
 source(file = paste0(config$dir$lib, "/io.r"), echo = FALSE)
 source(file = paste0(config$dir$lib, "/feature_engineering.r"), echo = FALSE)
 
+# ii. Creacion de logger
 logger <- Logger$new(log.level = INFO)
+
+# iii. Crear carpetas
+parts.dir <- paste0(config$dir$input, "/parts")
+if (! dir.exists(parts.dir)) {
+  dir.create(parts.dir)
+}
+months.dir <- paste0(config$dir$input, "/months")
+if (! dir.exists(months.dir)) {
+  dir.create(months.dir)
+}
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
@@ -50,8 +63,8 @@ logger <- Logger$new(log.level = INFO)
 # i. Leer set de datos
 logger$info("Leyendo conjunto de datos")
 set.datos <- leer_set_datos(config$dir$input, "paquete_premium")
-  
-# Pasar datos a fechas relativas
+
+# ii. Pasar datos a fechas relativas
 set.datos.fechas.relativas <- set.datos %>%
   # Pasar fechas a diferencias relativas respecto de foto_mes.
   dplyr::mutate(foto_mes_fecha = as.Date(paste0(foto_mes, "01"), format = '%Y%m%d'),
@@ -66,7 +79,8 @@ set.datos.fechas.relativas <- set.datos %>%
   # Elimino el campo foto_mes_fecha
   dplyr::select(-foto_mes_fecha)
 
-# Ahora se calculan operaciones moviles (minimo, maximo y media) a ciertas columnas
+# iii. Ahora se calculan operaciones moviles (minimo, maximo y media) a ciertas columnas
+#      Se van guardando partes del data frame en distintos archivos porque no entra todo en memoria
 columnas.no.procesables <- c("numero_de_cliente", "foto_mes", "clase_ternaria")
 columnas.procesables    <- setdiff(colnames(set.datos.fechas.relativas), columnas.no.procesables)
 ventanas                <- c(3, 6, 12)
@@ -75,28 +89,36 @@ combinaciones           <- purrr::cross_df(.l = list(columna = columnas.procesab
   dplyr::mutate(numero = dplyr::row_number())
 cantidad.combinaciones  <- nrow(combinaciones)
 set.datos.historicos    <- set.datos.fechas.relativas %>%
-  dplyr::arrange(numero_de_cliente, foto_mes) %>%
-  dplyr::group_by(numero_de_cliente)
+  dplyr::arrange(numero_de_cliente, foto_mes)
 purrr::pwalk(
   .l = combinaciones,
   .f = function(columna, ventana, numero) {
     logger$info(glue::glue("Procesando {columna} con ventana de {ventana} meses ({numero}/{cantidad.combinaciones})"))
-    columna_media  <- paste0(columna, "_media_", ventana)
-    columna_minimo <- paste0(columna, "_minimo_", ventana)
-    columna_maximo <- paste0(columna, "_maximo_", ventana)
-    set.datos.historicos <<- set.datos.historicos %>%
-      dplyr::mutate(!! columna_media  := fe_media_movil(!! rlang::sym(columna), ventana),
-                    !! columna_minimo := fe_minimo_movil(!! rlang::sym(columna), ventana),
-                    !! columna_maximo := fe_maximo_movil(!!  rlang::sym(columna), ventana))
-      if (ventana >= min.ventana.tendencia) {
-       columna_tendencia <- paste0(columna, "_tendencia_", ventana)
-       set.datos.historicos <<- set.datos.historicos %>%
-         dplyr::mutate(!! columna_tendencia := fe_tendencia_movil(!! rlang::sym(columna), ventana))
-      }
+    
+    # Si el archivo existe, seguir de largo
+    output.file <- paste0(parts.dir, "/", columna, ".rds")
+    if (! file.exists(output.file)) {
+      columna_media  <- paste0(columna, "_media_", ventana)
+      columna_minimo <- paste0(columna, "_minimo_", ventana)
+      columna_maximo <- paste0(columna, "_maximo_", ventana)
+      
+      set.datos.historicos.columna <- set.datos.historicos %>%
+        dplyr::select(numero_de_cliente, foto_mes, !! columna) %>%
+        dplyr::group_by(numero_de_cliente) %>%
+        dplyr::mutate(!! columna_media  := fe_media_movil(!! rlang::sym(columna), ventana),
+                      !! columna_minimo := fe_minimo_movil(!! rlang::sym(columna), ventana),
+                      !! columna_maximo := fe_maximo_movil(!!  rlang::sym(columna), ventana))
+        if (ventana >= min.ventana.tendencia) {
+         columna_tendencia <- paste0(columna, "_tendencia_", ventana)
+         set.datos.historicos.columna <- set.datos.historicos.columna %>%
+           dplyr::mutate(!! columna_tendencia := fe_tendencia_movil(!! rlang::sym(columna), ventana))
+        }
+      
+      # Guardar a disco
+      base::saveRDS(set.datos.historicos.columna, file = paste0(parts.dir, "/", columna, ".rds"))
+      rm(set.datos.historicos.columna)
     }
+  }
 )
-
-# Guardar archivo como RDS
-base::saveRDS(set.datos.historicos, file = paste0(config$dir$input, "/premium.rds"))
 
 # ------------------------------------------------------------------------------
