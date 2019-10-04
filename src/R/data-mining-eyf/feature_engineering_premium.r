@@ -117,7 +117,7 @@ purrr::pwalk(
       # Guardar a disco
       base::saveRDS(set.datos.historicos.columna, file = paste0(parts.dir, "/", columna, ".rds"))
       rm(set.datos.historicos.columna)
-      gc()
+      gc(full = TRUE)
     }
   }
 )
@@ -150,7 +150,7 @@ purrr::walk(
     # Guardar a disco
     base::saveRDS(set.datos.mes, file = paste0(months.dir, "/", foto.mes, ".rds"))
     rm(set.datos.mes)
-    gc()
+    gc(full = TRUE)
   }
 )
 # ------------------------------------------------------------------------------
