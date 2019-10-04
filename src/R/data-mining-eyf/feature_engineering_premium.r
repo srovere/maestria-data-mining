@@ -50,9 +50,9 @@ logger <- Logger$new(log.level = INFO)
 # i. Leer set de datos
 logger$info("Leyendo conjunto de datos")
 set.datos <- leer_set_datos(config$dir$input, "paquete_premium")
-
+  
 # Pasar datos a fechas relativas
-set.datos.fechas.relativas <- dtplyr::lazy_dt(set.datos) %>%
+set.datos.fechas.relativas <- set.datos %>%
   # Pasar fechas a diferencias relativas respecto de foto_mes.
   dplyr::mutate(foto_mes_fecha = as.Date(paste0(foto_mes, "01"), format = '%Y%m%d'),
                 Master_Fvencimiento = fe_dias_diferencia(Master_Fvencimiento, foto_mes_fecha),
@@ -64,22 +64,23 @@ set.datos.fechas.relativas <- dtplyr::lazy_dt(set.datos) %>%
                 Visa_fultimo_cierre = fe_dias_diferencia(Visa_fultimo_cierre, foto_mes_fecha),
                 Visa_fechaalta = fe_dias_diferencia(Visa_fechaalta, foto_mes_fecha)) %>%
   # Elimino el campo foto_mes_fecha
-  dplyr::select(-foto_mes_fecha) %>%
-  # Ejecutar
-  dplyr::collect()
+  dplyr::select(-foto_mes_fecha)
 
 # Ahora se calculan operaciones moviles (minimo, maximo y media) a ciertas columnas
 columnas.no.procesables <- c("numero_de_cliente", "foto_mes", "clase_ternaria")
 columnas.procesables    <- setdiff(colnames(set.datos.fechas.relativas), columnas.no.procesables)
 ventanas                <- c(3, 6, 12)
 min.ventana.tendencia   <- 6
-combinaciones           <- purrr::cross_df(.l = list(columna = columnas.procesables, ventana = ventanas))
-set.datos.historicos    <- dtplyr::lazy_dt(set.datos.fechas.relativas) %>%
+combinaciones           <- purrr::cross_df(.l = list(columna = columnas.procesables, ventana = ventanas)) %>%
+  dplyr::mutate(numero = dplyr::row_number())
+cantidad.combinaciones  <- nrow(combinaciones)
+set.datos.historicos    <- set.datos.fechas.relativas %>%
   dplyr::arrange(numero_de_cliente, foto_mes) %>%
   dplyr::group_by(numero_de_cliente)
 purrr::pwalk(
   .l = combinaciones,
-  .f = function(columna, ventana) {
+  .f = function(columna, ventana, numero) {
+    logger$info(glue::glue("Procesando {columna} con ventana de {ventana} meses ({numero}/{cantidad.combinaciones})"))
     columna_media  <- paste0(columna, "_media_", ventana)
     columna_minimo <- paste0(columna, "_minimo_", ventana)
     columna_maximo <- paste0(columna, "_maximo_", ventana)
@@ -94,9 +95,8 @@ purrr::pwalk(
       }
     }
 )
-set.datos.modificado <- dplyr::collect(set.datos.historicos)
 
 # Guardar archivo como RDS
-base::saveRDS(set.datos.modificado, file = paste0(config$dir$input, "/premium.rds"))
+base::saveRDS(set.datos.historicos, file = paste0(config$dir$input, "/premium.rds"))
 
 # ------------------------------------------------------------------------------
