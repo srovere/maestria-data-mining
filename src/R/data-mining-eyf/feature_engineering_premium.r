@@ -117,8 +117,40 @@ purrr::pwalk(
       # Guardar a disco
       base::saveRDS(set.datos.historicos.columna, file = paste0(parts.dir, "/", columna, ".rds"))
       rm(set.datos.historicos.columna)
+      gc()
     }
   }
 )
 
+# iv. Guardar archivo como RDS mes a mes
+foto.meses         <- sort(unique(dplyr::pull(set.datos, foto_mes)))
+archivos.variables <- list.files(path = parts.dir, pattern = "*.rds", full.names = TRUE)
+set.datos.minimo   <- set.datos %>%
+  dplyr::select(dplyr::one_of(columnas.no.procesables))
+rm(set.datos.fechas.relativas, set.datos.historicos, set.datos)
+purrr::walk(
+  .x = foto.meses,
+  .f = function(foto.mes) {
+    logger$info(glue::glue("Procesando datos de {foto.mes}"))
+    
+    set.datos.mes <- set.datos.minimo %>%
+      dplyr::filter(foto_mes == foto.mes)
+    purrr::walk(
+      .x = archivos.variables,
+      .f = function(archivo.variable) {
+        logger$info(glue::glue("... archivo {archivo.variable}"))
+        set.datos.variable <- base::readRDS(archivo.variable) %>%
+          dplyr::filter(foto_mes == foto.mes)
+        set.datos.mes      <<- set.datos.mes %>%
+          dplyr::inner_join(set.datos.variable, by = c("numero_de_cliente", "foto_mes"))
+        rm(set.datos.variable)
+      }
+    )
+    
+    # Guardar a disco
+    base::saveRDS(set.datos.mes, file = paste0(months.dir, "/", foto.mes, ".rds"))
+    rm(set.datos.mes)
+    gc()
+  }
+)
 # ------------------------------------------------------------------------------
