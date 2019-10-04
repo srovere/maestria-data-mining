@@ -13,22 +13,22 @@ fe_zscore <- function(valor) {
 # Funcion para calcular percentiles
 fe_percentiles <- function(valor) {
   ajuste <- logspline::logspline(prcp.acumulada.referencia, lbound = min(valor), ubound = max(valor), silent = TRUE)
-  return (logspline::plogspline(valor, ajuste))
+  return (as.double(logspline::plogspline(valor, ajuste)))
 }
 
 # Funcion para generar medias moviles
 fe_media_movil <- function(valor, ancho.ventana) {
-  return (zoo::rollmean(valor, k = ancho.ventana, fill = NA, align = "right"))
+  return (as.double(zoo::rollmean(valor, k = ancho.ventana, fill = NA, align = "right")))
 }
 
 # Funcion para calcular minimo de ventana movil
 fe_minimo_movil <- function(valor, ancho.ventana) {
-  return (zoo::rollapply(valor, width = ancho.ventana, FUN = min, na.rm = TRUE, fill = NA, align = "right"))
+  return (as.double(zoo::rollapply(valor, width = ancho.ventana, FUN = min, na.rm = TRUE, fill = NA, align = "right")))
 }
 
 # Funcion para calcular maximo de ventana movil
 fe_maximo_movil <- function(valor, ancho.ventana) {
-  return (zoo::rollmax(valor, k = ancho.ventana, fill = NA, align = "right"))
+  return (as.double(zoo::rollmax(valor, k = ancho.ventana, fill = NA, align = "right")))
 }
 
 # Funcion para calcular tendencia de ventana movil
@@ -39,5 +39,13 @@ fe_tendencia_movil <- function(valor, ancho.ventana) {
     m <- .lm.fit(cbind(1, x), y)
     return (coefficients(m)[2])
   }
-  return (zoo::rollapply(valor, width = ancho.ventana, FUN = funcion_tendencia, fill = NA, align = "right"))
+  return (as.double(zoo::rollapply(valor, width = ancho.ventana, FUN = funcion_tendencia, fill = NA, align = "right")))
+}
+
+# Funcion para calcular la cantidad de dias entre 2 fechas (fecha - fecha.referencia)
+# fecha_int = fecha sobre la que se quiere averiguar la cantidad de dias de diferencia (en formato YYYYMMDD)
+# fecha.referencia = fecha sobre la que se hace la comparacion
+fe_dias_diferencia <- function(fecha.int, fecha.referencia) {
+  fecha <- as.Date(as.character(fecha.int), format = "%Y%m%d")
+  return (as.numeric(difftime(fecha, fecha.referencia, units = "days")))
 }

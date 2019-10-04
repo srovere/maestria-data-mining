@@ -51,16 +51,52 @@ logger <- Logger$new(log.level = INFO)
 logger$info("Leyendo conjunto de datos")
 set.datos <- leer_set_datos(config$dir$input, "paquete_premium")
 
-# Se calculan operaciones moviles (minimo, maximo y media) a ciertas columnas
-set.datos %<>%
+# Pasar datos a fechas relativas
+set.datos.fechas.relativas <- dtplyr::lazy_dt(set.datos) %>%
+  # Pasar fechas a diferencias relativas respecto de foto_mes.
+  dplyr::mutate(foto_mes_fecha = as.Date(paste0(foto_mes, "01"), format = '%Y%m%d'),
+                Master_Fvencimiento = fe_dias_diferencia(Master_Fvencimiento, foto_mes_fecha),
+                Master_Finiciomora = fe_dias_diferencia(Master_Finiciomora, foto_mes_fecha),
+                Master_fultimo_cierre = fe_dias_diferencia(Master_fultimo_cierre, foto_mes_fecha),
+                Master_fechaalta = fe_dias_diferencia(Master_fechaalta, foto_mes_fecha),
+                Visa_Fvencimiento = fe_dias_diferencia(Visa_Fvencimiento, foto_mes_fecha),
+                Visa_Finiciomora = fe_dias_diferencia(Visa_Finiciomora, foto_mes_fecha),
+                Visa_fultimo_cierre = fe_dias_diferencia(Visa_fultimo_cierre, foto_mes_fecha),
+                Visa_fechaalta = fe_dias_diferencia(Visa_fechaalta, foto_mes_fecha)) %>%
+  # Elimino el campo foto_mes_fecha
+  dplyr::select(-foto_mes_fecha) %>%
+  # Ejecutar
+  dplyr::collect()
+
+# Ahora se calculan operaciones moviles (minimo, maximo y media) a ciertas columnas
+columnas.no.procesables <- c("numero_de_cliente", "foto_mes", "clase_ternaria")
+columnas.procesables    <- setdiff(colnames(set.datos.fechas.relativas), columnas.no.procesables)
+ventanas                <- c(3, 6, 12)
+min.ventana.tendencia   <- 6
+combinaciones           <- purrr::cross_df(.l = list(columna = columnas.procesables, ventana = ventanas))
+set.datos.historicos    <- dtplyr::lazy_dt(set.datos.fechas.relativas) %>%
   dplyr::arrange(numero_de_cliente, foto_mes) %>%
-  dplyr::group_by(numero_de_cliente) %>%
-  dplyr::mutate(mcaja_ahorro_dolares_media_6 = fe_media_movil(mcaja_ahorro_dolares, 6),
-                mcaja_ahorro_dolares_minimo_6 = fe_minimo_movil(mcaja_ahorro_dolares, 6),
-                mcaja_ahorro_dolares_maximo_6 = fe_maximo_movil(mcaja_ahorro_dolares, 6),
-                mcaja_ahorro_dolares_tendencia_6 = fe_tendencia_movil(mcaja_ahorro_dolares, 6))
+  dplyr::group_by(numero_de_cliente)
+purrr::pwalk(
+  .l = combinaciones,
+  .f = function(columna, ventana) {
+    columna_media  <- paste0(columna, "_media_", ventana)
+    columna_minimo <- paste0(columna, "_minimo_", ventana)
+    columna_maximo <- paste0(columna, "_maximo_", ventana)
+    set.datos.historicos <<- set.datos.historicos %>%
+      dplyr::mutate(!! columna_media  := fe_media_movil(!! rlang::sym(columna), ventana),
+                    !! columna_minimo := fe_minimo_movil(!! rlang::sym(columna), ventana),
+                    !! columna_maximo := fe_maximo_movil(!!  rlang::sym(columna), ventana))
+      if (ventana >= min.ventana.tendencia) {
+       columna_tendencia <- paste0(columna, "_tendencia_", ventana)
+       set.datos.historicos <<- set.datos.historicos %>%
+         dplyr::mutate(!! columna_tendencia := fe_tendencia_movil(!! rlang::sym(columna), ventana))
+      }
+    }
+)
+set.datos.modificado <- dplyr::collect(set.datos.historicos)
 
 # Guardar archivo como RDS
-base::saveRDS(set.datos, file = paste0(config$dir$input, "/premium.rds"))
+base::saveRDS(set.datos.modificado, file = paste0(config$dir$input, "/premium.rds"))
 
 # ------------------------------------------------------------------------------
