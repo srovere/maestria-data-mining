@@ -15,6 +15,8 @@ lang: es
 
 # Lectura de datos
 
+Se comienza el análisis propuesto cargando los paquetes necesarios, leyendo el conjunto de datos y mostrando la estructura del mismo a fin de conocer los atributos sobre los que se van a trabajar.
+
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Borrar variables del ambiente
 rm(list = objects())
@@ -36,7 +38,7 @@ datos <- readr::read_csv(file = "ar_properties.csv")
 head(datos)
 ```
 
-Ahora nos quedamos con los datos pedidos
+A continuación, seleccionamos los datos indicados en las consignas del TP, los cuales se encuentran documentados en el código.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 datos.seleccionados <- datos %>%
@@ -56,7 +58,7 @@ datos.seleccionados <- datos %>%
 
 # Análisis exploratorio (I)
 
-Obtenemos la cantidad de valores únicos y de faltantes para cada variable.
+Realizamos un primer análisis exploratorio buscando la cantidad de valores únicos y faltantes para cada variable.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 resumen.cantidad <- purrr::map_dfr(
@@ -87,16 +89,18 @@ knitr::kable(
 )
 ```
 
-Obtenemos la matriz de correlación para las variables numéricas
+También calculamos la matriz de correlación para las variables numéricas a fin de detectar atributos muy correlacionados (y eventualmente eliminarlos).
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Primero buscamos las variables numéricas
 variables.numericas <- purrr::map(
   .x = colnames(datos.seleccionados),
   .f = function(variable) {
+    # Si la variable tiene todos sus valores numéricos, devolvemos el nombre de la variable, sino NA.
     return (ifelse(is.numeric(datos.seleccionados[[variable]]), variable, NA))
   }
 ) %>% purrr::keep(
+  # Eliminamos todos los NA devueltos en el paso anterior.
   .x = .,
   .p = ~ ! is.na(.x)
 ) %>% unlist()
@@ -116,7 +120,7 @@ knitr::kable(
 
 # Preparación de datos
 
-Dado que la variable **bedrooms** contiene una alta proporción de valores faltantes y está altamente correlacionada con la variable **rooms**, entonces la eliminamos. Posteriormente, también eliminamos todas las observaciones que contengan algún dato faltantes.
+Dado que la variable **bedrooms** contiene una alta proporción de valores faltantes y está altamente correlacionada con la variable **rooms**, entonces la eliminamos. Posteriormente, también eliminamos todas las observaciones que contengan algún dato faltante.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 datos.sin.faltantes <- datos.seleccionados %>%
@@ -144,7 +148,7 @@ variables.numericas <- variables.numericas[-which(variables.numericas == "bedroo
 
 # Analisis exploratorios (II)
 
-Calculamos estadísticas descriptivas para la variable **precio** y realizamos un histograma de su distribución.
+Con el conjunto de datos resultantes luego de este primer filtrado, calculamos estadísticas descriptivas para la variable **precio** y realizamos un histograma de su distribución. Dado que hay algunos precios que son muy elevados, mostramos los precios en escala logarítmica para que la forma del histograma pueda apreciarse mejor.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Realizamos una tabla con las estadísticas descriptivas
@@ -182,7 +186,7 @@ ggplot2::ggplot(data = datos.sin.faltantes) +
   )
 ```
 
-Ahora calculamos las estadísticas descriptivas agrupando por **property_type**.
+A continuación, hacemos el mismo análisis pero separando las propiedades por tipo (atributo **property_type**). Vemos que hay diferencias de precio notables para las *casas* en comparación con otros tipos de propiedades.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Realizamos una tabla con las estadísticas descriptivas
@@ -212,7 +216,7 @@ knitr::kable(
 )
 ```
 
-Para cada tipo de propiedad, elaboramos un boxplot. Se observan una cantidad importante de propiedades con precios atípicos (outliers) para cada tipo de propiedad.
+Para cada tipo de propiedad, elaboramos un boxplot. Se observan una cantidad importante de propiedades con precios atípicos (outliers) para cada tipo de propiedad. Sin embargo, eso no significa que esos valores sean erróneos, pero vamos a tener que tenerlo en cuenta más adelante cuando se ajusten los modelos lineales.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=8 }
 ggplot2::ggplot(data = datos.sin.faltantes) +
@@ -232,7 +236,7 @@ ggplot2::ggplot(data = datos.sin.faltantes) +
   )
 ```
 
-Finalmente, realizamos un correlograma de las variables numéricas.
+Finalmente, realizamos un correlograma de las variables numéricas. Aquí se observa que también hay valores muy atípicos en los atributos *surface_covered* y *surface_total*. Éstos también los vamos a tener que tratar para obtener un buen ajuste de los modelos lineales.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=10 }
 datos.numericos <- datos.sin.faltantes %>%
@@ -252,24 +256,45 @@ GGally::ggpairs(data = datos.numericos,
 
 # Tratamiento de outliers
 
-Se eliminan los outliers de la variable **precio**. El criterio de eliminación se basa en la remoción de valores menores a *Q1 - 1.5IRQ* y mayores a *Q3 + 1.5IQR* para cada tipo de propiedad.
+El trabajo práctico propone tratar los outliers de la variable **precio**. Sin embargo, por sí sola esa variable no nos indica si el outlier es un error de carga o no. Tampoco sería bueno dejar de lado lo observado anteriormente para los atributos relacionados con la superficie. Por tal motivo se propone un análisis de outliers con la siguiente lógica:
+
+  * Eliminar aquellas propiedades cuya superficie exceda los 10.000 m<sup>2</sup> (dado que implicaría que la propiedad ocupa más de una manzana, lo cual es algo bastante atípico de por sí). El atributo a utilizar es *surface_total*.
+  * Luego se agregará un atributo que indique el precio de la propiedad por m<sup>2</sup>. Por la lógica del negocio, se sabe que ambas variables están relacionadas, si bien existe varianza explicada por otras variables (tipo de propiedad, zona, etc.). Eliminamos las propiedades cuyo valor sea menos a USD 100/m<sup>2</sup> o mayores a USD 15.000/m<sup>2</sup> por considerarlas asbolutamente atípicas.
+  * A continuación, se adicionará otra variable que sea la relación de superficie cubierta sobre la superficie total. La superficie cubierta siempre es menor a la superficie total. Por tal motivo, se eliminarán observaciones donde esta razón sea mayor a 1.
+  * Por último, de las observaciones restantes, se eliminarán aquellas con valores de precios muy extremos tomando como valores de corte los outliers resultantes de *boxplots* por tipo de propiedad con *rango* = 3 (los cuales se consideran observaciones muy atípicas).
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=10 }
-valores.corte <- estadisticas.descriptivas.precio.tipo.propiedad %>%
-  dplyr::mutate(precio_inferior = Q1 - 1.5 * (Q3 - Q1),
-                precio_superior = Q3 + 1.5 * (Q3 - Q1)) %>%
-  dplyr::rename(property_type = Tipo) %>%
-  dplyr::select(property_type, precio_inferior, precio_superior)
+# Filtrado de observaciones según los criterios 1 a 3.
+datos.filtrados <- datos.sin.faltantes %>%
+  dplyr::mutate(precio_superficie = price / surface_total,
+                razon_superficie_cubierta = surface_covered / surface_total) %>%
+  dplyr::filter(surface_total < 10000,
+                precio_superficie > 100 & precio_superficie < 15000,
+                razon_superficie_cubierta <= 1)
 
-datos.sin.outliers <- datos.sin.faltantes %>%
-  dplyr::inner_join(valores.corte, by = c("property_type")) %>%
-  dplyr::filter(price > precio_inferior & price < precio_superior) %>%
-  dplyr::select(-precio_inferior, -precio_superior)
+# Cálculo de valores de corte para el precio por tipo de propiedad
+datos.sin.outliers <- purrr::map_dfr(
+  .x = unique(datos.filtrados$property_type),
+  .f = function(tipo) {
+    datos.tipo.propiedad <- datos.filtrados %>%
+      dplyr::filter(property_type == tipo)
+    cuartiles     <- quantile(datos.tipo.propiedad$price, probs = c(0.25, 0.75))
+    Q1            <- cuartiles[1]
+    Q3            <- cuartiles[2]
+    
+    return (datos.tipo.propiedad %>%
+      dplyr::filter(
+        (price >= Q1 - 3 * (Q3 - Q1)) &
+        (price <= Q3 + 3 * (Q3 - Q1))
+      )
+    )
+  }
+)
 ```
 
 # Analisis exploratorios (III)
 
-Luego de haber eliminado los outliers de **precio**, volvemos a realizar los mismos análisis exploratorios. Calculamos estadísticas descriptivas para la variable **precio** y realizamos un histograma de su distribución.
+Luego de haber eliminado los outliers de acuerdo al mecanismo descripto anteriormente, volvemos a realizar los mismos análisis exploratorios. Calculamos estadísticas descriptivas para la variable **precio** y realizamos un histograma de su distribución.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Realizamos una tabla con las estadísticas descriptivas
@@ -343,7 +368,6 @@ ggplot2::ggplot(data = datos.sin.outliers) +
   ggplot2::facet_wrap(~ property_type, nrow = 1, scales = "free") +
   ggplot2::labs(y = "Precio (en miles de USD)",
                 title = "Boxplots de precio por tipo de propiedad",
-                subtitle = "Valores en escala logarítmica",
                 fill = "Tipo de propiedad") +
   ggplot2::theme_bw() +
   ggplot2::theme(
@@ -376,7 +400,7 @@ GGally::ggpairs(data = datos.numericos,
 
 # Modelo lineal
 
-Efectuamos dos modelos lineales simples para predecir la variable **precio**. El primero, basado en la cantidad de habitaciones (*rooms*) y el segundo, en función de la superficie total (*surface_total*).
+Efectuamos los modelos lineales simples solicitados para predecir la variable **precio**. El primero, basado en la cantidad de habitaciones (*rooms*) y el segundo, en función de la superficie total (*surface_total*). Adicionalmente, si bien no es pedido dentro de las consignas, se agrega otro modelo basado en la superficie cubierta (*surface_covered*), ya que se observa que por su correlación es el mejor atributo para predecir el precio.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=8 }
 modelo.habitaciones <- stats::lm(formula = price ~ rooms, data = datos.sin.outliers)
@@ -388,7 +412,7 @@ ggplot2::ggplot(data = datos.sin.outliers, mapping = ggplot2::aes(x = rooms, y =
   ggplot2::geom_point() +
   ggplot2::geom_smooth(method = "lm", se = TRUE) +
   ggpubr::stat_regline_equation(mapping = ggplot2::aes(label =  paste(..eq.label.., ..adj.rr.label.., sep = "~~~~")), 
-                                label.y = 1e+6) +
+                                label.y = 2e6) +
   ggplot2::labs(x = "Cantidad de habitaciones", y = "Precio (USD)",
                 title = "Modelo lineal para precio de inmuebles",
                 subtitle = "Precio basado en cantidad de habitaciones") +
@@ -400,8 +424,8 @@ ggplot2::ggplot(data = datos.sin.outliers, mapping = ggplot2::aes(x = rooms, y =
 ```
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=8 }
-modelo.superficie <- stats::lm(formula = price ~ surface_total, data = datos.sin.outliers)
-summary(modelo.superficie)
+modelo.superficie.total <- stats::lm(formula = price ~ surface_total, data = datos.sin.outliers)
+summary(modelo.superficie.total)
 ```
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=8 }
@@ -409,8 +433,8 @@ ggplot2::ggplot(data = datos.sin.outliers, mapping = ggplot2::aes(x = surface_to
   ggplot2::geom_point() +
   ggplot2::geom_smooth(method = "lm", se = TRUE) +
   ggpubr::stat_regline_equation(mapping = ggplot2::aes(label =  paste(..eq.label.., ..adj.rr.label.., sep = "~~~~")), 
-                                label.y = 1e+6) +
-  ggplot2::labs(x = "Superficie", y = "Precio (USD)",
+                                label.y = 2e+6) +
+  ggplot2::labs(x = "Superficie (metros cuadrados)", y = "Precio (USD)",
                 title = "Modelo lineal para precio de inmuebles",
                 subtitle = "Precio basado en superficie") +
   ggplot2::theme_bw() +
@@ -420,37 +444,25 @@ ggplot2::ggplot(data = datos.sin.outliers, mapping = ggplot2::aes(x = surface_to
   )
 ```
 
-El modelo basado en **superficie total** es muy pobre. Posiblemente pueda mejorarse, eliminando *outliers* para esta variable (los cuales pueden observarse en cualquiera de los correlogramas). Se aplica el mismo criterio que para la variable *precio*.
-
-```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=10 }
-# Calculamos los valores de Q1 y Q3, y a partir de estos, los valores de corte.
-cuartiles.superficie.total <- stats::quantile(datos.sin.outliers$surface_total, probs = c(0.25, 0.75))
-superficie.inferior        <- cuartiles.superficie.total[1] - 1.5 * (cuartiles.superficie.total[2] - cuartiles.superficie.total[1])
-superficie.superior        <- cuartiles.superficie.total[2] + 1.5 * (cuartiles.superficie.total[2] - cuartiles.superficie.total[1])
-
-# Ahora eliminalos los outliers de surface_total
-datos.sin.outliers.superficie <- datos.sin.outliers %>%
-  dplyr::filter(surface_total > superficie.inferior & surface_total < superficie.superior)
-
-# Ahora volvemos a ajustar el modelo
-modelo.superficie2 <- stats::lm(formula = price ~ surface_total, data = datos.sin.outliers.superficie)
-summary(modelo.superficie2)
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=8 }
+modelo.superficie.cubierta <- stats::lm(formula = price ~ surface_covered, data = datos.sin.outliers)
+summary(modelo.superficie.cubierta)
 ```
 
-Como se observa, este modelo no solamente es mucho mejor que el anterior basado en superficie, sino que también mejora la predicción basada en cantidad de habitaciones.
-
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=8 }
-ggplot2::ggplot(data = datos.sin.outliers.superficie, mapping = ggplot2::aes(x = surface_total, y = price)) +
+ggplot2::ggplot(data = datos.sin.outliers, mapping = ggplot2::aes(x = surface_covered, y = price)) +
   ggplot2::geom_point() +
   ggplot2::geom_smooth(method = "lm", se = TRUE) +
   ggpubr::stat_regline_equation(mapping = ggplot2::aes(label =  paste(..eq.label.., ..adj.rr.label.., sep = "~~~~")), 
-                                label.y = 1e+6) +
-  ggplot2::labs(x = "Superficie", y = "Precio (USD)",
+                                label.y = 2e+6) +
+  ggplot2::labs(x = "Superficie cubierta (metros cuadrados)", y = "Precio (USD)",
                 title = "Modelo lineal para precio de inmuebles",
-                subtitle = "Precio basado en superficie (sin outliers)") +
+                subtitle = "Precio basado en superficie") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
   )
 ```
+
+Tal como se observa, de los dos modelos pedidos, el que mejor ajusta el precio es el basado en superficie total. Incluso, el basado en superficie cubierta ajusta mejor aún todavía. La fundamientación de esta aserveración está basada en la inspección del R<sup>2</sup> resultante del ajuste.
