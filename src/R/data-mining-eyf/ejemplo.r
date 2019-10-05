@@ -162,5 +162,5 @@ resultados.xgb.ga <- ps_ga_optimization(set.datos = set.datos, clase = "clase", 
 end.time          <- proc.time()
 elapsed.time      <- end.time[3] - start.time[3]
 logger$info(paste0("Tiempo:", elapsed.time, "segundos"))
-save(resultados.xgb.bo, file = "/home/santiago/xgboost.ga.RData")
+save(resultados.xgb.ga, file = "/home/santiago/xgboost.ga.RData")
 # ------------------------------------------------------------------------------
