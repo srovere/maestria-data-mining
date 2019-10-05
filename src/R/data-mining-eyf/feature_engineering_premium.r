@@ -85,34 +85,40 @@ columnas.no.procesables <- c("numero_de_cliente", "foto_mes", "clase_ternaria")
 columnas.procesables    <- setdiff(colnames(set.datos.fechas.relativas), columnas.no.procesables)
 ventanas                <- c(3, 6, 12)
 min.ventana.tendencia   <- 6
-combinaciones           <- purrr::cross_df(.l = list(columna = columnas.procesables, ventana = ventanas)) %>%
+combinaciones           <- data.frame(columna = columnas.procesables, stringsAsFactors = FALSE) %>%
   dplyr::mutate(numero = dplyr::row_number())
-cantidad.combinaciones  <- nrow(combinaciones)
+cantidad.combinaciones  <- length(columnas.procesables)
 set.datos.historicos    <- set.datos.fechas.relativas %>%
   dplyr::arrange(numero_de_cliente, foto_mes)
 purrr::pwalk(
   .l = combinaciones,
-  .f = function(columna, ventana, numero) {
-    logger$info(glue::glue("Procesando {columna} con ventana de {ventana} meses ({numero}/{cantidad.combinaciones})"))
+  .f = function(columna, numero) {
+    logger$info(glue::glue("Procesando {columna} ({numero}/{cantidad.combinaciones})"))
     
     # Si el archivo existe, seguir de largo
     output.file <- paste0(parts.dir, "/", columna, ".rds")
     if (! file.exists(output.file)) {
-      columna_media  <- paste0(columna, "_media_", ventana)
-      columna_minimo <- paste0(columna, "_minimo_", ventana)
-      columna_maximo <- paste0(columna, "_maximo_", ventana)
-      
       set.datos.historicos.columna <- set.datos.historicos %>%
-        dplyr::select(numero_de_cliente, foto_mes, !! columna) %>%
-        dplyr::group_by(numero_de_cliente) %>%
-        dplyr::mutate(!! columna_media  := fe_media_movil(!! rlang::sym(columna), ventana),
-                      !! columna_minimo := fe_minimo_movil(!! rlang::sym(columna), ventana),
-                      !! columna_maximo := fe_maximo_movil(!!  rlang::sym(columna), ventana))
-        if (ventana >= min.ventana.tendencia) {
-         columna_tendencia <- paste0(columna, "_tendencia_", ventana)
-         set.datos.historicos.columna <- set.datos.historicos.columna %>%
-           dplyr::mutate(!! columna_tendencia := fe_tendencia_movil(!! rlang::sym(columna), ventana))
+        dplyr::select(numero_de_cliente, foto_mes, !! columna)
+      
+      purrr::walk(
+        .x = ventanas,
+        .f = function(ventana) {
+          columna_media  <- paste0(columna, "_media_", ventana)
+          columna_minimo <- paste0(columna, "_minimo_", ventana)
+          columna_maximo <- paste0(columna, "_maximo_", ventana)
+          set.datos.historicos.columna <<- set.datos.historicos.columna %>%
+            dplyr::group_by(numero_de_cliente) %>%
+            dplyr::mutate(!! columna_media  := fe_media_movil(!! rlang::sym(columna), ventana),
+                          !! columna_minimo := fe_minimo_movil(!! rlang::sym(columna), ventana),
+                          !! columna_maximo := fe_maximo_movil(!! rlang::sym(columna), ventana))
+            if (ventana >= min.ventana.tendencia) {
+              columna_tendencia <- paste0(columna, "_tendencia_", ventana)
+              set.datos.historicos.columna <<- set.datos.historicos.columna %>%
+                dplyr::mutate(!! columna_tendencia := fe_tendencia_movil(!! rlang::sym(columna), ventana))
+            }    
         }
+      )
       
       # Guardar a disco
       base::saveRDS(set.datos.historicos.columna, file = paste0(parts.dir, "/", columna, ".rds"))
