@@ -35,9 +35,17 @@ fe_maximo_movil <- function(valor, ancho.ventana) {
 # La tendencia es la pendiente de una recta de regresion lineal
 fe_tendencia_movil <- function(valor, ancho.ventana) {
   funcion_tendencia <- function(y) {
-    x <- matrix(seq_along(y))
-    m <- .lm.fit(cbind(1, x), y)
-    return (coefficients(m)[2])
+    x <- seq_along(y)
+    n <- which(is.na(y))
+    if (length(n) > 0) {
+      x <- x[-n]
+      y <- y[-n]
+    }
+    if (length(x) > 1) {
+      m <- .lm.fit(cbind(1, matrix(x)), y)
+      return (coefficients(m)[2])
+    }
+    return (NA)
   }
   return (as.double(zoo::rollapply(valor, width = ancho.ventana, FUN = funcion_tendencia, fill = NA, align = "right")))
 }
