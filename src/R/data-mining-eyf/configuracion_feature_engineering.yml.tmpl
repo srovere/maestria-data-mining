@@ -1,0 +1,16 @@
+# Directorios de trabajo
+dir:
+  lib: ${base}/src/R/data-mining-eyf/lib
+  input: ${base}/src/R/data-mining-eyf/input
+  output: ${base}/src/R/data-mining-eyf/output
+  work: ${base}/src/R/data-mining-eyf/work
+  
+# Diccionario de datos (tiene que estar en la carpeta {dir.input})  
+diccionario.datos: DiccionarioDatos.xlsx
+
+# Especificación de inflacion a utilizar (opcional - tiene que estar en la carpeta {dir.input})
+inflacion: inflacion_gcba.xlsx
+
+# Indica si se borran los archivos RDS correspondientes a atributos de montos en pesos
+# De este mondo indicamos si se deben reprocesar esos archivos o no.
+borrar.rds.montos.pesos: TRUE

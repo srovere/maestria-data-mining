@@ -4,7 +4,7 @@
 rm(list = ls()); gc()
 Sys.setenv(TZ = "UTC")
 list.of.packages <- c("caret", "data.table", "dplyr", "futile.logger", "magrittr",
-                      "purrr", "R6", "utils", "yaml", "zoo")
+                      "purrr", "R6", "readxl", "utils", "yaml", "zoo")
 for (pack in list.of.packages) {
   if (! require(pack, character.only = TRUE)) {
     stop(paste0("Paquete no encontrado: ", pack))
@@ -21,7 +21,7 @@ if (length(args) > 0) {
   archivo.config <- args[1]
 } else {
   # No vino el archivo de configuracion por linea de comandos. Utilizo un archivo default
-  archivo.config <- paste0(getwd(), "/configuracion.yml")
+  archivo.config <- paste0(getwd(), "/configuracion_feature_engineering.yml")
 }
 
 if (! file.exists(archivo.config)) {
@@ -57,14 +57,32 @@ if (! dir.exists(months.dir)) {
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
-# --- IV. Leer set de datos y realizar operaciones de FE ----
+# --- IV. Leer set de datos, diccionario de datos y archivo de inflacion ----
 # -----------------------------------------------------------------------------#
 
 # i. Leer set de datos
 logger$info("Leyendo conjunto de datos")
 set.datos <- leer_set_datos(config$dir$input, "paquete_premium")
 
-# ii. Pasar datos a fechas relativas
+# ii. Leer diccionario de datos
+logger$info("Leyendo diccionario de datos")
+diccionario.datos <- readxl::read_excel(path = paste0(config$dir$input, "/", config$diccionario.datos))
+
+# iii. Leer archivo de especificacion de inflacion (si es que aplica)
+inflacion <- NULL
+if (! is.null(config$inflacion)) {
+  logger$info("Leyendo especificación de inflación")
+  inflacion <- readxl::read_excel(path = paste0(config$dir$input, "/", config$inflacion)) %>%
+    dplyr::select(foto_mes, tasa_acumulada) %>%
+    dplyr::mutate(foto_mes = as.integer(format(foto_mes, "%Y%m")))
+}
+# ------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------#
+# --- V. Transformar fechas y montos (si se especifica inflacion) ----
+# -----------------------------------------------------------------------------#
+
+# i. Pasar datos a fechas relativas
 set.datos.fechas.relativas <- set.datos %>%
   # Pasar fechas a diferencias relativas respecto de foto_mes.
   dplyr::mutate(foto_mes_fecha = as.Date(paste0(foto_mes, "01"), format = '%Y%m%d'),
@@ -79,8 +97,48 @@ set.datos.fechas.relativas <- set.datos %>%
   # Elimino el campo foto_mes_fecha
   dplyr::select(-foto_mes_fecha)
 
-# iii. Ahora se calculan operaciones moviles (minimo, maximo y media) a ciertas columnas
-#      Se van guardando partes del data frame en distintos archivos porque no entra todo en memoria
+# ii. Ajustar precios por inflación (si es que es aplicable)
+if (! is.null(config$inflacion)) {
+  # a. Selecciontar atributos correspondientes a montos expresados en pesos
+  atributos.moneda.pesos <- diccionario.datos %>%
+    dplyr::filter(unidad == "pesos") %>%
+    dplyr::pull(campo)
+  
+  # b. Eliminar archivos RDS correspondientes a montos expresados en pesos
+  if (config$borrar.rds.montos.pesos) {
+    purrr::walk(
+      .x = atributos.moneda.pesos,
+      .f = function(atributo) {
+        archivo <- paste0(parts.dir, "/", atributo, ".rds")
+        if (file.exists(archivo)) {
+          logger$info(glue::glue("Eliminando archivo {archivo}"))
+          file.remove(archivo)
+        }
+      }
+    )
+  }
+  
+  # c. Transformar montos en pesos dividiendo por la tasa acumulada de inflación
+  set.datos.fechas.relativas <- set.datos.fechas.relativas %>%
+    dplyr::inner_join(inflacion, by = "foto_mes")
+  purrr::walk(
+    .x = atributos.moneda.pesos,
+    .f = function(atributo) {
+      set.datos.fechas.relativas <<- set.datos.fechas.relativas %>%
+        dplyr::mutate(!! atributo := !! rlang::sym(atributo) / tasa_acumulada)
+    }
+  )
+  set.datos.fechas.relativas <- set.datos.fechas.relativas %>%
+    dplyr::select(-tasa_acumulada)
+}
+# ------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------#
+# --- VI. Generar nuevos atributos a partir de ventanas móviles ----
+# -----------------------------------------------------------------------------#
+
+# Ahora se calculan operaciones moviles (minimo, maximo y media) a ciertas columnas
+# Se van guardando partes del data frame en distintos archivos porque no entra todo en memoria
 columnas.no.procesables <- c("numero_de_cliente", "foto_mes", "clase_ternaria")
 columnas.procesables    <- setdiff(colnames(set.datos.fechas.relativas), columnas.no.procesables)
 ventanas                <- c(3, 6, 12)
@@ -127,8 +185,12 @@ purrr::pwalk(
     }
   }
 )
+# ------------------------------------------------------------------------------
 
-# iv. Guardar archivo como RDS mes a mes
+# -----------------------------------------------------------------------------#
+# --- VII. Generar archivos por mes ----
+# -----------------------------------------------------------------------------#
+
 foto.meses         <- sort(unique(dplyr::pull(set.datos, foto_mes)))
 archivos.variables <- list.files(path = parts.dir, pattern = "*.rds", full.names = TRUE)
 set.datos.minimo   <- set.datos %>%
