@@ -141,13 +141,14 @@ if (! is.null(config$inflacion)) {
 # Se van guardando partes del data frame en distintos archivos porque no entra todo en memoria
 columnas.no.procesables <- c("numero_de_cliente", "foto_mes", "clase_ternaria")
 columnas.procesables    <- setdiff(colnames(set.datos.fechas.relativas), columnas.no.procesables)
-ventanas                <- c(3, 6, 12)
-min.ventana.tendencia   <- 6
+ventanas                <- c(3, 6)
 combinaciones           <- data.frame(columna = columnas.procesables, stringsAsFactors = FALSE) %>%
   dplyr::mutate(numero = dplyr::row_number())
 cantidad.combinaciones  <- length(columnas.procesables)
 set.datos.historicos    <- set.datos.fechas.relativas %>%
   dplyr::arrange(numero_de_cliente, foto_mes)
+rm(set.datos.fechas.relativas)
+gc(full = TRUE)
 purrr::pwalk(
   .l = combinaciones,
   .f = function(columna, numero) {
@@ -163,18 +164,10 @@ purrr::pwalk(
         .x = ventanas,
         .f = function(ventana) {
           columna_media  <- paste0(columna, "_media_", ventana)
-          columna_minimo <- paste0(columna, "_minimo_", ventana)
-          columna_maximo <- paste0(columna, "_maximo_", ventana)
           set.datos.historicos.columna <<- set.datos.historicos.columna %>%
             dplyr::group_by(numero_de_cliente) %>%
             dplyr::mutate(!! columna_media  := fe_media_movil(!! rlang::sym(columna), ventana),
-                          !! columna_minimo := fe_minimo_movil(!! rlang::sym(columna), ventana),
-                          !! columna_maximo := fe_maximo_movil(!! rlang::sym(columna), ventana))
-            if (ventana >= min.ventana.tendencia) {
-              columna_tendencia <- paste0(columna, "_tendencia_", ventana)
-              set.datos.historicos.columna <<- set.datos.historicos.columna %>%
-                dplyr::mutate(!! columna_tendencia := fe_tendencia_movil(!! rlang::sym(columna), ventana))
-            }    
+                          !! columna_tendencia := fe_tendencia_movil(!! rlang::sym(columna), ventana))
         }
       )
       
