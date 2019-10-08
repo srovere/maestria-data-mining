@@ -163,7 +163,8 @@ purrr::pwalk(
       purrr::walk(
         .x = ventanas,
         .f = function(ventana) {
-          columna_media  <- paste0(columna, "_media_", ventana)
+          columna_media     <- paste0(columna, "_media_", ventana)
+          columna_tendencia <- paste0(columna, "_tendencia_", ventana)
           set.datos.historicos.columna <<- set.datos.historicos.columna %>%
             dplyr::group_by(numero_de_cliente) %>%
             dplyr::mutate(!! columna_media  := fe_media_movil(!! rlang::sym(columna), ventana),
