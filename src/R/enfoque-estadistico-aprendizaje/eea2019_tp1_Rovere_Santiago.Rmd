@@ -445,12 +445,7 @@ ggplot2::ggplot(data = datos.sin.outliers, mapping = ggplot2::aes(x = rooms, y =
 
 Del gráfico expuesto, se observa que el modelo en general subestima la mayoría de los precios de las casas. Para el caso de los departamentos y PH, no se observa ningún patrón aparente. En ambos casos hay precios sobrestimados y subestimados. Nótese que los valores que aparecen en la ecuación de la recta están redondeados para facilitar la visualización.
 
-A continuación, se presenta el segundo modelo, basado en la superficie total. Encontramos que $\beta_0 = 97815,93$. Por lo explicado para el primer modelo, no tiene mucho sentido interpretar el valor de este parámetro. El valor de la pendiente es $\beta_1 = 1281,07$. Este parámetro es *muy importante* y se puede interpretar como el precio por metro cuadrado de superficie total. Se observa que este valor es muy inferior a los valores que se manejan actualmente para propiedades de Capital Federal. Esto obedece a dos razones:
-
-  * El valor de la ordenada al origen hace que cualquier propiedad parta (de base) de un valor cercano a los USD 100.000. Esto deprime el valor del metro cuadrado llevándolo a un precio mucho menor.
-  * También debe tenerse en cuenta que este valor representa el precio por metro cuadrado total, sin importar si esa superficie está cubierta o no. Entonces debe tenerse cuidado en no comparar este valor con los precios que se manejan normalmente, los cuales en general son para metros cuadrados cubiertos.
-
-Ambos parámetros son muy significativos dado que tienen un *p-valor* extremadamente bajo. A continuación, se muestra un gráfico de la recta del ajuste con los valores de los parámetros.
+A continuación, se presenta el segundo modelo, basado en la superficie total. Encontramos que $\beta_0 = 97815,93$. Por lo explicado para el primer modelo, no tiene mucho sentido interpretar el valor de este parámetro. El valor de la pendiente es $\beta_1 = 1281,07$. Este parámetro se puede interpretar como el incremento en el precio de la propiedad por cada metro cuadrado adicional de superficie *total*. Ambos parámetros son muy significativos dado que tienen un *p-valor* extremadamente bajo. A continuación, se muestra un gráfico de la recta del ajuste con los valores de los parámetros.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.align='center', fig.width=8 }
 modelo.superficie.total <- stats::lm(formula = price ~ surface_total, data = datos.sin.outliers)
@@ -477,7 +472,7 @@ ggplot2::ggplot(data = datos.sin.outliers, mapping = ggplot2::aes(x = surface_to
 
 En este modelo vemos que desaparece la marcada subestimación de precios para las casas. Los valores que aparecen en la ecuación de la recta también están redondeados para facilitar la visualización.
 
-Finalmente, se realiza un último modelo basado en la superficie cubierta. Esta es la variable que a priori aparecía como mejor candidata a modelar el precio debido a la alta correlación entre ambas variables. Analizando como en los casos anteriores, encontramos que $\beta_0 = 75599,7$ y $\beta_1 = 1810,25$. Este último parámetro se puede interpretar como el precio por metro cuadrado de superficie **cubierta**. Se observa que es mayor que el valor por metro cuadrado de superficie total, lo cual resulta totalmente lógico.
+Finalmente, se realiza un último modelo basado en la superficie cubierta. Esta es la variable que a priori aparecía como mejor candidata a modelar el precio debido a la alta correlación entre ambas variables. Analizando como en los casos anteriores, encontramos que $\beta_0 = 75599,7$ y $\beta_1 = 1810,25$. Este último parámetro se puede interpretar como el incremento en el precio de la propiedad por cada metro cuadrado adicional de superficie **cubierta**. Se observa que este valor es mayor al incremento en el precio por metro cuadrado de superficie total. Esto resulta totalmente razonable ya que por la lógica del negocio se sabe que el metro cuadrado cubierto tiene mayor valor que el no cubierto.
 
 Ambos parámetros son muy significativos dado que tienen un *p-valor* extremadamente bajo. A continuación, se muestra un gráfico de la recta del ajuste con los valores de los parámetros (también redondeados).
 
