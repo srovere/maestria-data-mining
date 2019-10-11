@@ -107,7 +107,7 @@ grilla.parametros <- purrr::cross_df(list(
 funcion_modelo    <- m_xgboost_closure(booster = "gbtree", objective = "binary:logistic", eval_metric = "logloss", 
                                        tree_method = "hist", grow_policy = "lossguide", nrounds = 500)
 resultados.xgb.gs <- ps_grid_search(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
-                                    proporcion_train = 0.7, funcion_modelo = funcion_modelo, 
+                                    proporcion_train = 0.7, funcion_modelo = funcion_modelo, logger = logger,
                                     funcion_prediccion = pr_xgboost, grilla.parametros = grilla.parametros)
 end.time          <- proc.time()
 elapsed.time      <- end.time[3] - start.time[3]

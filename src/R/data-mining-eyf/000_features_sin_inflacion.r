@@ -52,9 +52,14 @@ logger <- Logger$new(log.level = INFO)
 # --- IV. Leer set de datos y realizar operaciones basicas de FE ----
 # -----------------------------------------------------------------------------#
 logger$info("Leyendo conjunto de datos")
-set.datos <- leer_set_datos_mensuales(paste0(config$dir$input, "/months"), 
-                                      fecha.desde = as.Date("2019-01-01"),
-                                      fecha.hasta = as.Date("2019-06-01")) %>%
+train <- leer_set_datos_mensuales(paste0(config$dir$input, "/months"), 
+                                  fecha.desde = as.Date("2019-01-01"),
+                                  fecha.hasta = as.Date("2019-03-01")) %>%
+  dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
+  dplyr::select(-clase_ternaria)
+test <- leer_set_datos_mensuales(paste0(config$dir$input, "/months"), 
+                                 fecha.desde = as.Date("2019-04-01"),
+                                 fecha.hasta = as.Date("2019-04-01")) %>%
   dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
   dplyr::select(-clase_ternaria)
 # ------------------------------------------------------------------------------
@@ -65,13 +70,10 @@ set.datos <- leer_set_datos_mensuales(paste0(config$dir$input, "/months"),
 
 # --- XGBoost - una sola corrida
 set.seed(config$semillas[1])
-train_casos <- caret::createDataPartition(set.datos[, "clase"], p = 0.7, list = FALSE)
-train       <- set.datos[  train_casos, ]
-test        <- set.datos[ -train_casos, ]
-xgb.train   <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(train, -clase)),
-                                    label = as.matrix(dplyr::select(train, clase)))
-xgb.test    <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(test, -clase)),
-                                    label = as.matrix(dplyr::select(test, clase)))
+xgb.train <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(train, -clase)),
+                                  label = as.matrix(dplyr::select(train, clase)))
+xgb.test  <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(test, -clase)),
+                                  label = as.matrix(dplyr::select(test, clase)))
 
 parametros <- list(
   booster = "gbtree",
@@ -93,7 +95,7 @@ modelo         <- xgboost::xgb.train(data = xgb.train, nrounds = 500, verbose = 
                                      watchlist = list(train = xgb.train, test = xgb.test),
                                      params = parametros)
 xgb.pred.test  <- data.frame(pred = predict(modelo, xgb.test, reshape = T))
-pe_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 0.3)
+pe_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 1)
 end.time       <- proc.time()
 elapsed.time   <- end.time[3] - start.time[3]
 logger$info(paste0("Tiempo:", elapsed.time, "segundos"))

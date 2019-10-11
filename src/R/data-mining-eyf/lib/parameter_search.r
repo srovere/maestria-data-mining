@@ -1,15 +1,24 @@
 # Set de funciones para realizar explortacion de parametros
 
 # Grid search secuencias
-ps_grid_search <- function(set.datos, clase, semillas, proporcion_train = 0.7, funcion_modelo, funcion_prediccion, grilla.parametros) {
+ps_grid_search <- function(set.datos, set.datos.test = NULL, clase, semillas, proporcion_train = 0.7, 
+                           funcion_modelo, funcion_prediccion, grilla.parametros, logger) {
   resultados <- purrr::map_dfr(
     .x = semillas,
-    .f = function(semilla, set.datos, grilla.parametros, proporcion_train, funcion_modelo) {
+    .f = function(semilla, set.datos, set.datos.test, grilla.parametros, proporcion_train, funcion_modelo) {
       # i. Definir conjuntos de train y test
       set.seed(semilla)
-      train_casos <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
-      train       <- set.datos[  train_casos, ]
-      test        <- set.datos[ -train_casos, ]
+      proporcion_test <- NULL
+      if (is.null(set.datos.test)) {
+        train_casos     <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
+        train           <- set.datos[  train_casos, ]
+        test            <- set.datos[ -train_casos, ]
+        proporcion.test <- 1 - proporcion_train
+      } else {
+        train           <- set.datos
+        test            <- set.datos.test
+        proporcion.test <- 1
+      }
       
       # ii. Definir parametros como "iterables" y barra de progreso
       number.of.values    <- nrow(grilla.parametros)
@@ -19,35 +28,47 @@ ps_grid_search <- function(set.datos, clase, semillas, proporcion_train = 0.7, f
       resultados.semilla <- foreach::foreach(input.value = input.values,
                                              .errorhandling = 'pass',
                                              .verbose = FALSE) %do% {
-                                               modelo          <- funcion_modelo(set.datos = train, clase = clase, semilla = semilla,
-                                                                                 parametros = as.list(input.value))
-                                               test_prediccion <- funcion_prediccion(set.datos.test = test, clase = clase, modelo = modelo)
-                                               ganancia_test   <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test$clase, proporcion = 1 - proporcion_train)
-                                               roc_auc_test    <- pe_auc_roc(probabilidades = test_prediccion$PBaja, clase = test$clase)
-                                               return (
-                                                 input.value %>%
-                                                   dplyr::mutate(semilla = semilla, 
-                                                                 proporcion_train = proporcion_train,
-                                                                 ganancia_test = ganancia_test, 
-                                                                 roc_auc_test = roc_auc_test)
-                                               )
-                                             }
+         logger$info(paste0("Ejecutando con parametros: ", paste0(names(as.list(input.value)), "=", as.list(input.value), collapse = ", ")))
+         set.seed(semilla)
+         modelo          <- funcion_modelo(set.datos = train, clase = clase, semilla = semilla,
+                                           parametros = as.list(input.value))
+         test_prediccion <- funcion_prediccion(set.datos.test = test, clase = clase, modelo = modelo)
+         ganancia_test   <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test$clase, 
+                                        proporcion = proporcion_test)
+         roc_auc_test    <- pe_auc_roc(probabilidades = test_prediccion$PBaja, clase = test$clase)
+         return (
+           input.value %>%
+             dplyr::mutate(semilla = semilla, 
+                           ganancia_test = ganancia_test, 
+                           roc_auc_test = roc_auc_test)
+         )
+       }
       
       return (as.data.frame(data.table::rbindlist(resultados.semilla)))
-    }, set.datos = set.datos, grilla.parametros = grilla.parametros, proporcion_train = proporcion_train, funcion_modelo = funcion_modelo)
+    }, set.datos = set.datos, set.datos.test = set.datos.test, grilla.parametros = grilla.parametros, 
+       proporcion_train = proporcion_train, funcion_modelo = funcion_modelo)
   return (resultados)
 }
 
 # Grid search paralelizado
-ps_parallel_grid_search <- function(set.datos, clase, semillas, proporcion_train = 0.7, funcion_modelo, funcion_prediccion, grilla.parametros) {
+ps_parallel_grid_search <- function(set.datos, set.datos.test = NULL, clase, semillas, proporcion_train = 0.7, 
+                                    funcion_modelo, funcion_prediccion, grilla.parametros, logger) {
   resultados <- purrr::map_dfr(
     .x = semillas,
-    .f = function(semilla, set.datos, grilla.parametros, proporcion_train, funcion_modelo) {
+    .f = function(semilla, set.datos, set.datos.test, grilla.parametros, proporcion_train, funcion_modelo) {
       # i. Definir conjuntos de train y test
       set.seed(semilla)
-      train_casos <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
-      train       <- set.datos[  train_casos, ]
-      test        <- set.datos[ -train_casos, ]
+      proporcion_test <- NULL
+      if (is.null(set.datos.test)) {
+        train_casos     <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
+        train           <- set.datos[  train_casos, ]
+        test            <- set.datos[ -train_casos, ]
+        proporcion.test <- 1 - proporcion_train
+      } else {
+        train           <- set.datos
+        test            <- set.datos.test
+        proporcion.test <- 1
+      }
       
       # ii. Definir parametros como "iterables" y barra de progreso
       number.of.values    <- nrow(grilla.parametros)
@@ -78,15 +99,17 @@ ps_parallel_grid_search <- function(set.datos, clase, semillas, proporcion_train
                                              .errorhandling = 'pass',
                                              .packages = c("dplyr", "caret"),
                                              .verbose = FALSE) %dopar% {
+        logger$info(paste0("Ejecutando con parametros: ", paste0(names(as.list(input.value)), "=", as.list(input.value), collapse = ", ")))                                               
+        set.seed(semilla)                                       
         modelo          <- funcion_modelo(set.datos = train, clase = clase, semilla = semilla,
                                           parametros = as.list(input.value))
         test_prediccion <- funcion_prediccion(set.datos.test = test, clase = clase, modelo = modelo)
-        ganancia_test   <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test$clase, proporcion = 1 - proporcion_train)
+        ganancia_test   <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test$clase, 
+                                       proporcion = proporcion_test)
         roc_auc_test    <- pe_auc_roc(probabilidades = test_prediccion$PBaja, clase = test$clase)
         return (
           input.value %>%
             dplyr::mutate(semilla = semilla, 
-                          proporcion_train = proporcion_train,
                           ganancia_test = ganancia_test, 
                           roc_auc_test = roc_auc_test)
         )
@@ -96,26 +119,43 @@ ps_parallel_grid_search <- function(set.datos, clase, semillas, proporcion_train
       snow::stopCluster(cluster)
       
       return (as.data.frame(data.table::rbindlist(resultados.semilla)))
-  }, set.datos = set.datos, grilla.parametros = grilla.parametros, proporcion_train = proporcion_train, funcion_modelo = funcion_modelo)
+  }, set.datos = set.datos, set.datos.test = set.datos.test, grilla.parametros = grilla.parametros, 
+     proporcion_train = proporcion_train, funcion_modelo = funcion_modelo)
   return (resultados)
 }
 
 # Optimizacion bayesiana (con mlrMBO)
-ps_bayesian_optimization <- function(set.datos, clase, semillas, proporcion_train = 0.7, funcion_modelo, funcion_prediccion,
+ps_bayesian_optimization <- function(set.datos, set.datos.test = NULL, clase, semillas, proporcion_train = 0.7, 
+                                     funcion_modelo, funcion_prediccion,
                                      limites.parametros, init_points = 50, n_iter = 50, logger,
                                      file_persistence_interval = 600, file_persistence_path = NULL) {
   # i. Definir closure para funcion objetivo
-  funcion_objetivo_closure <- function(funcion_modelo, semillas, training.sets, test.sets, clase, proporcion_train) {
+  funcion_objetivo_closure <- function(funcion_modelo, semillas, set.datos, set.datos.test = NULL, clase, proporcion_train) {
     funcion <- function(x) {
       parametros.modelo <- x
       ganancias_test    <- purrr::imap(
         .x = semillas,
         .f = function(semilla, posicion) {
-          modelo          <- funcion_modelo(set.datos = training.sets[[posicion]], clase = clase, semilla = semilla,
+          logger$info(paste0("Ejecutando con parametros: ", paste0(names(parametros.modelo), "=", parametros.modelo, collapse = ", ")))
+          set.seed(semilla)
+          proporcion_test <- NULL
+          if (is.null(set.datos.test)) {
+            train_casos     <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
+            train           <- set.datos[  train_casos, ]
+            test            <- set.datos[ -train_casos, ]
+            proporcion.test <- 1 - proporcion_train
+          } else {
+            train           <- set.datos
+            test            <- set.datos.test
+            proporcion.test <- 1
+          }
+          
+          set.seed(semilla)
+          modelo          <- funcion_modelo(set.datos = train, clase = clase, semilla = semilla,
                                             parametros = parametros.modelo)
-          test_prediccion <- funcion_prediccion(set.datos.test = test.sets[[posicion]], clase = clase, modelo = modelo)
-          ganancia_test   <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test.sets[[posicion]]$clase, 
-                                         proporcion = 1 - proporcion_train)
+          test_prediccion <- funcion_prediccion(set.datos.test = test, clase = clase, modelo = modelo)
+          ganancia_test   <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test$clase, 
+                                         proporcion = proporcion_test)
           return (ganancia_test)
         }
       ) %>% unlist()
@@ -124,24 +164,10 @@ ps_bayesian_optimization <- function(set.datos, clase, semillas, proporcion_trai
     return (funcion)
   }
   
-  # ii. Definir sets de datos para cada semilla
-  training.sets <- list()
-  test.sets     <- list()
-  purrr::iwalk(
-    .x = semillas,
-    .f = function(semilla, posicion) {
-      # ii. Definir conjuntos de train y test
-      set.seed(semilla)
-      train_casos               <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
-      training.sets[[posicion]] <<- set.datos[  train_casos, ]
-      test.sets[[posicion]]     <<- set.datos[ -train_casos, ]
-    }
-  )
+  # ii. Definir funcion objetivo
+  funcion_objetivo <- funcion_objetivo_closure(funcion_modelo, semillas, set.datos, set.datos.test, clase, proporcion_train)
   
-  # iii. Definir funcion objetivo
-  funcion_objetivo <- funcion_objetivo_closure(funcion_modelo, semillas, training.sets, test.sets, clase, proporcion_train)
-  
-  # iv. Efectuar optimizacion bayesiana
+  # iii. Efectuar optimizacion bayesiana
   if (! is.null(file_persistence_path) && file.exists(file_persistence_path)) {
     # Retoma el procesamiento en donde lo dejo
     resultados <- mlrMBO::mboContinue(file_persistence_path)
@@ -173,23 +199,38 @@ ps_bayesian_optimization <- function(set.datos, clase, semillas, proporcion_trai
 }
 
 # Optimizacion con algoritmos geneticos (con GA)
-ps_ga_optimization <- function(set.datos, clase, semillas, proporcion_train = 0.7, funcion_modelo, funcion_prediccion,
+ps_ga_optimization <- function(set.datos, set.datos.test = NULL, clase, semillas, proporcion_train = 0.7, 
+                               funcion_modelo, funcion_prediccion,
                                limites.parametros, parametros_prueba = NULL, max_iterations = 20, 
                                tamano_poblacion = 50, run = 10, logger) {
   # i. Definir closure para funcion objetivo
-  funcion_objetivo_closure <- function(funcion_modelo, nombres.parametros, semillas, training.sets, test.sets, clase, proporcion_train) {
+  funcion_objetivo_closure <- function(funcion_modelo, nombres.parametros, semillas, set.datos, set.datos.test = NULL, clase, proporcion_train) {
     funcion <- function(x) {
       parametros.modelo        <- as.list(x)
       names(parametros.modelo) <- nombres.parametros
-      logger$info(paste0("Ejecutando con parametros: ", paste0(names(parametros.modelo), "=", parametros.modelo, collapse = ", ")))
       ganancias_test           <- purrr::imap(
         .x = semillas,
         .f = function(semilla, posicion) {
-          modelo          <- funcion_modelo(set.datos = training.sets[[posicion]], clase = clase, semilla = semilla,
-                                              parametros = parametros.modelo)
-          test_prediccion <- funcion_prediccion(set.datos.test = test.sets[[posicion]], clase = clase, modelo = modelo)
-          ganancia_test   <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test.sets[[posicion]]$clase, 
-                                         proporcion = 1 - proporcion_train)
+          logger$info(paste0("Ejecutando con parametros: ", paste0(names(parametros.modelo), "=", parametros.modelo, collapse = ", ")))
+          set.seed(semilla)
+          proporcion_test <- NULL
+          if (is.null(set.datos.test)) {
+            train_casos     <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
+            train           <- set.datos[  train_casos, ]
+            test            <- set.datos[ -train_casos, ]
+            proporcion.test <- 1 - proporcion_train
+          } else {
+            train           <- set.datos
+            test            <- set.datos.test
+            proporcion.test <- 1
+          }
+          
+          set.seed(semilla)
+          modelo          <- funcion_modelo(set.datos = train, clase = clase, semilla = semilla,
+                                            parametros = parametros.modelo)
+          test_prediccion <- funcion_prediccion(set.datos.test = test, clase = clase, modelo = modelo)
+          ganancia_test   <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test$clase, 
+                                         proporcion = proporcion_test)
           return (ganancia_test)
         }
       ) %>% unlist()
@@ -198,26 +239,12 @@ ps_ga_optimization <- function(set.datos, clase, semillas, proporcion_train = 0.
     return (funcion)
   }
   
-  # ii. Definir sets de datos para cada semilla
-  training.sets <- list()
-  test.sets     <- list()
-  purrr::iwalk(
-    .x = semillas,
-    .f = function(semilla, posicion) {
-      # ii. Definir conjuntos de train y test
-      set.seed(semilla)
-      train_casos               <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
-      training.sets[[posicion]] <<- set.datos[  train_casos, ]
-      test.sets[[posicion]]     <<- set.datos[ -train_casos, ]
-    }
-  )
-  
-  # iii. Definir funcion objetivo
+  # ii. Definir funcion objetivo
   nombres.parametros <- names(limites.parametros)
-  funcion_objetivo   <- funcion_objetivo_closure(funcion_modelo, nombres.parametros, semillas, training.sets, 
-                                                 test.sets, clase, proporcion_train)
+  funcion_objetivo   <- funcion_objetivo_closure(funcion_modelo, nombres.parametros, semillas, set.datos,
+                                                 set.datos.test, clase, proporcion_train)
   
-  # iv. Efectuar optimizacion con GA
+  # iii. Efectuar optimizacion con GA
   parametros.inferiores <- unlist(purrr::map(.x = names(limites.parametros), ~ limites.parametros[[.x]][1]))
   parametros.superiores <- unlist(purrr::map(.x = names(limites.parametros), ~ limites.parametros[[.x]][2]))
   resultados <- GA::ga(
