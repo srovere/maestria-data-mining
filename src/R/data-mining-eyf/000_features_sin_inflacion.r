@@ -53,8 +53,8 @@ logger <- Logger$new(log.level = INFO)
 # -----------------------------------------------------------------------------#
 logger$info("Leyendo conjunto de datos")
 set.datos <- leer_set_datos_mensuales(paste0(config$dir$input, "/months"), 
-                                      fecha.desde = as.Date("2019-02-01"),
-                                      fecha.hasta = as.Date("2019-02-01")) %>%
+                                      fecha.desde = as.Date("2019-01-01"),
+                                      fecha.hasta = as.Date("2019-06-01")) %>%
   dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
   dplyr::select(-clase_ternaria)
 # ------------------------------------------------------------------------------
