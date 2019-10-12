@@ -13,11 +13,11 @@ ps_grid_search <- function(set.datos, set.datos.test = NULL, clase, semillas, pr
         train_casos     <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
         train           <- set.datos[  train_casos, ]
         test            <- set.datos[ -train_casos, ]
-        proporcion.test <- 1 - proporcion_train
+        proporcion_test <- 1 - proporcion_train
       } else {
         train           <- set.datos
         test            <- set.datos.test
-        proporcion.test <- 1
+        proporcion_test <- 1
       }
       
       # ii. Definir parametros como "iterables" y barra de progreso
@@ -63,11 +63,11 @@ ps_parallel_grid_search <- function(set.datos, set.datos.test = NULL, clase, sem
         train_casos     <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
         train           <- set.datos[  train_casos, ]
         test            <- set.datos[ -train_casos, ]
-        proporcion.test <- 1 - proporcion_train
+        proporcion_test <- 1 - proporcion_train
       } else {
         train           <- set.datos
         test            <- set.datos.test
-        proporcion.test <- 1
+        proporcion_test <- 1
       }
       
       # ii. Definir parametros como "iterables" y barra de progreso
@@ -143,11 +143,11 @@ ps_bayesian_optimization <- function(set.datos, set.datos.test = NULL, clase, se
             train_casos     <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
             train           <- set.datos[  train_casos, ]
             test            <- set.datos[ -train_casos, ]
-            proporcion.test <- 1 - proporcion_train
+            proporcion_test <- 1 - proporcion_train
           } else {
             train           <- set.datos
             test            <- set.datos.test
-            proporcion.test <- 1
+            proporcion_test <- 1
           }
           
           set.seed(semilla)
@@ -218,11 +218,11 @@ ps_ga_optimization <- function(set.datos, set.datos.test = NULL, clase, semillas
             train_casos     <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
             train           <- set.datos[  train_casos, ]
             test            <- set.datos[ -train_casos, ]
-            proporcion.test <- 1 - proporcion_train
+            proporcion_test <- 1 - proporcion_train
           } else {
             train           <- set.datos
             test            <- set.datos.test
-            proporcion.test <- 1
+            proporcion_test <- 1
           }
           
           set.seed(semilla)
