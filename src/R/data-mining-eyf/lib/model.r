@@ -43,8 +43,7 @@ m_xgboost_closure <- function(booster = "gbtree", objective = "binary:logistic",
       xgb.train              <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(set.datos, -!!clase)),
                                                      label = as.matrix(dplyr::select(set.datos, !!clase)))
       modelo                 <- xgboost::xgb.train(data = xgb.train, nrounds = as.integer(round(parametros$nrounds)),
-                                                   obj = obj, feval = feval, nthread = parallel::detectCores(), 
-                                                   params = parametros)
+                                                   obj = obj, feval = feval, params = parametros)
       return (modelo)
     }, error = function(e) {
       archivo.error <- paste0(getwd(), "/xgboost.error.RData")
