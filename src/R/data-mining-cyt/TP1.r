@@ -33,7 +33,7 @@ metadatos <- readr::read_csv(file = "input/metadata.csv")
 audio.analisis.rdata <- paste0(getwd(), "/input/audio_analysis.RData")
 if (! file.exists(audio.analisis.rdata)) {
   audio.analysis <- purrr::map_dfr(
-    .x = dplyr::pull(audio.features, id),
+    .x = dplyr::pull(metadatos, id),
     .f = function(id) {
       timbres.file  <- paste0(getwd(), "/input/audio_analysis/timbre/", id, ".csv")
       pitches.file <- paste0(getwd(), "/input/audio_analysis/pitches/", id, ".csv")
