@@ -15,7 +15,12 @@ ps_grid_search <- function(set.datos, set.datos.test = NULL, clase, semillas, pr
         test            <- set.datos[ -train_casos, ]
         proporcion_test <- 1 - proporcion_train
       } else {
-        train           <- set.datos
+        if (proporcion_train < 1) {                                                                                                                                                                                                     
+          train_casos <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)                                                                                                                             
+          train       <- set.datos[train_casos, ]                                                                                                                                                                                       
+        } else {                                                                                                                                                                                                                        
+          train <- set.datos                                                                                                                                                                                                            
+        }
         test            <- set.datos.test
         proporcion_test <- 1
       }
@@ -65,7 +70,12 @@ ps_parallel_grid_search <- function(set.datos, set.datos.test = NULL, clase, sem
         test            <- set.datos[ -train_casos, ]
         proporcion_test <- 1 - proporcion_train
       } else {
-        train           <- set.datos
+        if (proporcion_train < 1) {                                                                                                                                                                                                     
+          train_casos <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)                                                                                                                             
+          train       <- set.datos[train_casos, ]                                                                                                                                                                                       
+        } else {                                                                                                                                                                                                                        
+          train <- set.datos                                                                                                                                                                                                            
+        }
         test            <- set.datos.test
         proporcion_test <- 1
       }
@@ -145,7 +155,12 @@ ps_bayesian_optimization <- function(set.datos, set.datos.test = NULL, clase, se
             test            <- set.datos[ -train_casos, ]
             proporcion_test <- 1 - proporcion_train
           } else {
-            train           <- set.datos
+            if (proporcion_train < 1) {                                                                                                                                                                                                     
+              train_casos <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)                                                                                                                             
+              train       <- set.datos[train_casos, ]                                                                                                                                                                                       
+            } else {                                                                                                                                                                                                                        
+              train <- set.datos                                                                                                                                                                                                            
+            }
             test            <- set.datos.test
             proporcion_test <- 1
           }
@@ -220,7 +235,12 @@ ps_ga_optimization <- function(set.datos, set.datos.test = NULL, clase, semillas
             test            <- set.datos[ -train_casos, ]
             proporcion_test <- 1 - proporcion_train
           } else {
-            train           <- set.datos
+            if (proporcion_train < 1) {                                                                                                                                                                                                     
+              train_casos <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)                                                                                                                             
+              train       <- set.datos[train_casos, ]                                                                                                                                                                                       
+            } else {                                                                                                                                                                                                                        
+              train <- set.datos                                                                                                                                                                                                            
+            }   
             test            <- set.datos.test
             proporcion_test <- 1
           }
