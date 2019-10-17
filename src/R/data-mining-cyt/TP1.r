@@ -93,7 +93,7 @@ audio.features               <- readr::read_csv(file = "input/audio_features.csv
   dplyr::filter(id %in% dplyr::pull(audio.analysis, id))
 
 # ii. Escalar los datos
-audio.analysis <- audio.analysis %>%
+audio.features <- audio.features %>%
   dplyr::mutate_if(is.numeric, scale)
 
 # iii. Pasaje a matriz
@@ -149,7 +149,7 @@ coeficientes.correlacion.cofenetica <- c(
 print(coeficientes.correlacion.cofenetica)
 
 # Usamos Complete Linkage
-cluster.jerarquico <- stats::hclust(d = matriz.distancia, method = "complete")
+cluster.jerarquico <- stats::hclust(d = matriz.distancia, method = "average")
 n.clusters         <- seq(from = 2, to = 20)
 medias.silhouette  <- purrr::map_dfr(
   .x = n.clusters,
@@ -271,10 +271,10 @@ grupos.jerarquico <- audio.combinado.clase %>%
                 clase_analysis = stats::cutree(cluster.jerarquico.analysis, k = 5),
                 clase_combinado = stats::cutree(cluster.jerarquico.combinado, k = 5))
 
-table(grupos.jerarquico$clase_analysis, grupos.jerarquico$clase_analysis)
+table(grupos.jerarquico$clase_features, grupos.jerarquico$clase_analysis)
 table(grupos.jerarquico$clase_analysis, grupos.jerarquico$clase_combinado)
 table(grupos.jerarquico$clase_features, grupos.jerarquico$clase_combinado)
-
+table(grupos.jerarquico$clase, grupos.jerarquico$clase_features)
 
 # PCA
 pca.audio.features           <- audio.features
