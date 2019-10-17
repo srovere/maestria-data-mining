@@ -1,8 +1,13 @@
 # Set de funciones para hacer feature engineering
 
-# Generación de clase binaria (BAJA+2 = 1, resto = 0)
+# Generación de clase binaria: BAJA+2 = 1, resto = 0
 fe_clase_binaria <- function(clase_ternaria) {
   return (factor(ifelse(clase_ternaria == "BAJA+2", 1, 0)))
+}
+
+# Generación de clase binaria: BAJA+2,BAJA+1 = 1, resto = 0
+fe_clase_binaria_unificada <- function(clase_ternaria) {
+  return (factor(ifelse(clase_ternaria %in% c("BAJA+2", "BAJA+1"), 1, 0)))
 }
 
 # Funcion para calcular z-score

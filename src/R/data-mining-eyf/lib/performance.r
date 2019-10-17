@@ -7,6 +7,21 @@ pe_ganancia = function(probabilidades, clase, proporcion = 1, punto_corte = 0.02
   return (ganancia / proporcion)
 }
 
+pe_maxima_ganancia = function(probabilidades, clase, proporcion = 1, puntos_corte = seq(0.02, 0.1, 0.001)) {
+  # Buscar el mejor punto de corte
+  mejor.corte     <- NA
+  maxima.ganancia <- NA
+  for (punto_corte in puntos_corte) {
+    ganancia <- pe_ganancia(probabilidades, clase, proporcion, punto_corte)
+    if (is.na(maxima.ganancia) || (ganancia > maxima.ganancia)) {
+      maxima.ganancia <- ganancia
+      mejor.corte     <- punto_corte
+    }
+  }
+    
+  return (list(punto_corte = mejor.corte, ganancia = maxima.ganancia / proporcion))
+}
+
 # ROC AUC
 pe_auc_roc = function(probabilidades, clase, punto_corte = 0.025) {
   binarias <- as.numeric(clase == "1")
