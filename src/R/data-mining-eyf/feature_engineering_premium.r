@@ -131,6 +131,47 @@ if (! is.null(config$inflacion)) {
   set.datos.fechas.relativas <- set.datos.fechas.relativas %>%
     dplyr::select(-tasa_acumulada)
 }
+
+# iii. Agregar features sugeridos
+data.table::setDT(set.datos.fechas.relativas)
+set.datos.fechas.relativas[ , mv_cuenta_estado2       := pmax( Master_cuenta_estado,  Visa_cuenta_estado, na.rm = TRUE) ]
+set.datos.fechas.relativas[ , mv_marca_atraso         := pmax( Master_marca_atraso, Visa_marca_atraso, na.rm = TRUE) ]
+set.datos.fechas.relativas[ , mv_mfinanciacion_limite := rowSums( cbind( Master_mfinanciacion_limite,  Visa_mfinanciacion_limite) , na.rm=TRUE ) ]
+set.datos.fechas.relativas[ , mv_Fvencimiento         := pmin( Master_Fvencimiento, Visa_Fvencimiento, na.rm = TRUE) ]
+set.datos.fechas.relativas[ , mv_Finiciomora          := pmin( Master_Finiciomora, Visa_Finiciomora, na.rm = TRUE) ]
+set.datos.fechas.relativas[ , mv_msaldototal          := rowSums( cbind( Master_msaldototal,  Visa_msaldototal) , na.rm=TRUE ) ]
+set.datos.fechas.relativas[ , mv_msaldopesos          := rowSums( cbind( Master_msaldopesos,  Visa_msaldopesos) , na.rm=TRUE ) ]
+set.datos.fechas.relativas[ , mv_msaldodolares        := rowSums( cbind( Master_msaldodolares,  Visa_msaldodolares) , na.rm=TRUE ) ]
+set.datos.fechas.relativas[ , mv_mconsumospesos       := rowSums( cbind( Master_mconsumospesos,  Visa_mconsumospesos) , na.rm=TRUE ) ]
+set.datos.fechas.relativas[ , mv_mconsumosdolares     := rowSums( cbind( Master_mconsumosdolares,  Visa_mconsumosdolares) , na.rm=TRUE ) ]
+set.datos.fechas.relativas[ , mv_mlimitecompra        := rowSums( cbind( Master_mlimitecompra,  Visa_mlimitecompra) , na.rm=TRUE ) ]
+set.datos.fechas.relativas[ , mv_madelantopesos       := rowSums( cbind( Master_madelantopesos,  Visa_madelantopesos) , na.rm=TRUE ) ]
+set.datos.fechas.relativas[ , mv_madelantodolares     := rowSums( cbind( Master_madelantodolares,  Visa_madelantodolares) , na.rm=TRUE ) ]
+set.datos.fechas.relativas[ , mv_fultimo_cierre       := pmax( Master_fultimo_cierre, Visa_fultimo_cierre, na.rm = TRUE) ]
+set.datos.fechas.relativas[ , mv_mpagado              := rowSums( cbind( Master_mpagado,  Visa_mpagado) , na.rm=TRUE ) ]
+set.datos.fechas.relativas[ , mv_mpagospesos          := rowSums( cbind( Master_mpagospesos,  Visa_mpagospesos) , na.rm=TRUE ) ]
+set.datos.fechas.relativas[ , mv_mpagosdolares        := rowSums( cbind( Master_mpagosdolares,  Visa_mpagosdolares) , na.rm=TRUE ) ]
+set.datos.fechas.relativas[ , mv_fechaalta            := pmax( Master_fechaalta, Visa_fechaalta, na.rm = TRUE) ]
+set.datos.fechas.relativas[ , mv_mconsumototal        := rowSums( cbind( Master_mconsumototal,  Visa_mconsumototal) , na.rm=TRUE ) ]
+set.datos.fechas.relativas[ , mv_tconsumos            := rowSums( cbind( Master_tconsumos,  Visa_tconsumos) , na.rm=TRUE ) ]
+set.datos.fechas.relativas[ , mv_tadelantosefectivo   := rowSums( cbind( Master_tadelantosefectivo,  Visa_tadelantosefectivo) , na.rm=TRUE ) ]
+set.datos.fechas.relativas[ , mv_mpagominimo          := rowSums( cbind( Master_mpagominimo,  Visa_mpagominimo) , na.rm=TRUE ) ]
+set.datos.fechas.relativas[ , mvr_Master_mlimitecompra:= Master_mlimitecompra / mv_mlimitecompra ]
+set.datos.fechas.relativas[ , mvr_Visa_mlimitecompra  := Visa_mlimitecompra / mv_mlimitecompra ]
+set.datos.fechas.relativas[ , mvr_msaldototal         := mv_msaldototal / mv_mlimitecompra ]
+set.datos.fechas.relativas[ , mvr_msaldopesos         := mv_msaldopesos / mv_mlimitecompra ]
+set.datos.fechas.relativas[ , mvr_msaldopesos2        := mv_msaldopesos / mv_msaldototal ]
+set.datos.fechas.relativas[ , mvr_msaldodolares       := mv_msaldodolares / mv_mlimitecompra ]
+set.datos.fechas.relativas[ , mvr_msaldodolares2      := mv_msaldodolares / mv_msaldototal ]
+set.datos.fechas.relativas[ , mvr_mconsumospesos      := mv_mconsumospesos / mv_mlimitecompra ]
+set.datos.fechas.relativas[ , mvr_mconsumosdolares    := mv_mconsumosdolares / mv_mlimitecompra ]
+set.datos.fechas.relativas[ , mvr_madelantopesos      := mv_madelantopesos / mv_mlimitecompra ]
+set.datos.fechas.relativas[ , mvr_madelantodolares    := mv_madelantodolares / mv_mlimitecompra ]
+set.datos.fechas.relativas[ , mvr_mpagado             := mv_mpagado / mv_mlimitecompra ]
+set.datos.fechas.relativas[ , mvr_mpagospesos         := mv_mpagospesos / mv_mlimitecompra ]
+set.datos.fechas.relativas[ , mvr_mpagosdolares       := mv_mpagosdolares / mv_mlimitecompra ]
+set.datos.fechas.relativas[ , mvr_mconsumototal       := mv_mconsumototal  / mv_mlimitecompra ]
+set.datos.fechas.relativas[ , mvr_mpagominimo         := mv_mpagominimo  / mv_mlimitecompra ]
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
