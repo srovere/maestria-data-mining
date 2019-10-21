@@ -26,25 +26,32 @@ require(Cairo)
 require(fastDummies)
 require(GGally)
 require(ggpubr)
+require(Hmisc)
 require(knitr)
 require(sf)
 require(tidyverse)
 
 # Uso de Cairo para renderizar los gráficos.
-# Fuente: https://www.estadisticaciudad.gob.ar/eyc/?p=28444
 options(bitmapType = "cairo")
 
 # Cargar conjunto de datos de precios de propiedades
 datos <- base::readRDS(file = "ar_properties.rds")
 
-# Cargar datos de barrios de la Ciudad de Buenos Aires. Debemos asegurarnos de que los nombres coincidan con los del
-# conjunto de datos de Properati. Como esto no sucede, generamos una tabla de equivalencias con los barrios cuya
-# denominación es distinta
+# Cargar datos de barrios de la Ciudad de Buenos Aires. 
 barrios <- sf::st_read(dsn = getwd(), layer = "barrios_badata")
+
+# Debemos asegurarnos de que los nombres coincidan con los del conjunto de datos de Properati. 
+# Como esto no sucede, generamos manualmente una tabla de equivalencias con los barrios cuya 
+# denominación es distinta.
+equivalencias <- readr::read_csv(file = "barrios_properati.csv")
 
 # Mostrar estructura
 head(datos)
 ```
+
+# Regresión lineal múltiple
+
+## Creación del modelo
 
 A continuación, se procede a eliminar el campo *id* y se transforman las variables categóricas *l3* (barrio) y *property_type* (tipo de propiedad) en variables *dummy*. A fin evitar problemas de multicolinealidad, para atributos con *N* cantidad de categorías, se generan *N-1* variables dummy. Seleccionamos entonces el barrio más frecuente, que resulta ser **Palermo**. También se realiza lo mismo para el tipo de propiedad, cuya cetegoría más probable es **Departamento*. A continuación realizamos un modelo de regresión lineal múltiple.
 
@@ -54,7 +61,92 @@ datos.con.dummies <- datos %>%
   fastDummies::dummy_cols(select_columns = c("l3", "property_type"), remove_most_frequent_dummy = TRUE) %>%
   dplyr::select(-id, -l3, -property_type)
 
+# Se realiza los mismo para un conjunto de datos modificando considerando el barrio oficial equivalente
+datos.oficiales.con.dummies <- datos %>%
+  dplyr::inner_join(equivalencias, by = c("l3")) %>%
+  mutate(l3 = barrio_oficial) %>%
+  fastDummies::dummy_cols(select_columns = c("l3", "property_type"), remove_most_frequent_dummy = TRUE) %>%
+  dplyr::select(-id, -l3, -barrio_oficial, -property_type)
+
 # Ajustamos un modelo lineal múltiple
 modelo.multiple.1 <- stats::lm(formula = price ~ ., data = datos.con.dummies)
-summary(modelo.multiple.1)
+
+# Pasamos los coeficientes a un data.frame para trabajarlos mejor
+tabla.modelo.multiple.1 <- broom::tidy(modelo.multiple.1)
+
+# Mostramos el valor de R^2
+summary(modelo.multiple.1)$adj.r.squared
+summary(modelo.multiple.1)$r.squared
 ```
+
+## Análisis del modelo
+
+El valor de $R^2$ es de aproximadamente 0.78, lo que implica que se explica el 78% de la variable de respuesta. A continuación se muestran 3 tablas indicando la interpretación de los coeficientes. En la primera tabla se explican los coeficientes asociados a variables numéricas y el $\beta_0$. Dado el modelo construido, debemos tener en cuenta que si las covariables asociadas a los atributos *l3* y *property_type* toman todas el valor 0, entonces el modelo representará los precios esperados para las propiedades para *departamentos* ubicados en el barrio de *Palermo* en función de los valores de las demás covariables.. Esto se debe a la definción de las variables *dummy*.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+knitr::kable(
+  dplyr::filter(tabla.modelo.multiple.1, 
+                is.na(stringr::str_match(term, "l3_")) &
+                is.na(stringr::str_match(term, "property_type_")))
+)
+```
+
+Se observa que todos los coeficientes asociados a variables numéricas son altamente significativos, al igual que el *intercept* ($\beta_0$). Los valores de los coeficientes asociados a cantidad de baños y superficie (total y cubierta) son positivos, indicando un incremento en el precio de acuerdo al monto indicado por cada coeficiente por cada increment en una unidad de la variable. Esto es sumamente lógico y esperable. Incluso se observa que el coeficiente asociado a la superficie cubierta es mayor que el asociado a la superficie total, lo cual indica que aumentar una unidad en el valor de la superficie subierta aumenta el precio más que incrementar una unidad la superficie total (sin distinción de tipo).
+
+Sin embargo, el coeficiente asociado a la cantidad de habitaciones es negativo, indicando que el incremento en una unidad en la cantidad de habitaciones produce una disminución en el precio del inmueble. A priori, esto parece ir en contra de la evidencia empírica dado que el precio y la cantidad de habitaciones tiene correlación positiva.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+knitr::kable(
+  dplyr::filter(tabla.modelo.multiple.1, 
+                ! is.na(stringr::str_match(term, "property_type_")))
+)
+```
+
+En el caso del tipo de propiedad, vemos que en ambos casos los coeficientes asociados son altamente significativos y negativos. Esto último no era de esperar, dado que las casas en general tienen un precio mayor al de los departamentos. El mismo comentario aplica para el caso de los PH, aunque su precio en general tiene una distribución similar al precio de los departamentos.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+knitr::kable(
+  dplyr::filter(tabla.modelo.multiple.1, 
+                ! is.na(stringr::str_match(term, "l3_"))) %>%
+  dplyr::arrange(estimate)
+)
+```
+
+Finalmente, se analizan los coeficientes asociados a los barrios. Son todos altamente significativos a excepción de *Recoleta* (no significativo) y *Belgrano* (significativo aunque con p-valor aproximadamente 0.009). Para el caso de Recoleta, la interpretación que puede darse es la siguiente: dadas dos propiedades con las mismas características (tipo de propiedad, cantidad de habitaciones, cantidad de baños, superficie total y cubierta), una ubicada en Recoleta y la otra en Palermo, el valor esperado del precio de ambas es el mismo. Esto sucede porque el test de hipótesis con $H_0$: $\beta_i$ = 0, no puede rechazar la hipótesis con el nivel de significacion de 0.05.
+
+## Comparación de predicciones para dos casos particulares.
+
+En las consignas se platea determinar cuál de las siguientes dos opciones es más conveniente para vender:
+
+  * Un departamento de 120 mts cuadrados cubiertos en abasto, con 3 dormitorios y 2 baños.
+  * Un PH en balvanera, con 80 mts cuadrados cubiertos, 20 mts cuadrados no cubiertos, 2 dormitorios y 3 baños.
+  
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+caso.1 <- data.frame(
+  l3 = factor("Abasto", levels = setdiff(unique(datos$l3), "Palermo")),
+  property_type_Casa = 0,
+  property_type_PH = 0,
+  surface_total = 120, 
+  surface_covered = 120, 
+  rooms = 3, 
+  bathrooms = 2
+) %>% fastDummies::dummy_cols(select_columns = c("l3")) %>%
+  dplyr::select(-l3)
+prediccion.caso.1 <- predict(modelo.multiple.1, caso.1)
+
+caso.2 <- data.frame(
+  l3 = factor("Balvanera", levels = setdiff(unique(datos$l3), "Palermo")),
+  property_type_Casa = 0,
+  property_type_PH = 1,
+  surface_total = 100, 
+  surface_covered = 80, 
+  rooms = 2, 
+  bathrooms = 3
+) %>% fastDummies::dummy_cols(select_columns = c("l3")) %>%
+  dplyr::select(-l3)
+prediccion.caso.2 <- predict(modelo.multiple.1, caso.2)
+
+cat(paste0("Precio esperado caso 1: USD ", prediccion.caso.1, ". Precio esperado caso 2: USD ", prediccion.caso.2))
+```  
+
+Se observa entonces que el valor esperado para el precio del caso 1 (departamento ubicado en Abasto) es significativamente superior al del segundo caso, por lo que lo torna más preferible en términos de monto.
