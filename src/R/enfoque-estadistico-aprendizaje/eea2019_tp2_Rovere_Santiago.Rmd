@@ -1,0 +1,60 @@
+---
+title: "Enfoque estadístico del aprendizaje: Trabajo Práctico nº 2"
+subtitle: "Análisis de un conjunto de datos de Properati"
+author:
+- Santiago Rovere (srovere@gmail.com), Facultad de Ingeniería, Universidad de Buenos Aires
+date: '`r format(Sys.Date(), "%d de %B de %Y")`'
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    theme: flatly
+    css: styles.css
+lang: es
+---
+
+# Lectura de datos
+
+Se comienza el análisis propuesto cargando los paquetes necesarios, leyendo el conjunto de datos y mostrando la estructura del mismo a fin de conocer los atributos sobre los que se van a trabajar. Se integrarán estos datos con información geolocalizada de los barrios a fin de poder realizar mapas que permitan visualizar mejor la información. Los mismos fueron obtenidos de [https://data.buenosaires.gob.ar/dataset/barrios]
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Borrar variables del ambiente
+rm(list = objects())
+
+# Carga de paquetes necesarios para hacer los gráficos
+require(Cairo)
+require(fastDummies)
+require(GGally)
+require(ggpubr)
+require(knitr)
+require(sf)
+require(tidyverse)
+
+# Uso de Cairo para renderizar los gráficos.
+# Fuente: https://www.estadisticaciudad.gob.ar/eyc/?p=28444
+options(bitmapType = "cairo")
+
+# Cargar conjunto de datos de precios de propiedades
+datos <- base::readRDS(file = "ar_properties.rds")
+
+# Cargar datos de barrios de la Ciudad de Buenos Aires. Debemos asegurarnos de que los nombres coincidan con los del
+# conjunto de datos de Properati. Como esto no sucede, generamos una tabla de equivalencias con los barrios cuya
+# denominación es distinta
+barrios <- sf::st_read(dsn = getwd(), layer = "barrios_badata")
+
+# Mostrar estructura
+head(datos)
+```
+
+A continuación, se procede a eliminar el campo *id* y se transforman las variables categóricas *l3* (barrio) y *property_type* (tipo de propiedad) en variables *dummy*. A fin evitar problemas de multicolinealidad, para atributos con *N* cantidad de categorías, se generan *N-1* variables dummy. Seleccionamos entonces el barrio más frecuente, que resulta ser **Palermo**. También se realiza lo mismo para el tipo de propiedad, cuya cetegoría más probable es **Departamento*. A continuación realizamos un modelo de regresión lineal múltiple.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Generamos variables dummies y eliminamos features innecesarias
+datos.con.dummies <- datos %>%
+  fastDummies::dummy_cols(select_columns = c("l3", "property_type"), remove_most_frequent_dummy = TRUE) %>%
+  dplyr::select(-id, -l3, -property_type)
+
+# Ajustamos un modelo lineal múltiple
+modelo.multiple.1 <- stats::lm(formula = price ~ ., data = datos.con.dummies)
+summary(modelo.multiple.1)
+```
