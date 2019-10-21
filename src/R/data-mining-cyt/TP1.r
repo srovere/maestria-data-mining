@@ -7,6 +7,7 @@
 # ---------------------------------------------------------------------------------------#
 rm(list = objects())
 
+require(bestNormalize)
 require(Cairo)
 require(caret)
 require(cluster)
@@ -18,6 +19,10 @@ require(MASS)
 require(purrr)
 require(readr)
 require(tidyr)
+
+# Definir si se va a normalizar y/o estandarizar
+normalizar   <- FALSE
+estandarizar <- FALSE
 
 options(bitmapType = "cairo")
 # ----------------------------------------------------------------------------------------
@@ -39,17 +44,26 @@ if (! file.exists(audio.analisis.rdata)) {
       pitches.file <- paste0(getwd(), "/input/audio_analysis/pitches/", id, ".csv")
       
       if (file.exists(timbres.file) && file.exists(pitches.file)) {
-        timbres <- readr::read_csv(file = timbres.file) %>%
-          dplyr::summarise_all(funs(mean)) %>%
-          dplyr::select(-start)
-        colnames(timbres) <- paste0("timbre_", colnames(timbres))
-        pitches <- readr::read_csv(file = pitches.file) %>%
-          dplyr::summarise_all(funs(mean)) %>%
-          dplyr::select(-start)
-        colnames(pitches) <- paste0("pitch_", colnames(pitches))
+        # Timbres
+        timbres  <- readr::read_csv(file = timbres.file)
+        columnas <- setdiff(colnames(timbres), "start")
+        timbres.agregado <- dplyr::bind_cols(
+          dplyr::select(dplyr::summarise_all(timbres, funs(mean)), -start),
+          dplyr::select(dplyr::summarise_all(timbres, funs(sd)), -start)
+        )
+        colnames(timbres.agregado) <- c(paste0("timbre_media_", columnas), paste0("timbre_desvio_", columnas))
         
+        # Pitches
+        pitches  <- readr::read_csv(file = pitches.file)
+        columnas <- setdiff(colnames(pitches), "start")
+        pitches.agregado <- dplyr::bind_cols(
+          dplyr::select(dplyr::summarise_all(pitches, funs(mean)), -start),
+          dplyr::select(dplyr::summarise_all(pitches, funs(sd)), -start)
+        )
+        colnames(pitches.agregado) <- c(paste0("pitch_media_", columnas), paste0("pitch_desvio_", columnas))
+       
         return (dplyr::bind_cols(
-          data.frame(id = id), timbres, pitches
+          data.frame(id = id), timbres.agregado, pitches.agregado
         ))
       } else {
         return (NULL)
@@ -62,9 +76,27 @@ if (! file.exists(audio.analisis.rdata)) {
   load(audio.analisis.rdata)
 }
 
-# iii. Escalar los datos
-audio.analysis <- audio.analysis %>%
-  dplyr::mutate_if(is.numeric, scale)
+# iii. Escalar/normalizar los datos
+if (normalizar) {
+  audio.analysis <- purrr::map_dfc(
+    .x = colnames(audio.analysis),
+    .f = function(atributo) {
+      valores <- dplyr::pull(audio.analysis, !! atributo)
+      if (atributo == "id") {
+        return (data.frame(id = valores))
+      } else {
+        valores.normalizado <- bestNormalize::bestNormalize(x = valores, standardize = estandarizar)
+        df.norm             <- data.frame(att = valores.normalizado$x.t)
+        colnames(df.norm)   <- c(atributo)
+        return (df.norm)
+      }
+    }
+  )
+} else if (estandarizar) {
+  audio.analysis <- audio.analysis %>%
+    dplyr::mutate_if(is.numeric, scale)
+}
+# GGally::ggpairs(data = audio.analysis, columns = 2:ncol(audio.analysis))
 
 # iv. Pasaje a matriz
 m.audio.analysis           <- audio.analysis
@@ -92,9 +124,27 @@ audio.features               <- readr::read_csv(file = "input/audio_features.csv
   as.data.frame() %>%
   dplyr::filter(id %in% dplyr::pull(audio.analysis, id))
 
-# ii. Escalar los datos
-audio.features <- audio.features %>%
-  dplyr::mutate_if(is.numeric, scale)
+# ii. Escalar/normalizar los datos
+if (normalizar) {
+  audio.features <- purrr::map_dfc(
+      .x = colnames(audio.features),
+      .f = function(atributo) {
+        valores <- dplyr::pull(audio.features, !! atributo)
+        if (atributo == "id") {
+          return (data.frame(id = valores))
+        } else {
+          valores.normalizado <- bestNormalize::bestNormalize(x = valores, standardize = estandarizar)
+          df.norm             <- data.frame(att = valores.normalizado$x.t)
+          colnames(df.norm)   <- c(atributo)
+          return (df.norm)
+        }
+      }
+    )
+} else if (estandarizar) {
+  audio.features <- audio.features %>%
+    dplyr::mutate_if(is.numeric, scale)
+}
+# GGally::ggpairs(data = audio.features, columns = 2:ncol(audio.features))
 
 # iii. Pasaje a matriz
 m.audio.features           <- audio.features
@@ -147,9 +197,12 @@ coeficientes.correlacion.cofenetica <- c(
   "centroid" = cor(x = matriz.distancia, cophenetic(hc_centroid))
 )
 print(coeficientes.correlacion.cofenetica)
+mejor.metodo <- names(coeficientes.correlacion.cofenetica)[
+  which(coeficientes.correlacion.cofenetica == max(coeficientes.correlacion.cofenetica))
+]
 
 # Usamos Complete Linkage
-cluster.jerarquico <- stats::hclust(d = matriz.distancia, method = "average")
+cluster.jerarquico <- stats::hclust(d = matriz.distancia, method = mejor.metodo)
 n.clusters         <- seq(from = 2, to = 20)
 medias.silhouette  <- purrr::map_dfr(
   .x = n.clusters,
@@ -193,9 +246,12 @@ coeficientes.correlacion.cofenetica <- c(
   "centroid" = cor(x = matriz.distancia, cophenetic(hc_centroid))
 )
 print(coeficientes.correlacion.cofenetica)
+mejor.metodo <- names(coeficientes.correlacion.cofenetica)[
+  which(coeficientes.correlacion.cofenetica == max(coeficientes.correlacion.cofenetica))
+]
 
 # Usamos Complete Linkage
-cluster.jerarquico <- stats::hclust(d = matriz.distancia, method = "average")
+cluster.jerarquico <- stats::hclust(d = matriz.distancia, method = mejor.metodo)
 n.clusters         <- seq(from = 2, to = 20)
 medias.silhouette  <- purrr::map_dfr(
   .x = n.clusters,
@@ -239,9 +295,12 @@ coeficientes.correlacion.cofenetica <- c(
   "centroid" = cor(x = matriz.distancia, cophenetic(hc_centroid))
 )
 print(coeficientes.correlacion.cofenetica)
+mejor.metodo <- names(coeficientes.correlacion.cofenetica)[
+  which(coeficientes.correlacion.cofenetica == max(coeficientes.correlacion.cofenetica))
+]
 
 # Usamos Complete Linkage
-cluster.jerarquico <- stats::hclust(d = matriz.distancia, method = "average")
+cluster.jerarquico <- stats::hclust(d = matriz.distancia, method = mejor.metodo)
 n.clusters         <- seq(from = 2, to = 20)
 medias.silhouette  <- purrr::map_dfr(
   .x = n.clusters,
@@ -267,13 +326,14 @@ matriz.distancia.combinado   <- matriz.distancia
 # Generamos clusterizacion para k = 5 (dado que esto va a servir para comparar con los generos)
 grupos.jerarquico <- audio.combinado.clase %>%
   dplyr::select(id, clase) %>%
-  dplyr::mutate(clase_features = stats::cutree(cluster.jerarquico.features, k = 5),
-                clase_analysis = stats::cutree(cluster.jerarquico.analysis, k = 5),
-                clase_combinado = stats::cutree(cluster.jerarquico.combinado, k = 5))
+  dplyr::mutate(clase_features = stats::cutree(cluster.jerarquico.features, k = 4),
+                clase_analysis = stats::cutree(cluster.jerarquico.analysis, k = 4),
+                clase_combinado = stats::cutree(cluster.jerarquico.combinado, k = 4))
 
 table(grupos.jerarquico$clase_features, grupos.jerarquico$clase_analysis)
 table(grupos.jerarquico$clase_analysis, grupos.jerarquico$clase_combinado)
 table(grupos.jerarquico$clase_features, grupos.jerarquico$clase_combinado)
+
 table(grupos.jerarquico$clase, grupos.jerarquico$clase_features)
 
 # PCA
