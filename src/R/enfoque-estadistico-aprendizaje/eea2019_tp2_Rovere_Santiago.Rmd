@@ -46,7 +46,7 @@ head(datos)
 
 ## Creación del modelo
 
-A continuación, se procede a eliminar el campo *id* y se transforman las variables categóricas *l3* (barrio) y *property_type* (tipo de propiedad) en variables *dummy*. A fin evitar problemas de multicolinealidad, para atributos con *N* cantidad de categorías, se generan *N-1* variables dummy. Seleccionamos entonces el barrio más frecuente, que resulta ser **Palermo**. También se realiza lo mismo para el tipo de propiedad, cuya cetegoría más probable es **Departamento*. A continuación realizamos un modelo de regresión lineal múltiple.
+Se procede a crear el modelo con las variables propuestas, dos de las cuales (*property_type* y *l3*) son categóricas. La función **lm** automáticamente maneja estas variables transformándolas en N-1 *dummies* para el caso de factores con N niveles.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Ajustamos un modelo lineal múltiple
@@ -229,11 +229,102 @@ Definimos la variable *surface_patio*. En ningún caso se observa que surface_co
 # construimos el nuevo set de datos, segun se indica.
 datos.patio <- datos.barrios %>%
   dplyr::mutate(surface_patio = surface_total - surface_covered) %>%
-  dplyr::select(-surface_covered)
+  dplyr::select(-surface_total)
 
 # Ajustamos un modelo lineal múltiple
 modelo.multiple.4 <- stats::lm(formula = price ~ ., data = datos.patio)
 
 # Mostramos las métricas del modelo
 summary(modelo.multiple.4)
+```
+
+## Análisis e interpretación del nuevo modelo
+
+# Evaluación del modelo
+
+## Análisis de residuos del modelo anterior
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, height=10 }
+# Obtencion de residuos
+residuos.modelo.4 <- datos.patio %>%
+  dplyr::mutate(valor_ajustado = modelo.multiple.4$fitted.values,
+                residuo = modelo.multiple.4$residuals)
+  
+# Generacion de QQ-plot
+qq.residuos.general <- ggplot2::ggplot(data = residuos.modelo.4) +
+  ggplot2::geom_qq_line(mapping = ggplot2::aes(sample = scale(residuo)), col = 'red') +
+  ggplot2::geom_qq(mapping = ggplot2::aes(sample = scale(residuo)), col = "darkslategray4", size = 0.2) +
+  ggplot2::labs(x = "Cuantiles teóricos", y = "Residuos estandarizados", 
+                title = "QQ-plot de residuos estandarizados",
+                subtitle = "Análisis de normalidad de los residuos") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+plot(qq.residuos.general)
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, height=10 }
+# Generación de gráfico de Scale-Location
+sl.residuos.general <- ggplot2::ggplot(data = residuos.modelo.4) +
+  ggplot2::geom_hline(yintercept = mean(residuos.modelo.4$residuo), col = "red") +
+  ggplot2::geom_point(mapping = ggplot2::aes(x = valor_ajustado, y = residuo), col = "darkslategray4") +
+  ggplot2::labs(x = "Valores ajustados", y = "Residuos", 
+                title = "Gráfico de Scale-Location",
+                subtitle = "Análisis de la homocedasticidad de los residuos") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+plot(sl.residuos.general)
+```
+
+## Análisis de nuevo modelo
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Ajustamos un modelo lineal múltiple de acuerdo a lo indicado
+modelo.multiple.5 <- stats::lm(formula = log(price) ~ log(rooms)+log(bathrooms)+log(surface_covered)+property_type+barrio+surface_patio, 
+                               data = datos.patio)
+
+# Mostramos las métricas del modelo
+summary(modelo.multiple.5)
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, height=10 }
+# Obtencion de residuos
+residuos.modelo.5 <- datos.patio %>%
+  dplyr::mutate(valor_ajustado = modelo.multiple.5$fitted.values,
+                residuo = modelo.multiple.5$residuals)
+  
+# Generacion de QQ-plot
+qq.residuos.general <- ggplot2::ggplot(data = residuos.modelo.5) +
+  ggplot2::geom_qq_line(mapping = ggplot2::aes(sample = scale(residuo)), col = 'red') +
+  ggplot2::geom_qq(mapping = ggplot2::aes(sample = scale(residuo)), col = "darkslategray4", size = 0.2) +
+  ggplot2::labs(x = "Cuantiles teóricos", y = "Residuos estandarizados", 
+                title = "QQ-plot de residuos estandarizados",
+                subtitle = "Análisis de normalidad de los residuos") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+plot(qq.residuos.general)
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, height=10 }
+# Generación de gráfico de Scale-Location
+sl.residuos.general <- ggplot2::ggplot(data = residuos.modelo.5) +
+  ggplot2::geom_hline(yintercept = mean(residuos.modelo.4$residuo), col = "red") +
+  ggplot2::geom_point(mapping = ggplot2::aes(x = valor_ajustado, y = residuo), col = "darkslategray4") +
+  ggplot2::labs(x = "Valores ajustados", y = "Residuos", 
+                title = "Gráfico de Scale-Location",
+                subtitle = "Análisis de la homocedasticidad de los residuos") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+plot(sl.residuos.general)
 ```
