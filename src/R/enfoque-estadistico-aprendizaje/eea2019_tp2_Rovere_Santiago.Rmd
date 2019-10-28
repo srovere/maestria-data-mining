@@ -183,7 +183,10 @@ datos.precio.m2.barrio <- datos %>%
   dplyr::arrange(mean_price_m2)
 
 # Mostrar tabla de precios
-knitr::kable(datos.precio.m2.barrio)
+knitr::kable(
+  datos.precio.m2.barrio,
+  col.names = c("Barrio", "Precio promedio del metro cuadrado", "Cantidad de propieadades")
+)
 ```
 
 Inicialmente se podría pensar que la clasificación de los barrios por precio promedio del metro cuadrado se podría obtener separando por terciles considerando los precios de la tabla anterior. Dado que hay 57 barrios, obtendríamos 3 categorías cada unas de las cuales agruparía 19 barrios. Sin embargo, las categorías *alto*, *medio* y *bajo* contendrían una cantidad muy dispar de propiedades, a saber:
@@ -197,7 +200,10 @@ categorias.tentativas <- data.frame(
 )
 
 # Mostrar tabla
-knitr::kable(categorias.tentativas)
+knitr::kable(
+  categorias.tentativas,
+  col.names = c("Categoría", "Cantidad de propiedades")
+)
 ```
 
 Esto se debe a que los barrios con mayor cantidad de propiedades son aquellos con precios promedio del metro cuadrado más elevado. Para obtener una categorización más equilibrada en cantidad de casos, reagrupamos considerando la tabla ordenada de precios por metro cuadrado pero asignando categorías con el objetivo de obtener conjuntos con cardinalidad lo más parecida posible. Para ello, creamos un nuevo atributo que indique la cantidad acumulada de propiedades partiendo del barrio con precio promedio más bajo hasta aquél con precio promedio más elevado.
@@ -236,7 +242,10 @@ datos.barrios <- datos %>%
 categorias.definitivas <- datos.barrios %>%
   dplyr::group_by(barrio) %>%
   dplyr::summarise(cantidad = dplyr::n())
-knitr::kable(categorias.definitivas)
+knitr::kable(
+  categorias.definitivas,
+  col.names = c("Categoría", "Cantidad de propiedades")
+)
 ```
 
 Si bien la distribución no es exactamente equilibrada, es bastante más pareja que en el caso inicial. A continuación se procede a realizar otro modelo en base a este nuevo conjunto de datos.
@@ -329,6 +338,10 @@ modelo.multiple.5 <- stats::lm(formula = log(price) ~ log(rooms)+log(bathrooms)+
 # Mostramos las métricas del modelo
 summary(modelo.multiple.5)
 ```
+
+Se observa que el valor de $R^2$ ajustado para este modelo se ha incrementado levemente a un valor de 0.81, superando a todos los modelos anteriores. En relación a los coeficientes, todos son altamente significativos. El análisis de los mismos, los separaremos en dos partes. Primero se analizarán los coeficientes asociados a covariables transformadas utilizando el *logaritmo natural*. Luego, se analizarán los coeficientes asociados a variables no transformadas.
+
+Para el primer caso, dado que tanto la variable de respuesta como las covariables han sido transformadas utilizando el logaritmo natural, la relación entre la variable de respuesta y las covariables se establece en términos relativos. Es decir
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.width=10, fig.height=12 }
 # Se utiliza el paquete ggfortify para realizar gráficos de los residuos.
