@@ -13,9 +13,9 @@ output:
 lang: es
 ---
 
-# Lectura de datos
+# Regresión lineal múltiple
 
-Se comienza el análisis propuesto cargando los paquetes necesarios, leyendo el conjunto de datos y mostrando la estructura del mismo a fin de conocer los atributos sobre los que se van a trabajar. Se integrarán estos datos con información geolocalizada de los barrios a fin de poder realizar mapas que permitan visualizar mejor la información. Los mismos fueron obtenidos de [https://data.buenosaires.gob.ar/dataset/barrios]
+Se comienza el análisis propuesto cargando los paquetes necesarios, leyendo el conjunto de datos y mostrando la estructura del mismo a fin de conocer los atributos sobre los que se van a trabajar. Se elimina el atributo *id* y se transforman a factores las variables *l3* y *property_type*.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Borrar variables del ambiente
@@ -23,130 +23,332 @@ rm(list = objects())
 
 # Carga de paquetes necesarios para hacer los gráficos
 require(Cairo)
-require(fastDummies)
-require(GGally)
+require(ggfortify)
 require(ggpubr)
 require(Hmisc)
 require(knitr)
-require(sf)
 require(tidyverse)
 
 # Uso de Cairo para renderizar los gráficos.
 options(bitmapType = "cairo")
 
-# Cargar conjunto de datos de precios de propiedades
-datos <- base::readRDS(file = "ar_properties.rds")
-
-# Cargar datos de barrios de la Ciudad de Buenos Aires. 
-barrios <- sf::st_read(dsn = getwd(), layer = "barrios_badata")
-
-# Debemos asegurarnos de que los nombres coincidan con los del conjunto de datos de Properati. 
-# Como esto no sucede, generamos manualmente una tabla de equivalencias con los barrios cuya 
-# denominación es distinta.
-equivalencias <- readr::read_csv(file = "barrios_properati.csv")
+# Cargar conjunto de datos de precios de propiedades. 
+# Pasamos
+datos <- base::readRDS(file = "ar_properties.rds") %>%
+  dplyr::mutate(l3 = as.factor(l3), property_type = as.factor(property_type)) %>%
+  dplyr::select(-id)
 
 # Mostrar estructura
 head(datos)
 ```
 
-# Regresión lineal múltiple
-
 ## Creación del modelo
 
-A continuación, se procede a eliminar el campo *id* y se transforman las variables categóricas *l3* (barrio) y *property_type* (tipo de propiedad) en variables *dummy*. A fin evitar problemas de multicolinealidad, para atributos con *N* cantidad de categorías, se generan *N-1* variables dummy. Seleccionamos entonces el barrio más frecuente, que resulta ser **Palermo**. También se realiza lo mismo para el tipo de propiedad, cuya cetegoría más probable es **Departamento*. A continuación realizamos un modelo de regresión lineal múltiple.
+Se procede a crear el modelo con las variables propuestas, dos de las cuales (*property_type* y *l3*) son categóricas. La función **lm** automáticamente maneja estas variables transformándolas en N-1 *dummies* para el caso de factores con N niveles.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
-# Generamos variables dummies y eliminamos features innecesarias
-datos.con.dummies <- datos %>%
-  fastDummies::dummy_cols(select_columns = c("l3", "property_type"), remove_most_frequent_dummy = TRUE) %>%
-  dplyr::select(-id, -l3, -property_type)
-
-# Se realiza los mismo para un conjunto de datos modificando considerando el barrio oficial equivalente
-datos.oficiales.con.dummies <- datos %>%
-  dplyr::inner_join(equivalencias, by = c("l3")) %>%
-  mutate(l3 = barrio_oficial) %>%
-  fastDummies::dummy_cols(select_columns = c("l3", "property_type"), remove_most_frequent_dummy = TRUE) %>%
-  dplyr::select(-id, -l3, -barrio_oficial, -property_type)
-
 # Ajustamos un modelo lineal múltiple
-modelo.multiple.1 <- stats::lm(formula = price ~ ., data = datos.con.dummies)
+modelo.multiple.1 <- stats::lm(formula = price ~ ., data = datos)
 
 # Pasamos los coeficientes a un data.frame para trabajarlos mejor
 tabla.modelo.multiple.1 <- broom::tidy(modelo.multiple.1)
 
-# Mostramos el valor de R^2
-summary(modelo.multiple.1)$adj.r.squared
-summary(modelo.multiple.1)$r.squared
+# Mostramos las métricas del modelo
+summary(modelo.multiple.1)
 ```
 
 ## Análisis del modelo
 
-El valor de $R^2$ es de aproximadamente 0.78, lo que implica que se explica el 78% de la variable de respuesta. A continuación se muestran 3 tablas indicando la interpretación de los coeficientes. En la primera tabla se explican los coeficientes asociados a variables numéricas y el $\beta_0$. Dado el modelo construido, debemos tener en cuenta que si las covariables asociadas a los atributos *l3* y *property_type* toman todas el valor 0, entonces el modelo representará los precios esperados para las propiedades para *departamentos* ubicados en el barrio de *Palermo* en función de los valores de las demás covariables.. Esto se debe a la definción de las variables *dummy*.
+El valor de $R^2$ es de aproximadamente 0.78, lo que implica que se explica el 78% de la variable de respuesta. Las variables categóricas *l3* y *property_type* fueron automáticamente transformadas en *dummies* a efecto de poder ser ajustadas por el modelo lineal. A fin de evitar problemas de multicolinealidad, las variables con *N* categorías fueron transformadas en *N-1* atributos binarios. En el caso del atributo *l3*, se observa que el barrio de *Abasto* no figura como dummy, así como también sucede con el caso de las *casas* para el atributo *property_type*. Esto significa que si todas las variables dummies valen 0, el modelo lineal resultante es aplicable a casas del barrio de Abasto. A continuación se analizarán respectivamente los coeficientes para a las variables numéricas, dummies asociadas a *property_type* y dummies asociadas a *l3*.
+
+### Análisis de coeficientes de variables numéricas
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 knitr::kable(
   dplyr::filter(tabla.modelo.multiple.1, 
-                is.na(stringr::str_match(term, "l3_")) &
-                is.na(stringr::str_match(term, "property_type_")))
+                is.na(stringr::str_match(term, "l3")) &
+                is.na(stringr::str_match(term, "property_type")))
 )
 ```
 
-Se observa que todos los coeficientes asociados a variables numéricas son altamente significativos, al igual que el *intercept* ($\beta_0$). Los valores de los coeficientes asociados a cantidad de baños y superficie (total y cubierta) son positivos, indicando un incremento en el precio de acuerdo al monto indicado por cada coeficiente por cada increment en una unidad de la variable. Esto es sumamente lógico y esperable. Incluso se observa que el coeficiente asociado a la superficie cubierta es mayor que el asociado a la superficie total, lo cual indica que aumentar una unidad en el valor de la superficie subierta aumenta el precio más que incrementar una unidad la superficie total (sin distinción de tipo).
+Se observa que todos los coeficientes asociados a variables numéricas son altamente significativos, al igual que el *intercept* ($\beta_0$). Los valores de los coeficientes asociados a cantidad de baños y superficie (total y cubierta) son positivos, indicando un incremento en el precio esperado de acuerdo al monto indicado por cada coeficiente por cada incremento en una unidad de cada variable. Además, el coeficiente asociado a la superficie cubierta es mayor que el asociado a la superficie total, lo cual indica que aumentar un metro cuadrado la superficie subierta aumenta el precio esperado más que incrementar un metro cuadrado la superficie total (sin distinción de tipo).
 
-Sin embargo, el coeficiente asociado a la cantidad de habitaciones es negativo, indicando que el incremento en una unidad en la cantidad de habitaciones produce una disminución en el precio del inmueble. A priori, esto parece ir en contra de la evidencia empírica dado que el precio y la cantidad de habitaciones tiene correlación positiva.
+Sin embargo, el coeficiente asociado a la cantidad de habitaciones es negativo, indicando que incrementar en una unidad la cantidad de habitaciones produce una disminución en el precio esperado del inmueble. A priori, esto no era esperable, dado que el precio y la cantidad de habitaciones tiene correlación positiva.
+
+### Análisis de coeficientes para tipos de propiedad
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 knitr::kable(
   dplyr::filter(tabla.modelo.multiple.1, 
-                ! is.na(stringr::str_match(term, "property_type_")))
+                ! is.na(stringr::str_match(term, "property_type"))) %>%
+  dplyr::mutate(property_type = stringr::str_match(term, "property_type(.+)")[,2]) %>%
+  dplyr::select(property_type, estimate, std.error, statistic, p.value)
 )
 ```
 
-En el caso del tipo de propiedad, vemos que en ambos casos los coeficientes asociados son altamente significativos y negativos. Esto último no era de esperar, dado que las casas en general tienen un precio mayor al de los departamentos. El mismo comentario aplica para el caso de los PH, aunque su precio en general tiene una distribución similar al precio de los departamentos.
+En el caso del tipo de propiedad, vemos que en ambos casos los coeficientes asociados son altamente significativos y positivos. El valor de cada uno de los coeficientes indica el incremento en el precio esperado de un *departamento* o *PH* respecto de una *casa* que está en el mismo barrio y tiene exactamente los mismos valores de superficie total, cubierta, cantidad de habitaciones y cantidad de baños.
+
+### Análisis de coeficientes para barrios
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 knitr::kable(
   dplyr::filter(tabla.modelo.multiple.1, 
-                ! is.na(stringr::str_match(term, "l3_"))) %>%
+                ! is.na(stringr::str_match(term, "l3"))) %>%
+  dplyr::mutate(l3 = stringr::str_match(term, "l3(.+)")[,2]) %>%
+  dplyr::select(l3, estimate, std.error, statistic, p.value) %>%
   dplyr::arrange(estimate)
 )
 ```
 
-Finalmente, se analizan los coeficientes asociados a los barrios. Son todos altamente significativos a excepción de *Recoleta* (no significativo) y *Belgrano* (significativo aunque con p-valor aproximadamente 0.009). Para el caso de Recoleta, la interpretación que puede darse es la siguiente: dadas dos propiedades con las mismas características (tipo de propiedad, cantidad de habitaciones, cantidad de baños, superficie total y cubierta), una ubicada en Recoleta y la otra en Palermo, el valor esperado del precio de ambas es el mismo. Esto sucede porque el test de hipótesis con $H_0$: $\beta_i$ = 0, no puede rechazar la hipótesis con el nivel de significacion de 0.05.
+Finalmente, se analizan los coeficientes asociados a los barrios. Hay varios que son altamente significativos, otros que son significativos y algunos que directamente no lo son. Para el caso de los coeficientes que son significativos (o muy significativos), la interpretación es análoga que para el tipo de propiedad. Es decir, que los mismos representan el aumento/disminución en el precio esperado de una propiedad que está en un barrio determinado respecto de otra del mismo tipo (casa, depertamento o PH) ubicada en *Abasto* y con los mismos valores de superficie total, cubierta, cantidad de habitaciones y cantidad de baños.
+
+Para el caso de los coeficientes que no son significativos, la interpretación que se puede dar es que el precio esperado de una propiedad ubicada en uno de esos barrios no es significativamente diferente al de otra propiedad con las mismas características ubicada en Abasto. Esto sucede porque el test de hipótesis con $H_0$: $\beta_i$ = 0, no puede rechazar la hipótesis nula con el nivel de significacion de 0.05.
 
 ## Comparación de predicciones para dos casos particulares.
 
 En las consignas se platea determinar cuál de las siguientes dos opciones es más conveniente para vender:
 
-  * Un departamento de 120 mts cuadrados cubiertos en abasto, con 3 dormitorios y 2 baños.
-  * Un PH en balvanera, con 80 mts cuadrados cubiertos, 20 mts cuadrados no cubiertos, 2 dormitorios y 3 baños.
+  * Un *departamento* de 120 $m^2$ cubiertos en *Abasto*, con 3 dormitorios y 2 baños.
+  * Un *PH* en *Balvanera*, con 80 $m^2$ cubiertos, 20 $m^2$ no cubiertos, 2 dormitorios y 3 baños.
   
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Generar data frame para predecir el precio del caso 1
 caso.1 <- data.frame(
-  l3 = factor("Abasto", levels = setdiff(unique(datos$l3), "Palermo")),
-  property_type_Casa = 0,
+  l3 = "Abasto",
+  property_type = "Departamento",
   property_type_PH = 0,
   surface_total = 120, 
   surface_covered = 120, 
   rooms = 3, 
   bathrooms = 2
-) %>% fastDummies::dummy_cols(select_columns = c("l3")) %>%
-  dplyr::select(-l3)
-prediccion.caso.1 <- predict(modelo.multiple.1, caso.1)
+)
 
+# Mostrar precio esperado para el caso 1 con intervalo de predicción
+print("Caso 1:")
+predict(modelo.multiple.1, caso.1, interval = "predict")
+
+# Generar data frame para predecir el precio del caso 2
 caso.2 <- data.frame(
-  l3 = factor("Balvanera", levels = setdiff(unique(datos$l3), "Palermo")),
-  property_type_Casa = 0,
-  property_type_PH = 1,
+  l3 = "Balvanera",
+  property_type = "PH",
   surface_total = 100, 
   surface_covered = 80, 
   rooms = 2, 
   bathrooms = 3
-) %>% fastDummies::dummy_cols(select_columns = c("l3")) %>%
-  dplyr::select(-l3)
-prediccion.caso.2 <- predict(modelo.multiple.1, caso.2)
+)
 
-cat(paste0("Precio esperado caso 1: USD ", prediccion.caso.1, ". Precio esperado caso 2: USD ", prediccion.caso.2))
+# Mostrar precio esperado para el caso 2 con intervalo de predicción
+print("Caso 2:")
+predict(modelo.multiple.1, caso.2, interval = "predict")
 ```  
 
 Se observa entonces que el valor esperado para el precio del caso 1 (departamento ubicado en Abasto) es significativamente superior al del segundo caso, por lo que lo torna más preferible en términos de monto.
+
+## Realización de otro modelo sin *l3*
+
+Ahora se realiza otro modelo lineal eliminando el barrio (atributo *l3*).
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Ajustamos un modelo lineal múltiple sin considerar l3
+modelo.multiple.2 <- stats::lm(formula = price ~ ., data = dplyr::select(datos, -l3))
+
+# Mostramos las métricas del modelo
+summary(modelo.multiple.2)
+```
+
+Se observa que el valor del $R^2$ ajustado (aproximadamente 0.68) ha disminuido respecto del caso anterior, indicando que se está logrando explicar una menor proporción de la variabilidad. La razón por la cual esto sucede es que el barrio aporta información valiosa para la predicción del precio esperado, tal como se observó en el modelo anterior.
+
+En relación a los coeficientes, observamos que son todos muy significativos y se conserva la misma estructura de signos y orden para los mismos:
+
+  * la cantidad de habitaciones tiene un coeficiente negativo y la cantidad de baños uno positivo;
+  * los atributos de superficie tienen ambos coeficientes positivos, siendo el mayor de ambos el correspondiente a la superficie cubierta;
+  * los coeficientes asociados a departamentos y PH también son positivos, siendo el mayor de ambos el correspondiente a departamentos.
+
+A continuación se realizarán otros modelos sobre la base de nuevos conjuntos de datos resultantes de un proceso de *feature engineering*.
+
+# Creación de variables
+
+Se creará un nuevo modelo que en vez de considerar los barrios, considere grupos de barrios agrupados en 3 categorías de acuerdo al precio promedio del metro cuadrado. A continuación, se realizará un análisis exploratior para determinar los puntos de corte para las categorías.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+datos.precio.m2.barrio <- datos %>%
+  # Obtener precio por metro cuadrado para cada propiedad (tomando la superficie total como indicador de superficie)
+  dplyr::mutate(price_m2 = price / surface_total) %>%
+  # Agrupar por barrio (l3)
+  dplyr::group_by(l3) %>%
+  # Calcular el valor promedio de precio por metro cuadrado y la cantidad de casos para cada barrio
+  dplyr::summarise(mean_price_m2 = mean(price_m2), 
+                   cantidad = dplyr::n()) %>%
+  # Ordenar los barrios por precio por metro cuadrado promedio de forma ascendente
+  dplyr::arrange(mean_price_m2)
+
+# Mostrar tabla de precios
+knitr::kable(
+  datos.precio.m2.barrio,
+  col.names = c("Barrio", "Precio promedio del metro cuadrado", "Cantidad de propieadades")
+)
+```
+
+Inicialmente se podría pensar que la clasificación de los barrios por precio promedio del metro cuadrado se podría obtener separando por terciles considerando los precios de la tabla anterior. Dado que hay 57 barrios, obtendríamos 3 categorías cada unas de las cuales agruparía 19 barrios. Sin embargo, las categorías *alto*, *medio* y *bajo* contendrían una cantidad muy dispar de propiedades, a saber:
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Calcular cantidad de propiedades considerando solamente terciles de precios promedio por metro cuadrado.
+cantidad.propiedades  <- dplyr::pull(datos.precio.m2.barrio, cantidad)
+categorias.tentativas <- data.frame(
+  categoria = c("Bajo", "Medio", "Alto"),
+  cantidad = c(sum(cantidad.propiedades[1:19]), sum(cantidad.propiedades[20:38]), sum(cantidad.propiedades[39:57]))
+)
+
+# Mostrar tabla
+knitr::kable(
+  categorias.tentativas,
+  col.names = c("Categoría", "Cantidad de propiedades")
+)
+```
+
+Esto se debe a que los barrios con mayor cantidad de propiedades son aquellos con precios promedio del metro cuadrado más elevado. Para obtener una categorización más equilibrada en cantidad de casos, reagrupamos considerando la tabla ordenada de precios por metro cuadrado pero asignando categorías con el objetivo de obtener conjuntos con cardinalidad lo más parecida posible. Para ello, creamos un nuevo atributo que indique la cantidad acumulada de propiedades partiendo del barrio con precio promedio más bajo hasta aquél con precio promedio más elevado.
+
+Si denominamos CT a la cantidad total de propiedades y CA a la cantidad acumulada de propiedades por barrio, y recordando que la acumulación de casos comienza con las barrios más *baratos*, entonces iterando sobre la tabla obtenida definimos las categorías mediante el siguiente criterio:
+
+  $$CA \le \frac{CT}{3} => Categoría = "Bajo"$$
+  $$\frac{CT}{3} \lt CA \le \frac{2CT}{3} => Categoría = "Medio"$$
+  $$CA \gt \frac{2CT}{3} => Categoría = "Alto"$$
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Creamos los grupos
+grupos.barrios <- datos.precio.m2.barrio %>%
+  dplyr::mutate(
+    # Obtenermos la cantidad acumulada de propiedades para cada barrio
+    # Recordar que la tabla estaba ordenada de precios mas bajos a mas elevados
+    cantidad_acumulada = cumsum(cantidad),
+    # Considerando CA = cantidad acumulada de propiedades por barrio 
+    # y CT = cantidad total de propiedades
+    barrio = dplyr::case_when(
+      # Si CA <= 1/3 * CT => Categoria es "Bajo"
+      cantidad_acumulada <= (nrow(datos) / 3) ~ "Bajo",
+      # Si 1/3 * CT <= CA <= 2/3 * CT => Categoria es "Medio"
+      cantidad_acumulada <= (2 * nrow(datos) / 3) ~ "Medio",
+      # Sino (CA > 2/3 * CT) => Categoria es "Alto"
+      TRUE ~ "Alto"
+    )
+  ) %>% dplyr::mutate(barrio = factor(barrio, c("Medio", "Bajo", "Alto")))
+
+# Generamos el nuevo set de datos
+datos.barrios <- datos %>%
+  dplyr::inner_join(grupos.barrios, by = c("l3")) %>%
+  dplyr::select(-l3, -mean_price_m2, -cantidad, -cantidad_acumulada)
+
+# Mostramos la cantidad de propiedades por categoria de barrio
+categorias.definitivas <- datos.barrios %>%
+  dplyr::group_by(barrio) %>%
+  dplyr::summarise(cantidad = dplyr::n())
+knitr::kable(
+  categorias.definitivas,
+  col.names = c("Categoría", "Cantidad de propiedades")
+)
+```
+
+Si bien la distribución no es exactamente equilibrada, es bastante más pareja que en el caso inicial. A continuación se procede a realizar otro modelo en base a este nuevo conjunto de datos.
+
+## Modelo basado en barrios agrupados según el precio del metro cuadrado
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Ajustamos un modelo lineal múltiple
+modelo.multiple.3 <- stats::lm(formula = price ~ ., data = datos.barrios)
+
+# Mostramos las métricas del modelo
+summary(modelo.multiple.3)
+```
+
+De acuerdo a la salida, se observa que el valor de $R^2$ es de aproximadamente 0.75, en contraposición al valor de 0.78 observado en el modelo con todos los barrios. Todas las variables resultan altamente significativas, observándose el mismo patrón de signo para las variables numéricas que para el caso con todos los barrios. También se observa que el coeficiente asociado a la superficie cubierta es mayor que aquel asociado a la superficie total. Los coeficientes para los tipo de propiedad siguen siendo positivos, siendo el mayor de ellos el asociado a departamentos (también al igual que para el caso inicial).
+
+Pero en ente nuevo modelo aparecen coeficientes asociados a las propiedades con categorías de barrios con precio alto y bajo. Se eligió adrede como primera categoría del factor a la clase *media* a fin de que fuera eliminada y se pudieran comparar los coeficientes asociados a las otras dos en relación a la primera. Se observa que las propiedades de barrios de categoría *baja* tienen efectivamente un coeficiente negativo y los de categoría *alta* un coeficiente positivo. Este coeficiente indica el monto en el cual se incrementa/disminuye el precio esperado de una propiedad de un barrio de cierta categoría en relación a otra de categoría media, del mismo tipo (departamento, casa o PH) y con los mismos parámetros de superficie total, cubierta, cantidad de habitaciones y de baños.
+
+Si bien este modelo tiene un $R^2$ ajustado muy levemente menor al original, tiene la ventaja de ser mucho más simple, dado que tiene una cantidad significativamente menor de covariables. Considerando la simplicidad como una ventaja, y siguiendo el principio de la navaja de Ockham, se podría decir que este modelo es preferible al inicial. Sin embargo, debe tenerse en cuenta que sea ha perdido granularidad en la definición de la ubicación, ya que pasamos de contar con información del barrio a tener la Ciudad de Buenos Aires divididas en solamente 3 categorías.
+
+## Creación de variable surface_patio
+
+A continuación, definimos la variable *surface_patio* como la diferencia entre *surface_total* y *surface_covered*. En ningún caso se observa que *surface_covered* < *surface_total* (probablemente esas observaciones hayan sido eliminadas a priori). En casos como éstos optaría por eliminar dichas observaciones (en casos de ser pocas), dado que proveen información inconsistente y errónea.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Generamos el nuevo set de datos, segun se indica.
+datos.patio <- datos.barrios %>%
+  # Creamos la nueva variable surface_patio
+  dplyr::mutate(surface_patio = surface_total - surface_covered) %>%
+  # Eliminamos la variable surface_total
+  dplyr::select(-surface_total)
+
+# Ajustamos un modelo lineal múltiple
+modelo.multiple.4 <- stats::lm(formula = price ~ ., data = datos.patio)
+
+# Mostramos las métricas del modelo
+summary(modelo.multiple.4)
+```
+
+## Análisis e interpretación del nuevo modelo
+
+Este modelo tiene exactamente el mismo $R^2$ ajustado que el anterior y los mismos coeficientes para todas las variables, excepto aquellos asociados a variables de superficie. Estos nuevos valores de coeficientes se pueden interpretar como el incremento en el precio esperado de la propiedad por cada metro cuadrado adicional de superficie cubierta (*surface_covered*) o descubierta (*surface_patio*). Ahora es más clara la interpretación de los coeficientes según el tipo de superficie.
+
+Es interesante notar que el coeficiente asociado a *surface_patio* es exactamente igual al asociado en el modelo anterior a *surface_total*. Además, el coeficiente asociado a *surface_covered* en el nuevo modelo, es la suma de los coeficientes que en el modelo anterior correspondían a *surface_total* y *surface_covered*. Esta curiosidad matemática en realidad era esperable dada la definición de *surface_patio*. Si partimos del modelo anterior, podemos 
+desarrollar del siguiente modo:
+
+$$SurfaceTotal = SurfaceCovered + SurfacePatio$$
+
+$$Price = \beta_0 + \beta_{sc} * SurfaceCovered + \beta_{st} * SurfaceTotal + ...$$
+
+$$ = \beta_0 + \beta_{sc} * SurfaceCovered + \beta_{st} * (SurfacePatio + SurfaceCovered) + ...$$
+
+$$= \beta_0 + (\beta_{sc} + \beta_{st}) * SurfaceCovered + \beta_{st} * SurfacePatio + ... $$
+
+De este modo, se entiende porqué el coeficiente de *surface_covered* en el nuevo modelo es la suma de los dos coeficientes de superficies del modelo anterior y porqué el coeficiente de *surface_patio* es el igual al de *surface_total* del modelo previo.
+
+# Evaluación del modelo
+
+## Análisis de residuos del modelo anterior
+
+Se analizarán los residuos del modelo previo de modo de verificar si se cumplen o no los supuestos del modelo lineal. Los supuestos se basan en afirmaciones sobre los *errores*, los cuales son totalmente desconocimos. Solamente contamos con información acerca de los *residuos*. Para validar los supuestos, vamos a analizar la *normalidad* y *homocedasticidad* de los residuos.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.width=10, fig.height=12 }
+# Se utiliza el paquete ggfortify para realizar gráficos de los residuos.
+autoplot(modelo.multiple.4, which = c(2,1,3), size = 0.2, label.angle = 45, ncol = 1, 
+         label.hjust = 0.5, smooth.colour = "tomato", colour = "darkslategray4", 
+         ad.colour = "black", as.linetype = "dotted", ad.size = 0.4) +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+En el primer gráfico podemos observar un QQ-Plot entre los cuantiles de los residuos escalados (eje Y) y los cuantiles teóricos de una distribución normal (eje X). Observamos que los cuantiles teóricos extremos difieren sustancialmente de los cuantiles de correspondientes a los residuos estandarizados, indicando un alejamiento de los mismos respecto de la distribución normal. Sin embargo, dada la gran cantidad de observaciones con la que se cuenta, una versión extendida del Teorema Central del Límite garantiza que los estimadores de mínimos cuadrados para los coeficientes asociados a las covariables tienen distribución de muestreo aproximadamente normal.
+
+El segundo gráfico muestra la asociación entre los residuos del modelo y los valores ajustados de la variable de respuesta. Si los residuos fueran homocedásticos, se esperaría observar una nube de puntos uniformemente distribuída. Sin embargo, esto no sucede. En el tercer gráfico se observa la relación entre la raíz cuadrada de los módulos de los residuos estandarizados versus los valores ajustados. Vemos claramente una tendencia lineal que tiende a aumentar el valor absoluto de los residuos conforme aumenta el valor ajustado de la variable de respuesta.
+
+Estas últimas observaciones nos permiten concluir que los residuos no son homocedásticos. Para solucionar este problema se podrían aplicar transformaciones a las covariables, las cuales permitan lograr la homocedasticidad. También debiera considerarse el agregado de términos de interacción entre las mismas. A continuación se analizará un modelo que considera la transformación de algunas covariables y la variable de respuesta.
+  
+## Definición y análisis de nuevo modelo tansformando variables
+
+Se realizará el siguiente modelo lineal:
+
+$$log(Price) = \beta_0 + \beta_1log(Rooms) + \beta_2log(Bathrooms) + \beta_3log(SCovered) + \beta_4PType + \beta_5Barrio + \beta_6SPatio$$
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Ajustamos un modelo lineal múltiple de acuerdo a lo indicado
+modelo.multiple.5 <- stats::lm(formula = log(price) ~ log(rooms)+log(bathrooms)+log(surface_covered)+property_type+barrio+surface_patio, 
+                               data = datos.patio)
+
+# Mostramos las métricas del modelo
+summary(modelo.multiple.5)
+```
+
+Se observa que el valor de $R^2$ ajustado para este modelo se ha incrementado levemente a un valor de 0.81, superando a todos los modelos anteriores. En relación a los coeficientes, todos son altamente significativos. El análisis de los mismos, los separaremos en dos partes. Primero se analizarán los coeficientes asociados a covariables transformadas utilizando el *logaritmo natural*. Luego, se analizarán los coeficientes asociados a variables no transformadas.
+
+Para el primer caso, dado que tanto la variable de respuesta como las covariables han sido transformadas utilizando el logaritmo natural, la relación entre la variable de respuesta y las covariables se establece en términos relativos. Es decir
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.width=10, fig.height=12 }
+# Se utiliza el paquete ggfortify para realizar gráficos de los residuos.
+autoplot(modelo.multiple.5, which = c(2,1,3), size = 0.2, label.angle = 45, ncol = 1, 
+         label.hjust = 0.5, smooth.colour = "tomato", colour = "darkslategray4", 
+         ad.colour = "black", as.linetype = "dotted", ad.size = 0.4) +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5)
+  )
+```
