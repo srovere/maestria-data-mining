@@ -95,7 +95,9 @@ if (normalizar) {
       if (atributo == "id") {
         return (data.frame(id = valores))
       } else {
-        valores.normalizado <- bestNormalize::bestNormalize(x = valores, standardize = estandarizar)
+        valores.normalizado <- bestNormalize::bestNormalize(x = valores, 
+                                                            standardize = estandarizar,
+                                                            allow_orderNorm = FALSE)
         df.norm             <- data.frame(att = valores.normalizado$x.t)
         colnames(df.norm)   <- c(atributo)
         return (df.norm)
@@ -143,7 +145,9 @@ if (normalizar) {
         if (atributo == "id") {
           return (data.frame(id = valores))
         } else {
-          valores.normalizado <- bestNormalize::bestNormalize(x = valores, standardize = estandarizar)
+          valores.normalizado <- bestNormalize::bestNormalize(x = valores, 
+                                                              standardize = estandarizar,
+                                                              allow_orderNorm = FALSE)
           df.norm             <- data.frame(att = valores.normalizado$x.t)
           colnames(df.norm)   <- c(atributo)
           return (df.norm)
@@ -427,7 +431,7 @@ ggplot2::ggplot(df.sil) +
   ggplot2::facet_wrap(~conjunto, ncol = 1)
   
 
-# Generamos clusterizacion para k = 5 (dado que esto va a servir para comparar con los generos)
+# Generamos clusterizacion para k = 5 (cantidad de clusters para mejor clustering)
 grupos.jerarquico <- audio.combinado.clase %>%
   dplyr::select(id, clase) %>%
   dplyr::mutate(clase_features = stats::cutree(cluster.jerarquico.features, k = 4),
