@@ -339,9 +339,11 @@ modelo.multiple.5 <- stats::lm(formula = log(price) ~ log(rooms)+log(bathrooms)+
 summary(modelo.multiple.5)
 ```
 
-Se observa que el valor de $R^2$ ajustado para este modelo se ha incrementado levemente a un valor de 0.81, superando a todos los modelos anteriores. En relación a los coeficientes, todos son altamente significativos. El análisis de los mismos, los separaremos en dos partes. Primero se analizarán los coeficientes asociados a covariables transformadas utilizando el *logaritmo natural*. Luego, se analizarán los coeficientes asociados a variables no transformadas.
+Se observa que el valor de $R^2$ ajustado para este modelo se ha incrementado levemente a un valor de 0.81, superando a todos los modelos anteriores. En relación a los coeficientes, todos son altamente significativos. El análisis de los mismos se dividirá en dos partes. Primero se analizarán los coeficientes asociados a covariables transformadas utilizando el *logaritmo natural*. Luego, se analizarán los coeficientes asociados a variables no transformadas.
 
-Para el primer caso, dado que tanto la variable de respuesta como las covariables han sido transformadas utilizando el logaritmo natural, la relación entre la variable de respuesta y las covariables se establece en términos relativos. Es decir
+Para el primer caso, las covariables han sido transformadas utilizando el logaritmo natural. Dado que la variable de respuesta ha sido transformada utilizando el logaritmo natural, estamos ante un modelo denominado de *elasticidad constante* o *log-log*. En estos modelos, cada coeficiente de las covariables representa la *elasticidad* de la variable de respuesta respecto a la covariable en cuestión [1]. Se interpreta que por cada aumento de 1% en el valor de la covariable *i*, hay un aumento de aproximadamente $\beta_i$% en el precio esperado del inmueble. Como en los casos anteriores, la cantidad de habitaciones presenta un coeficiente negativo y la cantidad de baños y superficie cubierta tienen coeficientes positivos.
+
+En el segundo caso, las covariables no han sido transformadas. Dado que la variable de respuesta ha sido transformada utilizando el logaritmo natural, estamos frente a una relación *log-nivel*. En este tipo de modelos, cada coeficiente de las covariables representa la *semielasticidad* de la variable de respuesta respecto a la covariable en cuestión [1]. En estos casos, se interpreta que por cada aumento en 1 unidad de la covariable *i*, hay un aumento de  $100\beta_i$% en el precio esperado del inmueble. Si bien los coeficientes han variado respecto del modelo anterior, el signo y ordenamiento de los mismos ha mantenido la misma estructura. A continuación también se realizará un análisis de los residuos.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.width=10, fig.height=12 }
 # Se utiliza el paquete ggfortify para realizar gráficos de los residuos.
@@ -352,3 +354,7 @@ autoplot(modelo.multiple.5, which = c(2,1,3), size = 0.2, label.angle = 45, ncol
     plot.title = ggplot2::element_text(hjust = 0.5)
   )
 ```
+
+Del análisis de los gráficos anteriores, se destacan dos aspectos importantes. Los primero que se observa en el QQ-plot, es que los cuantiles extremos asociados a los residuos estandarizados presentan menores discrepancias respecto a los cuantiles teóricos que en el modelo anterior. Esto indica que los residuos presentan una distribución más cercana a la normal. Si bien esto es importante, se explicó anteriormente que este supuesto no es crítico para modelos construidos a partir de gran cantidad de datos.
+
+Sin embargo, lo más importante es que los residuos de este modelo presentan mayores signos de homocedasticidad. El segundo gráfico muestra que la nube de puntos ahora es más uniforme (aunque aún conserva cierta estructura). El tercer gráfico muestra que si bien aún hay un tendencia a mayores residuos para mayores valores ajustados, la misma es menos marcada que en el modelo anterior.
