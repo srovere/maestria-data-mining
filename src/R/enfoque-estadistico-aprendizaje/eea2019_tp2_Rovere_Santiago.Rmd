@@ -358,3 +358,27 @@ autoplot(modelo.multiple.5, which = c(2,1,3), size = 0.2, label.angle = 45, ncol
 Del análisis de los gráficos anteriores, se destacan dos aspectos importantes. Los primero que se observa en el QQ-plot, es que los cuantiles extremos asociados a los residuos estandarizados presentan menores discrepancias respecto a los cuantiles teóricos que en el modelo anterior. Esto indica que los residuos presentan una distribución más cercana a la normal. Si bien esto es importante, se explicó anteriormente que este supuesto no es crítico para modelos construidos a partir de gran cantidad de datos.
 
 Sin embargo, lo más importante es que los residuos de este modelo presentan mayores signos de homocedasticidad. El segundo gráfico muestra que la nube de puntos ahora es más uniforme (aunque aún conserva cierta estructura). El tercer gráfico muestra que si bien aún hay un tendencia a mayores residuos para mayores valores ajustados, la misma es menos marcada que en el modelo anterior.
+
+# Data Frames anidados
+
+A continuación se ejecutan 3 modelos anidados, uno para cada tipo de priopiedad.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Se anidan los datos por tipo de propiedad
+datos.por.tipo.propiedad <- datos.patio %>% 
+  dplyr::group_by(property_type) %>% 
+  tidyr::nest()
+
+# Definimos la funcion de modelado
+funcion_modelo <- function(datos) {
+  return (stats::lm(price ~ ., data = datos))
+}
+
+# Se generan los modelos anidados
+modelos.tipo.propiedad <- datos.por.tipo.propiedad %>%
+  dplyr::mutate(modelo = purrr::map(data, funcion_modelo))
+
+# Resultados de los modelos
+resultados.modelos.tipo.propiedad <- modelos.tipo.propiedad %>%
+  dplyr::mutate(tdy = purrr::map(modelo, broom::tidy))
+```
