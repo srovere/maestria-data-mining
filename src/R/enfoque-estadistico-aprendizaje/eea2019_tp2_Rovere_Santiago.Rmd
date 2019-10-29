@@ -185,7 +185,7 @@ datos.precio.m2.barrio <- datos %>%
 # Mostrar tabla de precios
 knitr::kable(
   datos.precio.m2.barrio,
-  col.names = c("Barrio", "Precio promedio del metro cuadrado", "Cantidad de propieadades")
+  col.names = c("Barrio", "Precio promedio del metro cuadrado", "Cantidad de propiedades")
 )
 ```
 
@@ -375,10 +375,37 @@ funcion_modelo <- function(datos) {
 }
 
 # Se generan los modelos anidados
-modelos.tipo.propiedad <- datos.por.tipo.propiedad %>%
-  dplyr::mutate(modelo = purrr::map(data, funcion_modelo))
+resultados.modelos.tipo.propiedad <- datos.por.tipo.propiedad %>%
+  dplyr::mutate(modelo = purrr::map(data, funcion_modelo),
+                tdy = purrr::map(modelo, broom::tidy),
+                agmnt = purrr::map2(modelo, data, broom::augment))
+```
 
-# Resultados de los modelos
-resultados.modelos.tipo.propiedad <- modelos.tipo.propiedad %>%
-  dplyr::mutate(tdy = purrr::map(modelo, broom::tidy))
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Comparación de R^2
+purrr::map_dfr(resultados.modelos.tipo.propiedad$modelo, broom::glance) %>%
+  dplyr::mutate(property_type = resultados.modelos.tipo.propiedad$property_type) %>%
+  dplyr::select(property_type, adj.r.squared) %>%
+  knitr::kable(x = ., col.names = c("Tipo de propiedad", "R^2 ajustado"))
+```
+
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Comparación de coeficientes
+resultados.modelos.tipo.propiedad %>%
+  tidyr::unnest(tdy) %>%
+  dplyr::select(property_type, term, estimate, p.value) %>%
+  knitr::kable(x = ., col.names = c("Tipo de propiedad", "Coeficiente", "Valor", "P-Valor"))
+```
+
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Comparación de residuos
+ggplot2::ggplot(data = tidyr::unnest(resultados.modelos.tipo.propiedad, agmnt),
+                mapping = ggplot2::aes(x = .fitted, y = .resid)) +
+  ggplot2::geom_point(size = 0.2, col = 'tomato') +
+  ggplot2::geom_hline(yintercept = 0) +
+  ggplot2::geom_smooth(se = FALSE, col = 'darkslategray4') +
+  ggplot2::facet_wrap(~property_type, ncol = 1)
 ```
