@@ -66,7 +66,7 @@ knitr::kable(
 )
 ```
 
-El valor de $R^2$ ajustado es de aproximadamente 0.78, lo que implica que se explica el 78% de la variable de respuesta. Las variables categóricas *l3* y *property_type* fueron automáticamente transformadas en *dummies* para poder ser ajustadas por el modelo lineal. A fin de evitar problemas de multicolinealidad, las variables con *N* categorías fueron transformadas en *N-1* atributos binarios. En el caso del atributo *l3*, el barrio de *Abasto* (por ser el primer nivel de la variable categórica) no figura como dummy, así como también sucede en el caso de las *casas* para el atributo *property_type*. Esto significa que si todas las variables dummies valen 0, el modelo lineal resultante es aplicable a casas del barrio de Abasto. A continuación se analizarán respectivamente los coeficientes para a las variables numéricas, dummies asociadas a *property_type* y dummies asociadas a *l3*.
+El valor de $R^2$ ajustado es de aproximadamente 0.78, lo que implica que se explica el 78% de la variable de respuesta. Las variables categóricas *l3* y *property_type* fueron automáticamente transformadas en *dummies* para poder ser ajustadas por el modelo lineal. A fin de evitar problemas de multicolinealidad, las variables con *N* categorías fueron transformadas en *N-1* atributos binarios. En el caso del atributo *l3*, el barrio de *Abasto* (por ser el primer nivel de la variable categórica) no figura como dummy, así como también sucede en el caso de las *casas* para el atributo *property_type*. Esto significa que, si todas las variables dummies valen 0, el modelo lineal resultante es aplicable a casas del barrio de Abasto. A continuación, se analizarán respectivamente los coeficientes para a las variables numéricas, dummies asociadas a *property_type* y dummies asociadas a *l3*.
 
 ### Análisis de coeficientes de variables numéricas
 
@@ -79,7 +79,7 @@ knitr::kable(
 )
 ```
 
-Se observa que todos los coeficientes asociados a variables numéricas son altamente significativos, al igual que el *intercept* ($\beta_0$). Los valores de los coeficientes asociados a cantidad de baños y superficie (total y cubierta) son positivos, indicando un incremento en el precio esperado de acuerdo al monto indicado por cada coeficiente por cada incremento en una unidad de cada variable. Además, el coeficiente asociado a la superficie cubierta es mayor que el asociado a la superficie total, lo cual indica que aumentar un metro cuadrado la superficie subierta aumenta el precio esperado más que incrementar un metro cuadrado la superficie total (sin distinción de tipo). Sin embargo, el coeficiente asociado a la cantidad de dormitorios es negativo, indicando que incrementar en una unidad la cantidad de dormitorios produce una disminución en el precio esperado del inmueble. Esto de por si es un poco difícil de interpretar, dado que a priori se esperaría lo contrario.
+Se observa que todos los coeficientes asociados a variables numéricas son altamente significativos, al igual que el *intercept* ($\beta_0$). Los valores de los coeficientes asociados a cantidad de baños y superficie (total y cubierta) son positivos, indicando un incremento en el precio esperado de acuerdo al monto indicado por cada coeficiente por cada incremento en una unidad de cada variable. Además, el coeficiente asociado a la superficie cubierta es mayor que el asociado a la superficie total, lo cual indica que aumentar un metro cuadrado la superficie cubierta aumenta el precio esperado más que incrementar un metro cuadrado la superficie total (sin distinción de tipo). Sin embargo, el coeficiente asociado a la cantidad de dormitorios es negativo, indicando que incrementar en una unidad la cantidad de dormitorios produce una disminución en el precio esperado del inmueble. Esto de por si es un poco difícil de interpretar, dado que a priori se esperaría lo contrario.
 
 ### Análisis de coeficientes para tipos de propiedad
 
@@ -108,7 +108,7 @@ knitr::kable(
 )
 ```
 
-Finalmente, se analizan los coeficientes asociados a los barrios. Hay varios que son altamente significativos, otros que son significativos y algunos que directamente no lo son. Para el caso de los coeficientes que son significativos (o muy significativos), la interpretación es análoga que para el tipo de propiedad. Es decir, que los mismos representan el aumento/disminución en el precio esperado de una propiedad que está en un barrio determinado respecto de otra del mismo tipo (casa, depertamento o PH) ubicada en *Abasto* y con los mismos valores de superficie total, cubierta, cantidad de dormitorios y cantidad de baños.
+Finalmente, se analizan los coeficientes asociados a los barrios. Hay varios que son altamente significativos, otros que son significativos y algunos que directamente no lo son. Para el caso de los coeficientes que son significativos (o muy significativos), la interpretación es análoga que para el tipo de propiedad. Es decir, que los mismos representan el aumento/disminución en el precio esperado de una propiedad que está en un barrio determinado respecto de otra del mismo tipo (casa, departamento o PH) ubicada en *Abasto* y con los mismos valores de superficie total, cubierta, cantidad de dormitorios y cantidad de baños.
 
 Para el caso de los coeficientes que no son significativos, la interpretación que se puede dar es que el precio esperado de una propiedad ubicada en uno de esos barrios no es significativamente diferente al de otra propiedad con las mismas características ubicada en Abasto. Esto sucede porque el test de hipótesis con $H_0$: $\beta_i$ = 0, no puede rechazar la hipótesis nula con el nivel de significancia de 0.05.
 
@@ -190,11 +190,11 @@ En relación a los coeficientes, observamos que son todos muy significativos y s
   * los atributos de superficie tienen ambos coeficientes positivos, siendo el mayor de ambos el correspondiente a la superficie cubierta;
   * los coeficientes asociados a departamentos y PH también son positivos, siendo el mayor de ambos el correspondiente a departamentos.
 
-A continuación se realizarán otros modelos sobre la base de nuevos conjuntos de datos resultantes de un proceso de *feature engineering*.
+A continuación, se realizarán otros modelos sobre la base de nuevos conjuntos de datos resultantes de un proceso de *feature engineering*.
 
 # Creación de variables
 
-Se creará un nuevo modelo que en vez de considerar los barrios, considere categorías de barrios agrupados en 3 categorías de acuerdo al precio promedio del metro cuadrado. A continuación, se realizará un análisis explorador para determinar los puntos de corte para las categorías.
+Se creará un nuevo modelo que, en vez de considerar los barrios, considere categorías de barrios agrupados en 3 categorías de acuerdo al precio promedio del metro cuadrado. A continuación, se realizará un análisis explorador para determinar los puntos de corte para las categorías.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.width=9 }
 datos.precio.m2.barrio <- datos %>%
@@ -224,7 +224,7 @@ ggplot2::ggplot(data = datos.precio.m2.barrio %>%
   )
 ```
 
-En el gráfico anterior se muestran los precios por metro cuadrado promedio para cada barrio. Inicialmente se podría pensar que la clasificación de los barrios se podría obtener separando por terciles considerando los precios mostrados. Dado que hay 57 barrios, obtendríamos 3 categorías cada unas de las cuales agruparía 19 barrios. Sin embargo, las categorías *alto*, *medio* y *bajo* contendrían una cantidad muy dispar de propiedades, a saber:
+En el gráfico anterior se muestran los precios por metro cuadrado promedio para cada barrio. Inicialmente se podría pensar que la clasificación de los barrios se podría obtener separando por terciles considerando los precios mostrados. Dado que hay 57 barrios, obtendríamos 3 categorías, cada una de las cuales agruparía 19 barrios. Sin embargo, las categorías *alto*, *medio* y *bajo* contendrían una cantidad muy dispar de propiedades, a saber:
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Calcular cantidad de propiedades considerando solamente terciles de precios promedio por metro cuadrado.
@@ -241,9 +241,9 @@ knitr::kable(
 )
 ```
 
-Esto se debe a que los barrios con mayor cantidad de propiedades son aquellos con precios promedio del metro cuadrado más elevado. Para obtener una categorización más equilibrada en cantidad de casos, reagrupamos considerando la tabla ordenada de precios por metro cuadrado pero asignando categorías con el objetivo de obtener conjuntos con cardinalidad lo más parecida posible. Para ello, creamos un nuevo atributo que indique la cantidad acumulada de propiedades partiendo del barrio con precio promedio más bajo hasta aquél con precio promedio más elevado.
+Esto se debe a que los barrios con mayor cantidad de propiedades son aquellos con precios promedio del metro cuadrado más elevado. Para obtener una categorización más equilibrada en cantidad de casos, reagrupamos considerando la tabla ordenada de precios por metro cuadrado, pero asignando categorías con el objetivo de obtener conjuntos con cardinalidad lo más parecida posible. Para ello, creamos un nuevo atributo que indique la cantidad acumulada de propiedades partiendo del barrio con precio promedio más bajo hasta aquél con precio promedio más elevado.
 
-Si denominamos CT a la cantidad total de propiedades y CA a la cantidad acumulada de propiedades por barrio, y recordando que la acumulación de casos comienza con las barrios más *baratos*, entonces iterando sobre la tabla obtenida definimos las categorías mediante el siguiente criterio:
+Si denominamos CT a la cantidad total de propiedades y CA a la cantidad acumulada de propiedades por barrio, y recordando que la acumulación de casos comienza con los barrios más *baratos*, entonces iterando sobre la tabla obtenida definimos las categorías mediante el siguiente criterio:
 
   $$CA \le \frac{CT}{3} => Categoría = "Bajo"$$
   $$\frac{CT}{3} \lt CA \le \frac{2CT}{3} => Categoría = "Medio"$$
@@ -283,7 +283,7 @@ knitr::kable(
 )
 ```
 
-Si bien la distribución no es exactamente equilibrada, es bastante más pareja que en el caso inicial. A continuación se procede a realizar otro modelo en base a este nuevo conjunto de datos.
+Si bien la distribución no es exactamente equilibrada, es bastante más pareja que en el caso inicial. A continuación, se procede a realizar otro modelo en base a este nuevo conjunto de datos.
 
 ## Modelo basado en barrios agrupados según el precio del metro cuadrado
 
@@ -307,7 +307,7 @@ knitr::kable(
 )
 ```
 
-De acuerdo a la salida, se observa que el valor de $R^2$ es de aproximadamente 0.75, en contraposición al valor de 0.78 observado en el modelo con todos los barrios. Todas las variables resultan altamente significativas, observándose el mismo patrón de signo para las variables numéricas que para el caso con todos los barrios. También se observa que el coeficiente asociado a la superficie cubierta es mayor que aquel asociado a la superficie total. Los coeficientes para los tipo de propiedad siguen siendo positivos, siendo el mayor de ellos el asociado a departamentos (también al igual que para el caso inicial).
+De acuerdo a la salida, se observa que el valor de $R^2$ es de aproximadamente 0.75, en contraposición al valor de 0.78 observado en el modelo con todos los barrios. Todas las variables resultan altamente significativas, observándose el mismo patrón de signo para las variables numéricas que para el caso con todos los barrios. También se observa que el coeficiente asociado a la superficie cubierta es mayor que aquel asociado a la superficie total. Los coeficientes para los tipos de propiedad siguen siendo positivos, siendo el mayor de ellos el asociado a departamentos (también al igual que para el caso inicial).
 
 Pero en este nuevo modelo aparecen coeficientes asociados a las propiedades con categorías de barrios con precio alto y bajo. Se eligió adrede como primera categoría del factor a la clase *media* a fin de que fuera eliminada y se pudieran comparar los coeficientes asociados a las otras dos en relación a la primera. Se observa que las propiedades de barrios de categoría *baja* tienen, efectivamente, un coeficiente negativo y los de categoría *alta*, un coeficiente positivo. Este coeficiente indica el monto en el cual se incrementa/disminuye el precio esperado de una propiedad de un barrio de cierta categoría en relación a otra de categoría media, del mismo tipo (departamento, casa o PH) y con los mismos parámetros de superficie total, cubierta, cantidad de dormitorios y de baños.
 
@@ -378,11 +378,11 @@ autoplot(modelo.multiple.4, which = c(2,1,3), size = 0.2, label.angle = 45, ncol
 
 En el primer gráfico podemos observar un QQ-Plot entre los cuantiles de los residuos escalados (eje Y) y los cuantiles teóricos de una distribución normal (eje X). Observamos que los cuantiles teóricos extremos difieren sustancialmente de los cuantiles correspondientes a los residuos estandarizados, indicando un alejamiento de los mismos respecto de la distribución normal. Sin embargo, dada la gran cantidad de observaciones con la que se cuenta, una versión extendida del **Teorema Central del Límite** garantiza que los estimadores de mínimos cuadrados para los coeficientes asociados a las covariables tienen distribución de muestreo aproximadamente normal.
 
-El segundo gráfico muestra la asociación entre los residuos del modelo y los valores ajustados de la variable de respuesta. Si los residuos fueran homocedásticos, se esperaría observar una nube de puntos uniformemente distribuída. Sin embargo, esto no sucede. En el tercer gráfico se observa la relación entre la raíz cuadrada de los módulos de los residuos estandarizados y los valores ajustados. Vemos claramente una tendencia lineal a aumentar el valor absoluto de los residuos conforme aumenta el valor ajustado de la variable de respuesta.
+El segundo gráfico muestra la asociación entre los residuos del modelo y los valores ajustados de la variable de respuesta. Si los residuos fueran homocedásticos, se esperaría observar una nube de puntos uniformemente distribuida. Sin embargo, esto no sucede. En el tercer gráfico se observa la relación entre la raíz cuadrada de los módulos de los residuos estandarizados y los valores ajustados. Vemos claramente una tendencia lineal a aumentar el valor absoluto de los residuos conforme aumenta el valor ajustado de la variable de respuesta.
 
-Estas últimas observaciones nos permiten concluir que los residuos no son homocedásticos. Para abordar este problema se podrían aplicar transformaciones a las covariables que permitan alcanzar la homocedasticidad. También debiera considerarse el agregado de términos de interacción entre las mismas. A continuación se analizará un modelo que considera la transformación de algunas covariables y la variable de respuesta.
+Estas últimas observaciones nos permiten concluir que los residuos no son homocedásticos. Para abordar este problema se podrían aplicar transformaciones a las covariables que permitan alcanzar la homocedasticidad. También debiera considerarse el agregado de términos de interacción entre las mismas. A continuación, se analizará un modelo que considera la transformación de algunas covariables y la variable de respuesta.
   
-## Definición y análisis de nuevo modelo tansformando variables
+## Definición y análisis de nuevo modelo transformando variables
 
 Se realizará el siguiente modelo de regresión lineal:
 
@@ -413,7 +413,7 @@ knitr::kable(
 
 Para el primer caso, las covariables han sido transformadas mediante el uso del logaritmo natural. Dado que la variable de respuesta también ha sido transformada utilizando la misma función, estamos ante un modelo denominado de *elasticidad constante* o *log-log*. En estos modelos, cada coeficiente de las covariables representa la *elasticidad* de la variable de respuesta respecto a la covariable en cuestión [1]. Se interpreta que por cada aumento de 1% en el valor de la covariable *i*, hay un aumento de $\beta_i$% en el precio esperado del inmueble. Como en los casos anteriores, la cantidad de dormitorios presenta un coeficiente negativo y la cantidad de baños y superficie cubierta tienen coeficientes positivos.
 
-En el segundo caso, las covariables no han sido transformadas. Dado que la variable de respuesta ha sido transformada utilizando el logaritmo natural, estamos frente a una relación *log-nivel*. En este tipo de modelos, cada coeficiente de las covariables representa la *semielasticidad* de la variable de respuesta respecto a la covariable en cuestión [1]. En estos casos, se interpreta que por cada aumento en 1 unidad de la covariable *i*, hay un aumento de  $100\beta_i$% en el precio esperado del inmueble. Si bien los coeficientes han variado respecto del modelo anterior, el signo y ordenamiento de los mismos ha mantenido la misma estructura. A continuación también se realizará un análisis de los residuos.
+En el segundo caso, las covariables no han sido transformadas. Dado que la variable de respuesta ha sido transformada utilizando el logaritmo natural, estamos frente a una relación *log-nivel*. En este tipo de modelos, cada coeficiente de las covariables representa la *semielasticidad* de la variable de respuesta respecto a la covariable en cuestión [1]. En estos casos, se interpreta que, por cada aumento en 1 unidad de la covariable *i*, hay un aumento de  $100\beta_i$% en el precio esperado del inmueble. Si bien los coeficientes han variado respecto del modelo anterior, el signo y ordenamiento de los mismos ha mantenido la misma estructura. A continuación, también se realizará un análisis de los residuos.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.width=10, fig.height=12 }
 # Se utiliza el paquete ggfortify para realizar gráficos de los residuos.
@@ -427,11 +427,11 @@ autoplot(modelo.multiple.5, which = c(2,1,3), size = 0.2, label.angle = 45, ncol
 
 Del análisis de los gráficos anteriores, se destacan dos aspectos importantes. Lo primero que se observa en el QQ-plot, es que los cuantiles extremos asociados a los residuos estandarizados presentan menores discrepancias respecto a los cuantiles teóricos que en el modelo anterior. Esto indica que los residuos presentan una distribución más cercana a la normal. Si bien esto es importante, se explicó anteriormente que este supuesto no es crítico para modelos construidos a partir de gran cantidad de datos.
 
-Sin embargo, lo más importante es que los residuos de este modelo presentan mayores signos de homocedasticidad. El segundo gráfico muestra que la nube de puntos ahora es más uniforme (aunque aún conserva cierta estructura). El tercer gráfico muestra que si bien aún hay una tendencia al aumento de los valores de los residuos para mayores valores ajustados, la misma es menos marcada que en el modelo anterior.
+Sin embargo, lo más importante es que los residuos de este modelo presentan mayores signos de homocedasticidad. El segundo gráfico muestra que la nube de puntos ahora es más uniforme (aunque aún conserva cierta estructura). El tercer gráfico muestra que, si bien aún hay una tendencia al aumento de los valores de los residuos para mayores valores ajustados, la misma es menos marcada que en el modelo anterior.
 
 # Data Frames anidados
 
-A continuación se ejecutan 3 modelos anidados, uno para cada tipo de priopiedad.
+A continuación, se ejecutan 3 modelos anidados, uno para cada tipo de propiedad.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Se anidan los datos por tipo de propiedad
