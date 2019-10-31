@@ -459,7 +459,7 @@ purrr::map_dfr(resultados.modelos.tipo.propiedad$modelo, broom::glance) %>%
   knitr::kable(x = ., col.names = c("Tipo de propiedad", "R^2 ajustado"))
 ```
 
-Lo primero que se puede observar es que el modelo para los *departamentos* ha mejorado levemente el valor de $R^2$ ajustado en relación al modelo de base (aquél que consideraba la división entre la superficie cubierta de la no cubierta). Contrariamente, para los modelos asociados a *casas* y *PH* los valores de $R^2$ han disminuido. Incluso, como se observa en la tabla siguiente, la covariable *rooms* no es estadísticamente significativa para dichos modelos (especialmente para el caso de los PH). Esto significa que las mismas variables regresoras no tienen el mismo poder predictivo para los distintos tipos de propiedades.
+Lo primero que se puede observar es que el modelo para los *departamentos* ha mejorado levemente el valor de $R^2$ ajustado en relación al modelo de base (aquél que consideraba la división entre la superficie cubierta de la no cubierta). Contrariamente, para los modelos asociados a *casas* y *PH* los valores de $R^2$ han disminuido. Incluso, como se observa en la tabla siguiente, la covariable *rooms* no es estadísticamente significativa para el modelo de los PH y muy poco significativa para el modelo de las casas. Esto significa que las mismas variables regresoras no tienen el mismo poder predictivo para los distintos tipos de propiedades.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Comparación de coeficientes
