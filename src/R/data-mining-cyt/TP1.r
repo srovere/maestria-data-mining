@@ -12,6 +12,7 @@ require(Cairo)
 require(caret)
 require(cluster)
 require(dplyr)
+require(fossil)
 require(ggplot2)
 require(ggbiplot)
 require(GGally)
@@ -21,21 +22,24 @@ require(purrr)
 require(readr)
 require(tibble)
 require(tidyr)
+require(umap)
 
 # Definir si se va a normalizar y/o estandarizar
-# normalizar   <- FALSE
-# estandarizar <- FALSE
+normalizar   <- FALSE
+estandarizar <- FALSE
+usar.umap    <- TRUE
 
 options(bitmapType = "cairo")
 # ----------------------------------------------------------------------------------------
 
-opciones <- data.frame(normalizar = c(TRUE, TRUE, FALSE, FALSE),
-                       estandarizar = c(TRUE, FALSE, TRUE, FALSE))
-
-exploracion <- purrr::pmap(
-  .l = opciones,
-  .f = function(normalizar, estandarizar) {
-    resultados.opcion <- list()
+# opciones <- data.frame(normalizar = c(TRUE, TRUE, FALSE, FALSE, FALSE),
+#                        estandarizar = c(TRUE, FALSE, TRUE, FALSE, FALSE),
+#                        usar.umap = c(FALSE, FALSE, FALSE, FALSE, TRUE))
+# 
+# exploracion <- purrr::pmap(
+#   .l = opciones,
+#   .f = function(normalizar, estandarizar, usar.umap) {
+#     resultados.opcion <- list()
       
 # ---------------------------------------------------------------------------------------#
 # ---- II. Lectura de metadatos y set de audio_analisis  ----                            
@@ -116,6 +120,9 @@ rownames(m.audio.analysis) <- m.audio.analysis$id
 m.audio.analysis           <- m.audio.analysis %>%
   dplyr::select(-id) %>%
   as.matrix()
+if (usar.umap) {
+  m.audio.analysis <- umap::umap(m.audio.analysis)$layout
+}
 
 # v. Datos para validacion externa con atributo "genero"
 clase <- "genre"
@@ -166,6 +173,9 @@ rownames(m.audio.features) <- m.audio.features$id
 m.audio.features           <- m.audio.features %>%
   dplyr::select(-id) %>%
   as.matrix()
+if (usar.umap) {
+  m.audio.features <- umap::umap(m.audio.features)$layout
+}
 
 # iv. Datos para validacion externa con atributo "genero"
 clase <- "genre"
@@ -184,6 +194,9 @@ rownames(m.audio.combinado) <- m.audio.combinado$id
 m.audio.combinado <- m.audio.combinado %>%
   dplyr::select(-id) %>%
   as.matrix()
+if (usar.umap) {
+  m.audio.combinado <- umap::umap(m.audio.combinado)$layout
+}
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -235,17 +248,18 @@ cluster.jerarquico.features <- cluster.jerarquico
 matriz.distancia.features   <- matriz.distancia
 # ----------------------------------------------------------------------------------------
 
-    resultados.opcion <- append(
-      resultados.opcion,
-      list(list(
-        conjunto = "Audio Features",
-        normalizar = normalizar,
-        estandarizar = estandarizar,
-        correlacion_cofenetica = coeficientes.correlacion.cofenetica,
-        silhouette = medias.silhouette,
-        cluster = cluster.jerarquico
-      ))
-    )
+    # resultados.opcion <- append(
+    #   resultados.opcion,
+    #   list(list(
+    #     conjunto = "Audio Features",
+    #     umap = usar.umap,
+    #     normalizar = normalizar,
+    #     estandarizar = estandarizar,
+    #     correlacion_cofenetica = coeficientes.correlacion.cofenetica,
+    #     silhouette = medias.silhouette,
+    #     cluster = cluster.jerarquico
+    #   ))
+    # )
 
 # ---------------------------------------------------------------------------------------#
 # ---- A2. Exploracion de hiperparámetros audio_analysis ----                            
@@ -296,17 +310,18 @@ cluster.jerarquico.analysis <- cluster.jerarquico
 matriz.distancia.analysis   <- matriz.distancia
 # ----------------------------------------------------------------------------------------
 
-    resultados.opcion <- append(
-      resultados.opcion,
-      list(list(
-        conjunto = "Audio Analysis",
-        normalizar = normalizar,
-        estandarizar = estandarizar,
-        correlacion_cofenetica = coeficientes.correlacion.cofenetica,
-        silhouette = medias.silhouette,
-        cluster = cluster.jerarquico
-      ))
-    )
+    # resultados.opcion <- append(
+    #   resultados.opcion,
+    #   list(list(
+    #     conjunto = "Audio Analysis",
+    #     umap = usar.umap,
+    #     normalizar = normalizar,
+    #     estandarizar = estandarizar,
+    #     correlacion_cofenetica = coeficientes.correlacion.cofenetica,
+    #     silhouette = medias.silhouette,
+    #     cluster = cluster.jerarquico
+    #   ))
+    # )
 
 # ---------------------------------------------------------------------------------------#
 # ---- A3. Exploracion de hiperparámetros audio_analysis + audio_features ----                            
@@ -357,121 +372,165 @@ cluster.jerarquico.combinado <- cluster.jerarquico
 matriz.distancia.combinado   <- matriz.distancia
 # ----------------------------------------------------------------------------------------
 
-    resultados.opcion <- append(
-      resultados.opcion,
-      list(list(
-        conjunto = "Combinado",
-        normalizar = normalizar,
-        estandarizar = estandarizar,
-        correlacion_cofenetica = coeficientes.correlacion.cofenetica,
-        silhouette = medias.silhouette,
-        cluster = cluster.jerarquico
-      ))
-    )
-
-    return (resultados.opcion)
-  } 
-)
-exploracion <- purrr::flatten(exploracion)
-save(exploracion, file = paste0(getwd(), "/output/epxloracion.RData"))
+#     resultados.opcion <- append(
+#       resultados.opcion,
+#       list(list(
+#         conjunto = "Combinado",
+#         umap = usar.umap,
+#         normalizar = normalizar,
+#         estandarizar = estandarizar,
+#         correlacion_cofenetica = coeficientes.correlacion.cofenetica,
+#         silhouette = medias.silhouette,
+#         cluster = cluster.jerarquico
+#       ))
+#     )
+# 
+#     return (resultados.opcion)
+#   }
+# )
+# exploracion <- purrr::flatten(exploracion)
+# save(exploracion, file = paste0(getwd(), "/output/exploracion.RData"))
 
 # ---------------------------------------------------------------------------------------#
-# ---- B. Evaluar agrupamientos ----                            
+# ---- A4. Evalucion interna de clusters ----                            
 # ---------------------------------------------------------------------------------------#
 
-# Coeficiente de correlacion cofenetico
-df.ccc <- purrr::map_dfr(
-  .x = seq_along(exploracion),
-  .f = function(seq_index) {
-    exp <- exploracion[[seq_index]]
-    df  <- data.frame(metodo = names(exp$correlacion_cofenetica), 
-                      valor = as.double(exp$correlacion_cofenetica)) %>%
-      dplyr::mutate(normalizar = exp$normalizar, estandarizar = exp$estandarizar,
-                    conjunto = exp$conjunto)
-    return (df)                  
-  }
-) %>% dplyr::mutate(transformacion = dplyr::case_when(
-  normalizar & estandarizar ~ "Normalizado y estandarizado",
-  normalizar & ! estandarizar ~ "Normalizado",
-  ! normalizar & estandarizar ~ "Estandarizado",
-  TRUE ~ "Original"
-)) %>% dplyr::mutate(conjunto = as.factor(conjunto), 
-                     metodo = as.factor(metodo),
-                     transformacion = as.factor(transformacion))
-  
-ggplot2::ggplot(df.ccc) + 
-  ggplot2::geom_tile(mapping = ggplot2::aes(x = metodo, y = transformacion, fill = valor)) +
-  ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
-                                direction = 1, option = "D", values = NULL, space = "Lab",
-                                na.value = "white", guide = "colourbar", aesthetics = "fill") +
-  ggplot2::geom_text(mapping = ggplot2::aes(x = metodo, y = transformacion, 
-                                            label = sprintf("%.3f", valor))) +
-  ggplot2::facet_wrap(~conjunto, ncol = 1)
+# # Coeficiente de correlacion cofenetico
+# df.ccc <- purrr::map_dfr(
+#   .x = seq_along(exploracion),
+#   .f = function(seq_index) {
+#     exp <- exploracion[[seq_index]]
+#     df  <- data.frame(metodo = names(exp$correlacion_cofenetica),
+#                       valor = as.double(exp$correlacion_cofenetica)) %>%
+#       dplyr::mutate(normalizar = exp$normalizar, estandarizar = exp$estandarizar,
+#                     umap = exp$umap, conjunto = exp$conjunto)
+#     return (df)
+#   }
+# ) %>% dplyr::mutate(transformacion = dplyr::case_when(
+#   umap ~ "UMAP",
+#   normalizar & estandarizar ~ "Normalizado y estandarizado",
+#   normalizar & ! estandarizar ~ "Normalizado",
+#   ! normalizar & estandarizar ~ "Estandarizado",
+#   TRUE ~ "Original"
+# )) %>% dplyr::mutate(conjunto = as.factor(conjunto),
+#                      metodo = as.factor(metodo),
+#                      transformacion = as.factor(transformacion))
+# 
+# ggplot2::ggplot(df.ccc) +
+#   ggplot2::geom_tile(mapping = ggplot2::aes(x = metodo, y = transformacion, fill = valor)) +
+#   ggplot2::scale_fill_viridis_c(alpha = 1, begin = 0, end = 1,
+#                                 direction = 1, option = "D", values = NULL, space = "Lab",
+#                                 na.value = "white", guide = "colourbar", aesthetics = "fill") +
+#   ggplot2::geom_text(mapping = ggplot2::aes(x = metodo, y = transformacion,
+#                                             label = sprintf("%.3f", valor))) +
+#   ggplot2::facet_wrap(~conjunto, ncol = 1) +
+#   ggplot2::labs(x = "Métrica de distancia intraclusters", y = "Transformación aplicada",
+#                 title = "Coeficiente de correlación cofenético",
+#                 subtitle = "Análisis para diversos conjuntos de datos y métricas",
+#                 fill = "Coeficiente de correlación cofenético") +
+#   ggplot2::theme_bw() +
+#   ggplot2::theme(
+#     legend.position = 'bottom',
+#     plot.title = ggplot2::element_text(hjust = 0.5),
+#     plot.subtitle = ggplot2::element_text(hjust = 0.5)
+#   ) + ggplot2::ggsave(filename = paste0("output/CCC.png"), dpi = 1000, width = 8, height = 6)
+#  
+# # Indice de Silhouette
+# df.sil <- purrr::map_dfr(
+#   .x = seq_along(exploracion),
+#   .f = function(seq_index) {
+#     exp <- exploracion[[seq_index]]
+#     df  <- exp$silhouette %>%
+#       dplyr::mutate(normalizar = exp$normalizar, estandarizar = exp$estandarizar,
+#                     umap = exp$umap, conjunto = exp$conjunto)
+#     return (df)
+#   }
+# ) %>% dplyr::mutate(transformacion = dplyr::case_when(
+#   umap ~ "UMAP",
+#   normalizar & estandarizar ~ "Normalizado y estandarizado",
+#   normalizar & ! estandarizar ~ "Normalizado",
+#   ! normalizar & estandarizar ~ "Estandarizado",
+#   TRUE ~ "Original"
+# )) %>% dplyr::mutate(conjunto = as.factor(conjunto),
+#                      transformacion = as.factor(transformacion))
+# 
+# ggplot2::ggplot(df.sil) +
+#   ggplot2::geom_line(mapping = ggplot2::aes(x = k, y = silhouette, col = transformacion)) +
+#   ggplot2::facet_wrap(~conjunto, ncol = 1) +
+#   ggplot2::labs(x = "Cantidad de clusters", y = "Índice de Silhouette",
+#                 title = "Índice de Silhouette para distintos clusterings",
+#                 subtitle = "Análisis para diversos conjuntos de datos",
+#                 col = "Transformación aplicada") +
+#   ggplot2::scale_x_continuous(breaks = seq(from = 2, to = 20)) +
+#   ggplot2::scale_y_continuous(breaks = seq(from = 0, to = 0.6, by = 0.1)) +
+#   ggplot2::theme_bw() +
+#   ggplot2::theme(
+#     legend.position = 'bottom',
+#     plot.title = ggplot2::element_text(hjust = 0.5),
+#     plot.subtitle = ggplot2::element_text(hjust = 0.5)
+#   ) + ggplot2::ggsave(filename = paste0("output/Silhouette.png"), dpi = 1000, width = 8, height = 6)
+# ----------------------------------------------------------------------------------------
 
-# Indice de Silhouette
-df.sil <- purrr::map_dfr(
-  .x = seq_along(exploracion),
-  .f = function(seq_index) {
-    exp <- exploracion[[seq_index]]
-    df  <- exp$silhouette %>%
-      dplyr::mutate(normalizar = exp$normalizar, estandarizar = exp$estandarizar,
-                    conjunto = exp$conjunto)
-    return (df)                  
-  }
-) %>% dplyr::mutate(transformacion = dplyr::case_when(
-  normalizar & estandarizar ~ "Normalizado y estandarizado",
-  normalizar & ! estandarizar ~ "Normalizado",
-  ! normalizar & estandarizar ~ "Estandarizado",
-  TRUE ~ "Original"
-)) %>% dplyr::mutate(conjunto = as.factor(conjunto), 
-                     transformacion = as.factor(transformacion))
-
-ggplot2::ggplot(df.sil) + 
-  ggplot2::geom_line(mapping = ggplot2::aes(x = k, y = silhouette, col = transformacion)) +
-  ggplot2::facet_wrap(~conjunto, ncol = 1)
-  
+# ---------------------------------------------------------------------------------------#
+# ---- B. Comparación de clusters ----                            
+# ---------------------------------------------------------------------------------------#
 
 # Generamos clusterizacion para k = 5 (cantidad de clusters para mejor clustering)
 grupos.jerarquico <- audio.combinado.clase %>%
   dplyr::select(id, clase) %>%
-  dplyr::mutate(clase_features = stats::cutree(cluster.jerarquico.features, k = 4),
-                clase_analysis = stats::cutree(cluster.jerarquico.analysis, k = 4),
-                clase_combinado = stats::cutree(cluster.jerarquico.combinado, k = 4))
+  dplyr::mutate(clase_features = stats::cutree(cluster.jerarquico.features, k = 3),
+                clase_analysis = stats::cutree(cluster.jerarquico.analysis, k = 5),
+                clase_combinado = stats::cutree(cluster.jerarquico.combinado, k = 6))
 
 table(grupos.jerarquico$clase_features, grupos.jerarquico$clase_analysis)
+fossil::adj.rand.index(grupos.jerarquico$clase_features, grupos.jerarquico$clase_analysis)
+
 table(grupos.jerarquico$clase_analysis, grupos.jerarquico$clase_combinado)
+fossil::adj.rand.index(grupos.jerarquico$clase_analysis, grupos.jerarquico$clase_combinado)
+
 table(grupos.jerarquico$clase_features, grupos.jerarquico$clase_combinado)
-table(grupos.jerarquico$clase, grupos.jerarquico$clase_features)
+fossil::adj.rand.index(grupos.jerarquico$clase_features, grupos.jerarquico$clase_combinado)
+# ----------------------------------------------------------------------------------------
 
-# PCA
-pca.audio.features           <- audio.features
-rownames(pca.audio.features) <- pca.audio.features$id
-pca.audio.features %<>% dplyr::select(-id)
+# ---------------------------------------------------------------------------------------#
+# ---- C. Evaluacion externa ----                            
+# ---------------------------------------------------------------------------------------#
 
-pca            <- stats::princomp(x = pca.audio.features, cor = TRUE)
-prop.varianzas <- (pca$sdev ^ 2) / sum((pca$sdev ^ 2))
-ggplot2::ggplot(data = data.frame(proporcion = 100 * prop.varianzas, componente = 1:length(prop.varianzas)),
-       mapping = ggplot2::aes(x = componente, y = proporcion, fill = componente)) +
-  ggplot2::scale_x_continuous(breaks = 1:length(prop.varianzas)) +
-  ggplot2::geom_bar(stat = 'identity') +
-  ggplot2::geom_text(mapping = ggplot2::aes(y = proporcion + 1, label = sprintf("%0.2f", proporcion))) +
-  ggplot2::labs(x = "Componente", y = "Porcentaje", title = "Porcentaje de varianza explicada por cada componente") +
+grupos.jerarquico.5.clases <- audio.combinado.clase %>%
+  dplyr::select(id, clase) %>%
+  dplyr::mutate(clase_features = stats::cutree(cluster.jerarquico.features, k = 5),
+                clase_analysis = stats::cutree(cluster.jerarquico.analysis, k = 5),
+                clase_combinado = stats::cutree(cluster.jerarquico.combinado, k = 5))
+
+table(grupos.jerarquico.5.clases$clase, grupos.jerarquico.5.clases$clase_features)
+fossil::adj.rand.index(grupos.jerarquico.5.clases$clase_features, as.integer(as.factor(grupos.jerarquico.5.clases$clase)))
+
+table(grupos.jerarquico.5.clases$clase, grupos.jerarquico.5.clases$clase_analysis)
+fossil::adj.rand.index(grupos.jerarquico.5.clases$clase_analysis, as.integer(as.factor(grupos.jerarquico.5.clases$clase)))
+
+table(grupos.jerarquico.5.clases$clase, grupos.jerarquico.5.clases$clase_combinado)
+fossil::adj.rand.index(grupos.jerarquico.5.clases$clase_combinado, as.integer(as.factor(grupos.jerarquico.5.clases$clase)))
+# ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
+# ---- D. Visualizacion de clusters con UMAP ----                            
+# ---------------------------------------------------------------------------------------#
+
+# Se grafica el mejor clustering (audio analysis)
+datos.grafico.clusters <- dplyr::bind_cols(
+  grupos.jerarquico.5.clases,
+  as.data.frame(m.audio.analysis)
+) %>% dplyr::rename(x = V1, y = V2, clase_cluster = clase_analysis) %>%
+  dplyr::select(x, y, clase, clase_cluster)
+ggplot2::ggplot(data = datos.grafico.clusters) +
+  ggplot2::geom_point(mapping = ggplot2::aes(x = x, y = y, col = as.factor(clase_cluster), shape = clase)) +
+  ggplot2::labs(x = "Componente 1", y = "Componenta 2", title = "Clustering en base a datos de audio_analisis",
+                subtitle = "Los features fueron transformados previamente utilizando UMAP",
+                col = "Cluster", shape = "Género musical") +
   ggplot2::theme_bw() +
   ggplot2::theme(
-    legend.position = "none",
+    legend.position = "right",
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
-  )
-
-ggbiplot::ggbiplot(pcobj = pca, ellipse = TRUE, alpha = 0) +
-  ggplot2::scale_colour_brewer(name = 'Región', type = "qual", palette = "Set1") +
-  ggplot2::labs(x = sprintf("Componente 1 (%0.2f%%)", 100*prop.varianzas[1]),
-                y = sprintf("Componente 2 (%0.2f%%)", 100*prop.varianzas[2]),
-                title = "Biplot de las primeras 2 componentes") +
-  ggplot2::theme_bw() +
-  ggplot2::theme(
-    legend.position = "bottom",
-    plot.title = ggplot2::element_text(hjust = 0.5),
-    plot.subtitle = ggplot2::element_text(hjust = 0.5)
-  )
-  ggplot2::coord_fixed(ratio = 0.5)
+  ) + ggplot2::ggsave(filename = paste0("output/ClusterUMAP.png"), dpi = 1000, width = 8, height = 6)
+# ----------------------------------------------------------------------------------------
