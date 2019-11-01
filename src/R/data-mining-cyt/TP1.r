@@ -12,11 +12,11 @@ require(Cairo)
 require(caret)
 require(cluster)
 require(dplyr)
-require(fossil)
 require(ggplot2)
 require(ggbiplot)
 require(GGally)
 require(magrittr)
+require(mclustcomp)
 require(MASS)
 require(purrr)
 require(readr)
@@ -483,13 +483,19 @@ grupos.jerarquico <- audio.combinado.clase %>%
                 clase_combinado = stats::cutree(cluster.jerarquico.combinado, k = 6))
 
 table(grupos.jerarquico$clase_features, grupos.jerarquico$clase_analysis)
-fossil::adj.rand.index(grupos.jerarquico$clase_features, grupos.jerarquico$clase_analysis)
+mclustcomp::mclustcomp(x = grupos.jerarquico$clase_features, 
+                       y = grupos.jerarquico$clase_analysis,
+                       types = c("adjrand", "vdm", "rand"))
 
 table(grupos.jerarquico$clase_analysis, grupos.jerarquico$clase_combinado)
-fossil::adj.rand.index(grupos.jerarquico$clase_analysis, grupos.jerarquico$clase_combinado)
+mclustcomp::mclustcomp(x = grupos.jerarquico$clase_analysis, 
+                       y = grupos.jerarquico$clase_combinado,
+                       types = c("adjrand", "vdm", "rand"))
 
 table(grupos.jerarquico$clase_features, grupos.jerarquico$clase_combinado)
-fossil::adj.rand.index(grupos.jerarquico$clase_features, grupos.jerarquico$clase_combinado)
+mclustcomp::mclustcomp(x = grupos.jerarquico$clase_features, 
+                       y = grupos.jerarquico$clase_combinado,
+                       types = c("adjrand", "vdm", "rand"))
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -503,13 +509,19 @@ grupos.jerarquico.5.clases <- audio.combinado.clase %>%
                 clase_combinado = stats::cutree(cluster.jerarquico.combinado, k = 5))
 
 table(grupos.jerarquico.5.clases$clase, grupos.jerarquico.5.clases$clase_features)
-fossil::adj.rand.index(grupos.jerarquico.5.clases$clase_features, as.integer(as.factor(grupos.jerarquico.5.clases$clase)))
+mclustcomp::mclustcomp(x = as.character(grupos.jerarquico.5.clases$clase_features), 
+                       y = as.integer(as.factor((grupos.jerarquico.5.clases$clase))),
+                       types = c("adjrand", "vdm", "rand"))
 
 table(grupos.jerarquico.5.clases$clase, grupos.jerarquico.5.clases$clase_analysis)
-fossil::adj.rand.index(grupos.jerarquico.5.clases$clase_analysis, as.integer(as.factor(grupos.jerarquico.5.clases$clase)))
+mclustcomp::mclustcomp(x = as.character(grupos.jerarquico.5.clases$clase_analysis), 
+                       y = as.integer(as.factor((grupos.jerarquico.5.clases$clase))),
+                       types = c("adjrand", "vdm", "rand"))
 
 table(grupos.jerarquico.5.clases$clase, grupos.jerarquico.5.clases$clase_combinado)
-fossil::adj.rand.index(grupos.jerarquico.5.clases$clase_combinado, as.integer(as.factor(grupos.jerarquico.5.clases$clase)))
+mclustcomp::mclustcomp(x = as.character(grupos.jerarquico.5.clases$clase_combinado), 
+                       y = as.integer(as.factor((grupos.jerarquico.5.clases$clase))),
+                       types = c("adjrand", "vdm", "rand"))
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -524,7 +536,7 @@ datos.grafico.clusters <- dplyr::bind_cols(
   dplyr::select(x, y, clase, clase_cluster)
 ggplot2::ggplot(data = datos.grafico.clusters) +
   ggplot2::geom_point(mapping = ggplot2::aes(x = x, y = y, col = as.factor(clase_cluster), shape = clase)) +
-  ggplot2::labs(x = "Componente 1", y = "Componenta 2", title = "Clustering en base a datos de audio_analisis",
+  ggplot2::labs(x = "Componente 1", y = "Componente 2", title = "Clustering en base a datos de audio_analisis",
                 subtitle = "Los features fueron transformados previamente utilizando UMAP",
                 col = "Cluster", shape = "Género musical") +
   ggplot2::theme_bw() +
