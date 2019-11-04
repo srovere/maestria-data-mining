@@ -16,6 +16,7 @@ src/python/aprendizaje-automatico/TP1/.idea
 src/python/aprendizaje-automatico/TP1/output/*
 src/python/aprendizaje-automatico/TP2/.ipynb_checkpoints/
 src/R/data-mining-eyf/*.yml
+src/R/data-mining-eyf/*.log
 src/R/data-mining-eyf/derby.log
 src/R/data-mining-eyf/input/*
 src/R/data-mining-eyf/output/*

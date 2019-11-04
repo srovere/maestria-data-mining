@@ -53,13 +53,13 @@ logger <- Logger$new(log.level = INFO)
 # -----------------------------------------------------------------------------#
 logger$info("Leyendo conjunto de datos")
 train <- leer_set_datos_mensuales(paste0(config$dir$input, "/months"), 
-                                  fecha.desde = as.Date("2019-02-01"),
-                                  fecha.hasta = as.Date("2019-02-01")) %>%
-  dplyr::mutate(clase = fe_clase_binaria_unificada(clase_ternaria)) %>%
+                                  fecha.desde = as.Date("2018-06-01"),
+                                  fecha.hasta = as.Date("2018-12-01")) %>%
+  dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
   dplyr::select(-clase_ternaria)
 test <- leer_set_datos_mensuales(paste0(config$dir$input, "/months"), 
-                                 fecha.desde = as.Date("2019-04-01"),
-                                 fecha.hasta = as.Date("2019-04-01")) %>%
+                                 fecha.desde = as.Date("2019-02-01"),
+                                 fecha.hasta = as.Date("2019-02-01")) %>%
   dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
   dplyr::select(-clase_ternaria)
 # ------------------------------------------------------------------------------
@@ -71,6 +71,7 @@ test <- leer_set_datos_mensuales(paste0(config$dir$input, "/months"),
 # --- XGBoost - una sola corrida
 xgb.train <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(train, -clase)),
                                   label = as.matrix(dplyr::select(train, clase)))
+rm(train); gc()
 xgb.test  <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(test, -clase)),
                                   label = as.matrix(dplyr::select(test, clase)))
 
@@ -79,25 +80,38 @@ parametros <- list(
   objective = "binary:logistic",
   groy_policy = "lossguide",
   tree_method = 'hist',
-  eta = 0.009235036,
-  max_depth = 14,
-  gamma = 2.157951,
-  subsample =  0.7654432,
-  colsample_bytree = 0.7868235,
-  min_child_weight = 4.528278
+  eta = 0.095963836,
+  max_depth = 17,
+  gamma = 9.714914,
+  subsample =  	0.9789198,
+  colsample_bytree = 0.4185444,
+  min_child_weight = 2.986044,
+  alpha = 3.72008899,
+  lambda = 1.755793
 )
+# load("/home/srovere/xgboost.mbo.RData")
+# mejores.resultados <- resultados.xgb.bo$opt.path$env$path %>%
+#   dplyr::arrange(dplyr::desc(y))
+# rm(resultados.xgb.bo)
 
-set.seed(config$semillas[1])
-start.time     <- proc.time()
-modelo         <- xgboost::xgb.train(data = xgb.train, nrounds = 500, verbose = 2, maximize = FALSE,
-                                     feval = pe_perdida_xgboost,
-                                     watchlist = list(train = xgb.train, test = xgb.test),
-                                     params = parametros)
-xgb.pred.test  <- data.frame(pred = predict(modelo, xgb.test, reshape = T))
-pe_maxima_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 1)
-end.time       <- proc.time()
-elapsed.time   <- end.time[3] - start.time[3]
-logger$info(paste0("Tiempo:", elapsed.time, "segundos"))
+resultados <- purrr::map_dfr(
+	.x = config$semillas,
+	.f = function(semilla) {
+		set.seed(semilla)
+		start.time     <- proc.time()
+		modelo         <- xgboost::xgb.train(data = xgb.train, nrounds = 360, verbose = 2, maximize = FALSE,
+					       feval = pe_perdida_xgboost,
+					       watchlist = list(train = xgb.train, test = xgb.test),
+					       params = parametros)
+		xgb.pred.test  <- data.frame(pred = predict(modelo, xgb.test, reshape = T))
+		ganancia       <- pe_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 1)
+		end.time       <- proc.time()
+		elapsed.time   <- end.time[3] - start.time[3]
+		logger$info(paste0("Ganancia: ", ganancia, ". Tiempo:", elapsed.time, "segundos"))
+		return (data.frame(semilla = semilla, ganancia = ganancia));
+	}
+)
+save(resultados, file = "/home/srovere/10meses.RData")
 
 # --- XGBoost con optimizacion basada en algoritmos geneticos
 # start.time         <- proc.time()

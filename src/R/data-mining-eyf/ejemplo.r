@@ -61,85 +61,87 @@ set.datos <- leer_set_datos(config$dir$input, "201902") %>%
 # --- IV. Realizar ejecucion de prueba ----
 # -----------------------------------------------------------------------------#
 
-# --- XGBoost - una sola corrida
-start.time  <- proc.time()
-set.seed(config$semillas[1])
-train_casos <- caret::createDataPartition(set.datos[, "clase"], p = 0.7, list = FALSE)
-train       <- set.datos[  train_casos, ]
-test        <- set.datos[ -train_casos, ]
-xgb.train   <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(train, -clase)),
-                                    label = as.matrix(dplyr::select(train, clase)))
-xgb.test    <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(test, -clase)),
-                                    label = as.matrix(dplyr::select(test, clase)))
-
-parametros <- list(
-  booster = "gbtree",
-  objective = "binary:logistic",
-  groy_policy = "lossguide",
-  tree_method = 'hist',
-  eta = 0.01,
-  max_depth = 10,
-  gamma = 3,
-  subsample = 0.5,
-  colsample_bytree = 1
-)
-
-set.seed(config$semillas[1])
-modelo         <- xgboost::xgb.train(data = xgb.train, nrounds = 500, verbose = 2, 
-                                     feval = pe_perdida_xgboost, watchlist = list(train = xgb.train, test = xgb.test),
-                                     nthread = parallel::detectCores(), params = parametros)
-xgb.pred.test  <- data.frame(pred = predict(modelo, xgb.test, reshape = T))
-pe_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 0.3)
-end.time       <- proc.time()
-elapsed.time   <- end.time[3] - start.time[3]
-logger$info(paste0("Tiempo:", elapsed.time, "segundos"))
-
-# --- XGBoost con grid search de hiperparametros
-start.time        <- proc.time()
-grilla.parametros <- purrr::cross_df(list(
-  eta = c(0.01, 0.05, 0.1),
-  max_depth = c(10, 15, 20),
-  gamma = c(1, 3, 5),
-  subsample = c(0.5, 0.75, 1),
-  colsample_bytree = c(1)
-))
-
-funcion_modelo    <- m_xgboost_closure(booster = "gbtree", objective = "binary:logistic", eval_metric = "logloss", 
-                                       tree_method = "hist", grow_policy = "lossguide", nrounds = 500)
-resultados.xgb.gs <- ps_grid_search(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
-                                    proporcion_train = 0.7, funcion_modelo = funcion_modelo, logger = logger,
-                                    funcion_prediccion = pr_xgboost, grilla.parametros = grilla.parametros)
-end.time          <- proc.time()
-elapsed.time      <- end.time[3] - start.time[3]
-logger$info(paste0("Tiempo:", elapsed.time, "segundos"))
-resultados.xgb.gs.promedio <- resultados.xgb.gs %>% 
-  dplyr::group_by(eta, max_depth, gamma, subsample, colsample_bytree, nrounds) %>% 
-  dplyr::summarise(ganancia_promedio = mean(ganancia_test), ganancia_desvio = sd(ganancia_test),
-                   roc_auc_promedio = mean(roc_auc_test), roc_auc_desvio = sd(roc_auc_test))
+# # --- XGBoost - una sola corrida
+# start.time  <- proc.time()
+# set.seed(config$semillas[1])
+# train_casos <- caret::createDataPartition(set.datos[, "clase"], p = 0.7, list = FALSE)
+# train       <- set.datos[  train_casos, ]
+# test        <- set.datos[ -train_casos, ]
+# xgb.train   <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(train, -clase)),
+#                                     label = as.matrix(dplyr::select(train, clase)))
+# xgb.test    <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(test, -clase)),
+#                                     label = as.matrix(dplyr::select(test, clase)))
+# 
+# parametros <- list(
+#   booster = "gbtree",
+#   objective = "binary:logistic",
+#   groy_policy = "lossguide",
+#   tree_method = 'hist',
+#   eta = 0.01,
+#   max_depth = 10,
+#   gamma = 3,
+#   subsample = 0.5,
+#   colsample_bytree = 1
+# )
+# 
+# set.seed(config$semillas[1])
+# modelo         <- xgboost::xgb.train(data = xgb.train, nrounds = 500, verbose = 2, 
+#                                      feval = pe_perdida_xgboost, watchlist = list(train = xgb.train, test = xgb.test),
+#                                      nthread = parallel::detectCores(), params = parametros)
+# xgb.pred.test  <- data.frame(pred = predict(modelo, xgb.test, reshape = T))
+# pe_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 0.3)
+# end.time       <- proc.time()
+# elapsed.time   <- end.time[3] - start.time[3]
+# logger$info(paste0("Tiempo:", elapsed.time, "segundos"))
+# 
+# # --- XGBoost con grid search de hiperparametros
+# start.time        <- proc.time()
+# grilla.parametros <- purrr::cross_df(list(
+#   eta = c(0.01, 0.05, 0.1),
+#   max_depth = c(10, 15, 20),
+#   gamma = c(1, 3, 5),
+#   subsample = c(0.5, 0.75, 1),
+#   colsample_bytree = c(1)
+# ))
+# 
+# funcion_modelo    <- m_xgboost_closure(booster = "gbtree", objective = "binary:logistic", eval_metric = "logloss", 
+#                                        tree_method = "hist", grow_policy = "lossguide", nrounds = 500)
+# resultados.xgb.gs <- ps_grid_search(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
+#                                     proporcion_train = 0.7, funcion_modelo = funcion_modelo, logger = logger,
+#                                     funcion_prediccion = pr_xgboost, grilla.parametros = grilla.parametros)
+# end.time          <- proc.time()
+# elapsed.time      <- end.time[3] - start.time[3]
+# logger$info(paste0("Tiempo:", elapsed.time, "segundos"))
+# resultados.xgb.gs.promedio <- resultados.xgb.gs %>% 
+#   dplyr::group_by(eta, max_depth, gamma, subsample, colsample_bytree, nrounds) %>% 
+#   dplyr::summarise(ganancia_promedio = mean(ganancia_test), ganancia_desvio = sd(ganancia_test),
+#                    roc_auc_promedio = mean(roc_auc_test), roc_auc_desvio = sd(roc_auc_test))
 
 # --- XGBoost con optimizacion bayesiana
-start.time         <- proc.time()
-limites.parametros <- ParamHelpers::makeParamSet(
-  ParamHelpers::makeNumericParam("eta", lower = 0.001, upper = 0.01),
-  ParamHelpers::makeIntegerParam("max_depth", lower = 10, upper = 20),
-  ParamHelpers::makeNumericParam("gamma", lower = 1, upper = 5),
-  ParamHelpers::makeNumericParam("subsample", lower = 0.5, upper = 1),
-  ParamHelpers::makeNumericParam("colsample_bytree", lower = 0.5, upper = 1),
-  ParamHelpers::makeNumericParam("min_child_weight", lower = 1, upper = 10)
-)
-
-funcion_modelo    <- m_xgboost_closure(booster = "gbtree", objective = "binary:logistic", eval_metric = pe_perdida_xgboost, 
-                                       tree_method = "hist", grow_policy = "lossguide", nrounds = 500)
-resultados.xgb.bo <- ps_bayesian_optimization(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
-                                              proporcion_train = 0.7, funcion_modelo = funcion_modelo, 
-                                              n_iter = 100, init_points = 5 * length(limites.parametros$pars),
-                                              funcion_prediccion = pr_xgboost, 
-                                              limites.parametros = limites.parametros, logger = logger,
-                                              file_persistence_path = paste0(getwd(), "/output/xgboost.mbo.RData"))
-end.time          <- proc.time()
-elapsed.time      <- end.time[3] - start.time[3]
-logger$info(paste0("Tiempo:", elapsed.time, "segundos"))
-save(resultados.xgb.bo, file = "/home/santiago/xgboost.mbo.RData")
+# start.time         <- proc.time()
+# limites.parametros <- ParamHelpers::makeParamSet(
+#   ParamHelpers::makeNumericParam("eta", lower = 0.001, upper = 0.01),
+#   ParamHelpers::makeIntegerParam("max_depth", lower = 10, upper = 20),
+#   ParamHelpers::makeNumericParam("gamma", lower = 1, upper = 5),
+#   ParamHelpers::makeNumericParam("subsample", lower = 0.5, upper = 1),
+#   ParamHelpers::makeNumericParam("colsample_bytree", lower = 0.5, upper = 1),
+#   ParamHelpers::makeNumericParam("min_child_weight", lower = 1, upper = 10),
+#   ParamHelpers::makeNumericParam("alpha", lower = 0, upper = 10),
+#   ParamHelpers::makeNumericParam("lambda", lower = 1, upper = 10)
+# )
+# 
+# funcion_modelo    <- m_xgboost_closure(booster = "gbtree", objective = "binary:logistic", eval_metric = pe_perdida_xgboost, 
+#                                        tree_method = "hist", grow_policy = "lossguide", nrounds = 500)
+# resultados.xgb.bo <- ps_bayesian_optimization(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
+#                                               proporcion_train = 0.7, funcion_modelo = funcion_modelo, 
+#                                               n_iter = 100, init_points = 5 * length(limites.parametros$pars),
+#                                               funcion_prediccion = pr_xgboost, 
+#                                               limites.parametros = limites.parametros, logger = logger,
+#                                               file_persistence_path = paste0(getwd(), "/output/xgboost.mbo.RData"))
+# end.time          <- proc.time()
+# elapsed.time      <- end.time[3] - start.time[3]
+# logger$info(paste0("Tiempo:", elapsed.time, "segundos"))
+# save(resultados.xgb.bo, file = "/home/srovere/xgboost.mbo.RData")
 
 # --- XGBoost con optimizacion basada en algoritmos geneticos
 start.time         <- proc.time()
@@ -149,18 +151,20 @@ limites.parametros <- list(
   gamma = c(1, 5),
   subsample = c(0.5, 1),
   colsample_bytree = c(0.5, 1),
-  min_child_weight = c(1, 10)
+  min_child_weight = c(1, 10),
+  alpha = c(0, 10),
+  lambda = c(1, 10)
 )
 
-funcion_modelo    <- m_xgboost_closure(booster = "gbtree", objective = "binary:logistic", eval_metric = pe_perdida_xgboost, 
+funcion_modelo    <- m_xgboost_closure(booster = "gbtree", objective = "binary:logistic", eval_metric = pe_perdida_xgboost,
                                        tree_method = "hist", grow_policy = "lossguide", nrounds = 500)
-resultados.xgb.ga <- ps_ga_optimization(set.datos = set.datos, clase = "clase", semillas = config$semillas, 
-                                        proporcion_train = 0.7, funcion_modelo = funcion_modelo, 
+resultados.xgb.ga <- ps_ga_optimization(set.datos = set.datos, clase = "clase", semillas = config$semillas,
+                                        proporcion_train = 0.7, funcion_modelo = funcion_modelo,
                                         max_iterations = 20, tamano_poblacion = 50, run = 10,
-                                        funcion_prediccion = pr_xgboost, limites.parametros = limites.parametros, 
+                                        funcion_prediccion = pr_xgboost, limites.parametros = limites.parametros,
                                         logger = logger)
 end.time          <- proc.time()
 elapsed.time      <- end.time[3] - start.time[3]
 logger$info(paste0("Tiempo:", elapsed.time, "segundos"))
-save(resultados.xgb.ga, file = "/home/santiago/xgboost.ga.RData")
+save(resultados.xgb.ga, file = "/home/srovere/xgboost.ga.RData")
 # ------------------------------------------------------------------------------
