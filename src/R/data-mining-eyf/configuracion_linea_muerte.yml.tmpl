@@ -1,0 +1,33 @@
+# Directorios de trabajo
+dir:
+  lib: ${base}/src/R/data-mining-eyf/lib
+  input: ${base}/src/R/data-mining-eyf/input
+  output: ${base}/src/R/data-mining-eyf/output
+  work: ${base}/src/R/data-mining-eyf/work
+  
+# Semillas a utilizar
+semillas: [ 200009, 350029, 431237, 780029, 876011 ]
+  
+# Hiperparametros a utilizar
+hiperparametros:
+  eta: 0.095963836
+  max_depth: 17
+  gamma: 9.714914
+  subsample: 0.9789198
+  colsample_bytree: 0.4185444
+  min_child_weight: 2.986044
+  alpha: 3.72008899
+  lambda: 1.755793
+  
+# Cantidad de rounds para entrendar
+rondas.entrenamiento: 360
+
+# Cantidad de meses para entrenar
+meses.entrenamiento: 10
+
+# Offset de meses entre train y test
+offset.meses.train.test: 2
+
+# Rango de fechas a evaluar:
+fecha.desde: 2018-06-01
+fecha.hasta: 2019-04-01
