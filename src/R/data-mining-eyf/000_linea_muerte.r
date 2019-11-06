@@ -3,9 +3,8 @@
 # -----------------------------------------------------------------------------#
 rm(list = ls()); gc()
 Sys.setenv(TZ = "UTC")
-list.of.packages <- c("caret", "data.table", "doSNOW", "dplyr", "foreach", 
-                      "futile.logger", "GA", "parallel", "R6", "mlrMBO", "rgenoud",
-                      "ROCR", "rpart", "snow", "utils", "xgboost", "yaml")
+list.of.packages <- c("caret", "data.table", "dplyr", "futile.logger", "R6",
+                      "ROCR", "utils", "xgboost", "yaml")
 for (pack in list.of.packages) {
   if (! require(pack, character.only = TRUE)) {
     stop(paste0("Paquete no encontrado: ", pack))
@@ -59,6 +58,8 @@ parametros <- append(list(
   groy_policy = "lossguide",
   tree_method = 'hist'
 ), config$hiperparametros)
+
+hiperparametros <- as.data.frame(config$hiperparametros)
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
@@ -88,6 +89,8 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
                                     label = as.matrix(dplyr::select(train, clase)))
   xgb.test  <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(test, -clase)),
                                     label = as.matrix(dplyr::select(test, clase)))
+  rm(train)
+  gc(full = TRUE)
 
   # Ejecutar XGBoost para todas las semillas
   resultados.periodo <- purrr::map_dfr(
@@ -102,7 +105,10 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
   		logger$info(paste0("... Calculando ganancia para semilla ", semilla))
   		xgb.pred.test  <- data.frame(pred = predict(modelo, xgb.test, reshape = T))
   		ganancia       <- pe_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 1)
-  		return (data.frame(semilla = semilla, ganancia = ganancia));
+  		return (dplyr::bind_cols(
+  		  hiperparametros,
+  		  data.frame(semilla = semilla, ganancia = ganancia)
+  		))
   	}
   ) %>% dplyr::mutate(meses_entrenamiento = config$meses.entrenamiento, periodo_test = as.Date(periodo.test))
   resultados.linea.muerte <- dplyr::bind_rows(resultados.linea.muerte, resultados.periodo)
