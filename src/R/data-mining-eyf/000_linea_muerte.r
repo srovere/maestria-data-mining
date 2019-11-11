@@ -81,7 +81,7 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
   train <- leer_set_datos_mensuales(paste0(config$dir$input, "/months"), 
                                     fecha.desde = as.Date(periodo.test) - months(config$offset.meses.train.test + config$meses.entrenamiento - 1),
                                     fecha.hasta = as.Date(periodo.test) - months(config$offset.meses.train.test)) %>%
-    dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
+    dplyr::mutate(clase = fe_clase_binaria_unificada(clase_ternaria)) %>%
     dplyr::select(-clase_ternaria)
 
   # Definir conjuntos de train/test para XGBoost
@@ -105,10 +105,12 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
   		logger$info(paste0("... Calculando ganancia para semilla ", semilla))
   		xgb.pred.test  <- data.frame(pred = predict(modelo, xgb.test, reshape = T))
   		ganancia       <- pe_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 1)
-  		return (dplyr::bind_cols(
-  		  hiperparametros,
-  		  data.frame(semilla = semilla, ganancia = ganancia)
-  		))
+  		max.ganancia   <- pe_maxima_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase,
+  		                                     proporcion = 1, puntos_corte = seq(0.01, 0.1, 0.001))
+  		resultados     <- dplyr::bind_cols(hiperparametros, data.frame(semilla = semilla, ganancia = ganancia)) %>%
+  		  dplyr::mutate(mejor_corte = max.ganancia$punto_corte, max_ganancia = max.ganancia$ganancia) %>%
+  		  dplyr::mutate(modelo = list(modelo))
+  		return (resultados)
   	}
   ) %>% dplyr::mutate(meses_entrenamiento = config$meses.entrenamiento, periodo_test = as.Date(periodo.test))
   resultados.linea.muerte <- dplyr::bind_rows(resultados.linea.muerte, resultados.periodo)
