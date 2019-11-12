@@ -82,9 +82,9 @@ resultados.xgb.bo <- ps_bayesian_optimization(set.datos = set.datos, clase = "cl
                                               n_iter = config$iteraciones, init_points = 5 * length(limites.parametros$pars),
                                               funcion_prediccion = pr_xgboost,
                                               limites.parametros = limites.parametros, logger = logger,
-                                              file_persistence_path = paste0(getwd(), "/output/xgboost_con_fe.mbo.RData"))
+                                              file_persistence_path = paste0(config$dir$output, "/xgboost_con_fe.mbo.RData"))
 end.time          <- proc.time()
 elapsed.time      <- end.time[3] - start.time[3]
 logger$info(paste0("Tiempo:", elapsed.time, "segundos"))
-save(resultados.xgb.bo, file = paste0(getwd(), "/output/hiperparametrizacion_xgboost_con_fe.mbo.RData"))
+save(resultados.xgb.bo, file = paste0(config$dir$output, "/hiperparametrizacion_xgboost_con_fe.mbo.RData"))
 # ------------------------------------------------------------------------------
