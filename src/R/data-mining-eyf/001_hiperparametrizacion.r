@@ -22,7 +22,7 @@ if (length(args) > 0) {
   archivo.config <- args[1]
 } else {
   # No vino el archivo de configuracion por linea de comandos. Utilizo un archivo default
-  archivo.config <- paste0(getwd(), "/configuracion.yml")
+  archivo.config <- paste0(getwd(), "/configuracion_hiperparametrizacion.yml")
 }
 
 if (! file.exists(archivo.config)) {
@@ -53,8 +53,8 @@ logger <- Logger$new(log.level = INFO)
 # -----------------------------------------------------------------------------#
 logger$info("Leyendo conjunto de datos")
 set.datos <- leer_set_datos_mensuales(paste0(config$dir$input, "/months"), 
-                                      fecha.desde = as.Date("2019-02-01"),
-                                      fecha.hasta = as.Date("2019-02-01")) %>%
+                                      fecha.desde = as.Date(config$rango.fechas$desde),
+                                      fecha.hasta = as.Date(config$rango.fechas$hasta)) %>%
   dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
   dplyr::select(-clase_ternaria)
 # ------------------------------------------------------------------------------
@@ -66,26 +66,26 @@ set.datos <- leer_set_datos_mensuales(paste0(config$dir$input, "/months"),
 # --- XGBoost con optimizacion bayesiana
 start.time         <- proc.time()
 limites.parametros <- ParamHelpers::makeParamSet(
-  ParamHelpers::makeNumericParam("eta", lower = 0.001, upper = 0.1),
-  ParamHelpers::makeIntegerParam("max_depth", lower = 10, upper = 40),
+  ParamHelpers::makeNumericParam("eta", lower = 0.005, upper = 0.1),
+  ParamHelpers::makeIntegerParam("max_depth", lower = 10, upper = 30),
   ParamHelpers::makeNumericParam("gamma", lower = 1, upper = 10),
-  ParamHelpers::makeNumericParam("subsample", lower = 0.25, upper = 1),
-  ParamHelpers::makeNumericParam("colsample_bytree", lower = 0.25, upper = 1),
+  ParamHelpers::makeNumericParam("subsample", lower = 0.40, upper = 1),
+  ParamHelpers::makeNumericParam("colsample_bytree", lower = 0.25, upper = 0.95),
   ParamHelpers::makeNumericParam("min_child_weight", lower = 1, upper = 10),
   ParamHelpers::makeNumericParam("alpha", lower = 0, upper = 10),
   ParamHelpers::makeNumericParam("lambda", lower = 1, upper = 10)
 )
 
 funcion_modelo    <- m_xgboost_closure(booster = "gbtree", objective = "binary:logistic", eval_metric = pe_perdida_xgboost,
-                                       tree_method = "hist", grow_policy = "lossguide", nrounds = 500)
+                                       tree_method = "hist", grow_policy = "lossguide", nrounds = config$nrounds)
 resultados.xgb.bo <- ps_bayesian_optimization(set.datos = set.datos, clase = "clase", semillas = config$semillas,
                                               proporcion_train = 0.7, funcion_modelo = funcion_modelo,
-                                              n_iter = 100, init_points = 5 * length(limites.parametros$pars),
+                                              n_iter = config$iteraciones, init_points = 5 * length(limites.parametros$pars),
                                               funcion_prediccion = pr_xgboost,
                                               limites.parametros = limites.parametros, logger = logger,
                                               file_persistence_path = paste0(getwd(), "/output/xgboost_con_fe.mbo.RData"))
 end.time          <- proc.time()
 elapsed.time      <- end.time[3] - start.time[3]
 logger$info(paste0("Tiempo:", elapsed.time, "segundos"))
-save(resultados.xgb.bo, file = "/home/srovere/xgboost_con_fe.mbo.RData")
+save(resultados.xgb.bo, file = paste0(getwd(), "/output/hiperparametrizacion_xgboost_con_fe.mbo.RData"))
 # ------------------------------------------------------------------------------

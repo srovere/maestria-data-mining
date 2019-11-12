@@ -5,3 +5,4 @@ src:
       configuracion.yml: 0
       configuracion_feature_engineering.yml: 0
       configuracion_linea_muerte.yml: 0
+      configuracion_hiperparametrizacion.yml: 0
