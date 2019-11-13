@@ -51,11 +51,18 @@ logger <- Logger$new(log.level = INFO)
 # --- IV. Leer set de datos y realizar operaciones basicas de FE ----
 # -----------------------------------------------------------------------------#
 logger$info("Leyendo conjunto de datos")
-set.datos <- leer_set_datos_mensuales(paste0(config$dir$input, "/months"), 
-                                      fecha.desde = as.Date(config$rango.fechas$desde),
-                                      fecha.hasta = as.Date(config$rango.fechas$hasta)) %>%
-  dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
-  dplyr::select(-clase_ternaria)
+if (! is.null(config$meses.entrenamiento$lista.meses)) {
+  set.datos <- leer_set_datos_mensuales_meses_varios(paste0(config$dir$input, "/months"), 
+                                                     config$meses.entrenamiento$lista.meses) %>%
+    dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
+    dplyr::select(-clase_ternaria)
+} else {
+  set.datos <- leer_set_datos_mensuales(paste0(config$dir$input, "/months"), 
+                                        fecha.desde = as.Date(config$meses.entrenamiento$rango.fechas$desde),
+                                        fecha.hasta = as.Date(config$meses.entrenamiento$rango.fechas$hasta)) %>%
+    dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
+    dplyr::select(-clase_ternaria)
+}
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
@@ -80,11 +87,13 @@ funcion_modelo    <- m_xgboost_closure(booster = "gbtree", objective = "binary:l
 resultados.xgb.bo <- ps_bayesian_optimization(set.datos = set.datos, clase = "clase", semillas = config$semillas,
                                               proporcion_train = 0.7, funcion_modelo = funcion_modelo,
                                               n_iter = config$iteraciones, init_points = 5 * length(limites.parametros$pars),
-                                              funcion_prediccion = pr_xgboost,
-                                              limites.parametros = limites.parametros, logger = logger,
+                                              funcion_prediccion = pr_xgboost, limites.parametros = limites.parametros, 
+                                              logger = logger, file_persistence_interval = 10800,
                                               file_persistence_path = paste0(config$dir$output, "/xgboost_con_fe.mbo.RData"))
 end.time          <- proc.time()
 elapsed.time      <- end.time[3] - start.time[3]
 logger$info(paste0("Tiempo:", elapsed.time, "segundos"))
-save(resultados.xgb.bo, file = paste0(config$dir$output, "/hiperparametrizacion_xgboost_con_fe.mbo.RData"))
+
+parametros.analizados <- resultados.xgb.bo$opt.path$env$path
+save(parametros.analizados, file = paste0(config$dir$output, "/hiperparametrizacion_xgboost_con_fe_parametros_analizados.mbo.RData"))
 # ------------------------------------------------------------------------------
