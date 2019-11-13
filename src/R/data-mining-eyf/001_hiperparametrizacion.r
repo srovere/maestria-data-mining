@@ -53,7 +53,7 @@ logger <- Logger$new(log.level = INFO)
 logger$info("Leyendo conjunto de datos")
 if (! is.null(config$meses.entrenamiento$lista.meses)) {
   set.datos <- leer_set_datos_mensuales_meses_varios(paste0(config$dir$input, "/months"), 
-                                                     config$meses.entrenamiento$lista.meses) %>%
+                                                     as.Date(config$meses.entrenamiento$lista.meses)) %>%
     dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
     dplyr::select(-clase_ternaria)
 } else {
