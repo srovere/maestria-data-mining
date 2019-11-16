@@ -55,7 +55,7 @@ logger$info("Generando conjunto de hiperparametros")
 parametros <- append(list(
   booster = "gbtree",
   objective = "binary:logistic",
-  groy_policy = "lossguide",
+  grow_policy = "lossguide",
   tree_method = 'hist'
 ), config$hiperparametros)
 
