@@ -22,7 +22,7 @@ library(Rcpp)
 
 
 kcarpeta_datasetsOri     <-  "/devel/maestria-data-mining/src/R/data-mining-eyf/input/"
-kcarpeta_datasets        <-  "/devel/maestria-data-mining/src/R/data-mining-eyf/input/datasets/"
+kcarpeta_datasets        <-  "/devel/maestria-data-mining/src/R/data-mining-eyf/input/months_full/"
 
 kcampos_separador        <-  "\t"
 karchivo_entrada_txt     <-  "paquete_premium.txt"
@@ -154,7 +154,25 @@ setorder( dataset,  numero_de_cliente, foto_mes )
 nrow( dataset )
 ncol( dataset )
 
+# Leer diccionario de datos
+diccionario.datos <- readxl::read_excel(path = paste0(kcarpeta_datasetsOri, "/DiccionarioDatos.xlsx"))
 
+# Leer 
+inflacion         <- readxl::read_excel(path = paste0(kcarpeta_datasetsOri, "/inflacion_gcba.xlsx")) %>%
+  dplyr::select(foto_mes, tasa_acumulada) %>%
+  dplyr::mutate(foto_mes = as.integer(format(foto_mes, "%Y%m")))
+
+# Hacer merge
+dataset <- merge(dataset, inflacion, all=FALSE)
+
+#a <- dplyr::group_by(dataset, foto_mes) %>% dplyr::summarise(m = mean(Master_mconsumototal, na.rm = TRUE))
+
+# Deflacionamos los campos correspondientes a "pesos" para llevarlos a pesos constantes de 2016-07
+for (atributo.moneda in dplyr::filter(diccionario.datos, unidad == "pesos") %>% dplyr::pull(campo)) {
+  dataset[ , paste0(atributo.moneda) :=  get(atributo.moneda) / tasa_acumulada ]
+}
+
+#b <- dplyr::group_by(dataset, foto_mes) %>% dplyr::summarise(m = mean(Master_mconsumototal, na.rm = TRUE))
 
 #----------
 #paso los campos fecha a dias relativos
@@ -269,6 +287,9 @@ colnames(dataset)
 
 
 #grabo el archivo completo
+if (! dir.exists(kcarpeta_datasets)) {
+  dir.create(kcarpeta_datasets)
+}
 setwd( kcarpeta_datasets )
 #fwrite( dataset, file=karchivo_salida_completo, sep=kcampos_separador, na="", row.names=FALSE )
 #comprimo el archivo con gzip
