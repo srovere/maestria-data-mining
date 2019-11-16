@@ -104,7 +104,7 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
 	logger$info("Calculando ganancia y guardando resultados")
 	xgb.pred.test           <- data.frame(pred = predict(modelo, xgb.test, reshape = T))
 	ganancia                <- pe_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 1)
-  resultados.periodo      <- dplyr::bind_cols(hiperparametros, data.frame(semilla = semilla, ganancia = ganancia))
+  resultados.periodo      <- dplyr::bind_cols(hiperparametros, data.frame(semilla = config$semilla, ganancia = ganancia))
   resultados.linea.muerte <- dplyr::bind_rows(resultados.linea.muerte, resultados.periodo)
   
   # Guardar datos a archivo RData
