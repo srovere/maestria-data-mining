@@ -71,18 +71,26 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
   logger$info(paste0("Leyendo conjunto de datos de train/test para ", periodo.test))  
   
   # Lectura de conjunto de datos de test
-  test <- leer_set_datos_mensuales(paste0(config$dir$input, "/months"), 
+  test <- leer_set_datos_mensuales(config$dir$input, 
                                    fecha.desde = as.Date(periodo.test),
                                    fecha.hasta = as.Date(periodo.test)) %>%
     dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
     dplyr::select(-clase_ternaria)
   
   # Lectura de conjunto de datos de train
-  train <- leer_set_datos_mensuales(paste0(config$dir$input, "/months"), 
-                                    fecha.desde = as.Date(periodo.test) - months(config$offset.meses.train.test + config$meses.entrenamiento - 1),
-                                    fecha.hasta = as.Date(periodo.test) - months(config$offset.meses.train.test)) %>%
-    dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
-    dplyr::select(-clase_ternaria)
+  if (config$unificar.clases) {
+    train <- leer_set_datos_mensuales(config$dir$input, 
+                                      fecha.desde = as.Date(periodo.test) - months(config$offset.meses.train.test + config$meses.entrenamiento - 1),
+                                      fecha.hasta = as.Date(periodo.test) - months(config$offset.meses.train.test)) %>%
+      dplyr::mutate(clase = fe_clase_binaria_unificada(clase_ternaria)) %>%
+      dplyr::select(-clase_ternaria)
+  } else {
+    train <- leer_set_datos_mensuales(config$dir$input, 
+                                      fecha.desde = as.Date(periodo.test) - months(config$offset.meses.train.test + config$meses.entrenamiento - 1),
+                                      fecha.hasta = as.Date(periodo.test) - months(config$offset.meses.train.test)) %>%
+      dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
+      dplyr::select(-clase_ternaria)
+  }
 
   # Definir conjuntos de train/test para XGBoost
   xgb.train <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(train, -clase)),
@@ -104,7 +112,10 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
 	logger$info("Calculando ganancia y guardando resultados")
 	xgb.pred.test           <- data.frame(pred = predict(modelo, xgb.test, reshape = T))
 	ganancia                <- pe_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 1)
-  resultados.periodo      <- dplyr::bind_cols(hiperparametros, data.frame(semilla = config$semilla, ganancia = ganancia))
+	mejor.ganancia          <- pe_maxima_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 1,
+	                                              puntos_corte = seq(0.01, 0.1, 0.001))
+  resultados.periodo      <- dplyr::bind_cols(hiperparametros, data.frame(semilla = config$semilla, ganancia = ganancia)) %>%
+    dplyr::mutate(modelo = list(modelo), mejor_punto_corte = mejor.ganancia$punto_corte, mejor_ganancia = mejor.ganancia$ganancia)
   resultados.linea.muerte <- dplyr::bind_rows(resultados.linea.muerte, resultados.periodo)
   
   # Guardar datos a archivo RData

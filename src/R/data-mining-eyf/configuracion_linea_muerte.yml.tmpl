@@ -1,7 +1,7 @@
 # Directorios de trabajo
 dir:
   lib: ${base}/src/R/data-mining-eyf/lib
-  input: ${base}/src/R/data-mining-eyf/input
+  input: ${base}/src/R/data-mining-eyf/input/months_base_denicolay
   output: ${base}/src/R/data-mining-eyf/output
   work: ${base}/src/R/data-mining-eyf/work
   
@@ -18,6 +18,9 @@ hiperparametros:
   min_child_weight: 2.986044
   alpha: 3.72008899
   lambda: 1.755793
+  
+# Indica si se debe unificar BAJA+1 con BAJA+2
+unificar.clases: FALSE
   
 # Cantidad de rounds para entrendar
 rondas.entrenamiento: 300

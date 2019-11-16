@@ -7,7 +7,7 @@ pe_ganancia = function(probabilidades, clase, proporcion = 1, punto_corte = 0.02
   return (ganancia / proporcion)
 }
 
-pe_maxima_ganancia = function(probabilidades, clase, proporcion = 1, puntos_corte = seq(0.02, 0.1, 0.001)) {
+pe_maxima_ganancia = function(probabilidades, clase, proporcion = 1, puntos_corte = seq(0.01, 0.1, 0.001)) {
   # Buscar el mejor punto de corte
   mejor.corte     <- NA
   maxima.ganancia <- NA
