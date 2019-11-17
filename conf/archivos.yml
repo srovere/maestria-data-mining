@@ -6,3 +6,4 @@ src:
       configuracion_feature_engineering.yml: 0
       configuracion_linea_muerte.yml: 0
       configuracion_hiperparametrizacion.yml: 0
+      configuracion_seleccion_variables.yml: 0

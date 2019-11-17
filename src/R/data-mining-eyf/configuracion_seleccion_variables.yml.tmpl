@@ -1,0 +1,28 @@
+# Directorios de trabajo
+dir:
+  lib: ${base}/src/R/data-mining-eyf/lib
+  input: ${base}/src/R/data-mining-eyf/input/months_full
+  output: ${base}/src/R/data-mining-eyf/output
+  work: ${base}/src/R/data-mining-eyf/work
+  
+# Semilla a utilizar
+semilla: 102191
+
+# Hiperparametros a utilizar
+hiperparametros:
+  eta: 0.04
+  max_bin: 31
+  colsample_bytree: 0.6
+  
+# Periodo a utilizar para train
+periodo.train:
+  desde: 2019-02-01
+  hasta: 2019-02-01
+
+# Periodo a utilizar para test
+periodo.test:
+  desde: 2019-04-01
+  hasta: 2019-04-01
+  
+# Cantidad de arboles
+nrounds: 300

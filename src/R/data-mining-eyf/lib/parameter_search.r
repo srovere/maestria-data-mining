@@ -213,7 +213,7 @@ ps_bayesian_optimization <- function(set.datos, set.datos.test = NULL, clase, se
   return (resultados)
 }
 
-# Optimizacion con algoritmos geneticos (con GA)
+# Optimizacion de hiperparametros con algoritmos geneticos (con GA)
 ps_ga_optimization <- function(set.datos, set.datos.test = NULL, clase, semillas, proporcion_train = 0.7, 
                                funcion_modelo, funcion_prediccion,
                                limites.parametros, parametros_prueba = NULL, max_iterations = 20, 
@@ -272,6 +272,77 @@ ps_ga_optimization <- function(set.datos, set.datos.test = NULL, clase, semillas
     fitness = funcion_objetivo,
     lower = parametros.inferiores, 
     upper = parametros.superiores, 
+    popSize = tamano_poblacion, 
+    maxiter = max_iterations,
+    run = run
+  )
+  
+  return (resultados)
+}
+
+# Seleccion de features con algoritmos geneticos (con GA)
+ps_ga_feature_selection <- function(set.datos, set.datos.test = NULL, clase, semillas, proporcion_train = 0.7, 
+                                    funcion_modelo, funcion_prediccion, parametros, max_iterations = 20, 
+                                    tamano_poblacion = 50, run = 10, logger) {
+  # i. Definir closure para funcion objetivo
+  funcion_objetivo_closure <- function(funcion_modelo, parametros, semillas, set.datos, set.datos.test = NULL, clase, proporcion_train) {
+    funcion <- function(variables) {
+      warning(paste0("Cantidad de variables: ", length(variable), " ---> ", paste0(variables, collapse = ", ")))
+      
+      # Agregar siempre la clase al set de datos
+      variables      <- c(variables, clase)
+      ganancias_test <- purrr::imap(
+        .x = semillas,
+        .f = function(semilla, posicion) {
+          set.seed(semilla)
+          proporcion_test <- NULL
+          if (is.null(set.datos.test)) {
+            train_casos     <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)
+            train           <- set.datos[  train_casos, variables ]
+            test            <- set.datos[ -train_casos, variables ]
+            proporcion_test <- 1 - proporcion_train
+          } else {
+            if (proporcion_train < 1) {                                                                                                                                                                                                     
+              train_casos <- caret::createDataPartition(set.datos[, clase], p = proporcion_train, list = FALSE)                                                                                                                             
+              train       <- set.datos[ train_casos, variables ]                                                                                                                                                                                       
+            } else {                                                                                                                                                                                                                        
+              train <- set.datos[, variables]                                                                                                                                                                             
+            }   
+            test            <- set.datos.test[, variables ]
+            proporcion_test <- 1
+          }
+          
+          set.seed(semilla)
+          modelo          <- funcion_modelo(set.datos = train, clase = clase, semilla = semilla,
+                                            parametros = parametros)
+          test_prediccion <- funcion_prediccion(set.datos.test = test, clase = clase, modelo = modelo)
+          ganancia_test   <- pe_ganancia(probabilidades = test_prediccion$PBaja, clase = test$clase, 
+                                         proporcion = proporcion_test)
+          return (ganancia_test)
+        }
+      ) %>% unlist()
+      return (mean(ganancias_test))
+    }
+    return (funcion)
+  }
+  
+  # ii. Definir funcion objetivo
+  funcion_objetivo <- funcion_objetivo_closure(funcion_modelo, parametros, semillas, set.datos,
+                                               set.datos.test, clase, proporcion_train)
+  
+  # iii. Efectuar optimizacion con GA
+  cantidad.bits.features <- ncol(set.datos) - 1 # Todos los atributos menos la clase
+  feature.names          <- setdiff(colnames(set.datos), clase) # Todos los atributos menos la clase
+  resultados             <- GA::ga(
+    fitness = funcion_objetivo,
+    type = "binary", # optimization data type
+    crossover = gabin_uCrossover,  # cross-over method
+    elitism = 3, # best N indiv. to pass to next iteration
+    pmutation = 0.03, # mutation rate prob
+    nBits = cantidad.bits.features, # total number of variables
+    names = feature.names, # variable name
+    keepBest = TRUE, # keep the best solution at the end
+    parallel = TRUE, # allow parallel procesing
     popSize = tamano_poblacion, 
     maxiter = max_iterations,
     run = run
