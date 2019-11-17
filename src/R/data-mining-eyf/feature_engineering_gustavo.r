@@ -147,10 +147,6 @@ setwd( kcarpeta_datasetsOri )
 dataset <- fread(karchivo_entrada_txt, header=TRUE, sep=kcampos_separador ) 
 
 
-#ordeno por  numero_de_cliente y foto_mes
-setorder( dataset,  numero_de_cliente, foto_mes )
-
-
 nrow( dataset )
 ncol( dataset )
 
@@ -160,17 +156,20 @@ diccionario.datos <- readxl::read_excel(path = paste0(kcarpeta_datasetsOri, "/Di
 # Leer 
 inflacion         <- readxl::read_excel(path = paste0(kcarpeta_datasetsOri, "/inflacion_gcba.xlsx")) %>%
   dplyr::select(foto_mes, tasa_acumulada) %>%
-  dplyr::mutate(foto_mes = as.integer(format(foto_mes, "%Y%m")))
+  dplyr::mutate(foto_mes = as.integer(format(foto_mes, "%Y%m"))) %>%
+  as.data.table()
 
-# Hacer merge
-dataset <- merge(dataset, inflacion, all=FALSE)
+# Hacer merge y ordenar por numero de cliente y mes
+dataset = dataset[inflacion, on="foto_mes", nomatch=0]
+setorder( dataset, numero_de_cliente, foto_mes )
 
 #a <- dplyr::group_by(dataset, foto_mes) %>% dplyr::summarise(m = mean(Master_mconsumototal, na.rm = TRUE))
 
 # Deflacionamos los campos correspondientes a "pesos" para llevarlos a pesos constantes de 2016-07
 for (atributo.moneda in dplyr::filter(diccionario.datos, unidad == "pesos") %>% dplyr::pull(campo)) {
-  dataset[ , paste0(atributo.moneda) :=  get(atributo.moneda) / tasa_acumulada ]
+  dataset[ , (atributo.moneda) :=  get(atributo.moneda) / tasa_acumulada ]
 }
+dataset[, tasa_acumulada := NULL]
 
 #b <- dplyr::group_by(dataset, foto_mes) %>% dplyr::summarise(m = mean(Master_mconsumototal, na.rm = TRUE))
 
