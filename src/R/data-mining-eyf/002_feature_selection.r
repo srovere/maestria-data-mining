@@ -3,8 +3,8 @@
 # -----------------------------------------------------------------------------#
 rm(list = ls()); gc()
 Sys.setenv(TZ = "UTC")
-list.of.packages <- c("caret", "data.table", "dplyr", "futile.logger", "R6", 
-                      "mlrMBO", "rgenoud", "ROCR", "utils", "xgboost", "yaml")
+list.of.packages <- c("caret", "data.table", "dplyr", "futile.logger", "GA", "R6", 
+                      "ROCR", "utils", "xgboost", "yaml")
 for (pack in list.of.packages) {
   if (! require(pack, character.only = TRUE)) {
     stop(paste0("Paquete no encontrado: ", pack))
