@@ -90,7 +90,7 @@ resultados.xgb.bo <- ps_bayesian_optimization(set.datos = set.datos, clase = "cl
                                               proporcion_train = 0.7, funcion_modelo = funcion_modelo,
                                               n_iter = config$iteraciones, init_points = 5 * length(limites.parametros$pars),
                                               funcion_prediccion = pr_xgboost, limites.parametros = limites.parametros, 
-                                              logger = logger, file_persistence_interval = 10800,
+                                              logger = logger, file_persistence_interval = 0,
                                               file_persistence_path = paste0(config$dir$output, "/xgboost_con_fe.mbo.RData"))
 end.time          <- proc.time()
 elapsed.time      <- end.time[3] - start.time[3]
