@@ -285,12 +285,10 @@ ps_ga_feature_selection <- function(set.datos, set.datos.test = NULL, clase, sem
                                     funcion_modelo, funcion_prediccion, parametros, max_iterations = 20, 
                                     tamano_poblacion = 50, run = 10, logger) {
   # i. Definir closure para funcion objetivo
-  funcion_objetivo_closure <- function(funcion_modelo, parametros, semillas, set.datos, set.datos.test = NULL, clase, proporcion_train) {
-    funcion <- function(variables) {
-      warning(paste0("Cantidad de variables: ", length(variable), " ---> ", paste0(variables, collapse = ", ")))
-      
+  funcion_objetivo_closure <- function(funcion_modelo, parametros, nombres.variables, semillas, set.datos, set.datos.test = NULL, clase, proporcion_train) {
+    funcion <- function(variables.seleccionadas) {
       # Agregar siempre la clase al set de datos
-      variables      <- c(variables, clase)
+      variables      <- c(nombres.variables[variables.seleccionadas == 1], clase)
       ganancias_test <- purrr::imap(
         .x = semillas,
         .f = function(semilla, posicion) {
@@ -327,13 +325,13 @@ ps_ga_feature_selection <- function(set.datos, set.datos.test = NULL, clase, sem
   }
   
   # ii. Definir funcion objetivo
-  funcion_objetivo <- funcion_objetivo_closure(funcion_modelo, parametros, semillas, set.datos,
-                                               set.datos.test, clase, proporcion_train)
-  
-  # iii. Efectuar optimizacion con GA
   cantidad.bits.features <- ncol(set.datos) - 1 # Todos los atributos menos la clase
   feature.names          <- setdiff(colnames(set.datos), clase) # Todos los atributos menos la clase
-  resultados             <- GA::ga(
+  funcion_objetivo       <- funcion_objetivo_closure(funcion_modelo, parametros, feature.names, semillas, set.datos,
+                                                     set.datos.test, clase, proporcion_train)
+  
+  # iii. Efectuar optimizacion con GA
+  resultados <- GA::ga(
     fitness = funcion_objetivo,
     type = "binary", # optimization data type
     crossover = gabin_uCrossover,  # cross-over method
@@ -342,7 +340,7 @@ ps_ga_feature_selection <- function(set.datos, set.datos.test = NULL, clase, sem
     nBits = cantidad.bits.features, # total number of variables
     names = feature.names, # variable name
     keepBest = TRUE, # keep the best solution at the end
-    parallel = TRUE, # allow parallel procesing
+    parallel = FALSE, # allow parallel procesing
     popSize = tamano_poblacion, 
     maxiter = max_iterations,
     run = run
