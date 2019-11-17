@@ -52,14 +52,14 @@ logger <- Logger$new(log.level = INFO)
 # -----------------------------------------------------------------------------#
 if (! is.null(config$meses.entrenamiento$lista.meses)) {
   logger$info(paste0("Leyendo conjunto de datos para los meses ", paste0(config$meses.entrenamiento$lista.meses, collapse = ", ")))
-  set.datos <- leer_set_datos_mensuales_meses_varios(paste0(config$dir$input, "/months"), 
+  set.datos <- leer_set_datos_mensuales_meses_varios(paste0(config$dir$input), 
                                                      as.Date(config$meses.entrenamiento$lista.meses)) %>%
     dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
     dplyr::select(-clase_ternaria)
 } else {
   logger$info(paste0("Leyendo conjunto de datos desde ", config$meses.entrenamiento$rango.fechas$desde, 
                      " hasta ", config$meses.entrenamiento$rango.fechas$hasta))
-  set.datos <- leer_set_datos_mensuales(paste0(config$dir$input, "/months"), 
+  set.datos <- leer_set_datos_mensuales(paste0(config$dir$input), 
                                         fecha.desde = as.Date(config$meses.entrenamiento$rango.fechas$desde),
                                         fecha.hasta = as.Date(config$meses.entrenamiento$rango.fechas$hasta)) %>%
     dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
