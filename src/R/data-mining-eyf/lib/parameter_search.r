@@ -289,6 +289,7 @@ ps_ga_feature_selection <- function(set.datos, set.datos.test = NULL, clase, sem
     funcion <- function(variables.seleccionadas) {
       # Agregar siempre la clase al set de datos
       variables      <- c(nombres.variables[variables.seleccionadas == 1], clase)
+      logger$info(paste0("Ejecutando modelo con ", length(which(variables.seleccionadas == 1)), " variables"))
       ganancias_test <- purrr::imap(
         .x = semillas,
         .f = function(semilla, posicion) {

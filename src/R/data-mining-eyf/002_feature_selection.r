@@ -68,7 +68,7 @@ set.datos.test <- leer_set_datos_mensuales(paste0(config$dir$input),
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
-# --- V. Realizar hiperparametrizacion ----
+# --- V. Realizar seleccion de features ----
 # -----------------------------------------------------------------------------#
 
 # --- XGBoost con optimizacion bayesiana
