@@ -50,20 +50,37 @@ logger <- Logger$new(log.level = INFO)
 # -----------------------------------------------------------------------------#
 # --- IV. Leer set de datos y realizar operaciones basicas de FE ----
 # -----------------------------------------------------------------------------#
+
+# Cargar conjunto de datos de entrenamiento
 if (! is.null(config$meses.entrenamiento$lista.meses)) {
-  logger$info(paste0("Leyendo conjunto de datos para los meses ", paste0(config$meses.entrenamiento$lista.meses, collapse = ", ")))
+  logger$info(paste0("Leyendo conjunto de datos de entrenamiento para los meses ", paste0(config$meses.entrenamiento$lista.meses, collapse = ", ")))
   set.datos <- leer_set_datos_mensuales_meses_varios(paste0(config$dir$input), 
                                                      as.Date(config$meses.entrenamiento$lista.meses)) %>%
     dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
     dplyr::select(-clase_ternaria)
 } else {
-  logger$info(paste0("Leyendo conjunto de datos desde ", config$meses.entrenamiento$rango.fechas$desde, 
+  logger$info(paste0("Leyendo conjunto de datos de entrenamiento desde ", config$meses.entrenamiento$rango.fechas$desde, 
                      " hasta ", config$meses.entrenamiento$rango.fechas$hasta))
   set.datos <- leer_set_datos_mensuales(paste0(config$dir$input), 
                                         fecha.desde = as.Date(config$meses.entrenamiento$rango.fechas$desde),
                                         fecha.hasta = as.Date(config$meses.entrenamiento$rango.fechas$hasta)) %>%
     dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
     dplyr::select(-clase_ternaria)
+}
+
+# Cargar conjunto de datos de validacion
+set.datos.test   <- NULL
+proporcion.train <- 1
+if (! is.null(config$meses.validacion$rango.fechas$desde) && ! is.null(config$meses.validacion$rango.fechas$hasta)) {
+  logger$info(paste0("Leyendo conjunto de datos de validacion desde ", config$meses.validacion$rango.fechas$desde,
+                     " hasta ", config$meses.validacion$rango.fechas$hasta))
+  set.datos.test <- leer_set_datos_mensuales(paste0(config$dir$input), 
+                                             fecha.desde = as.Date(config$meses.validacion$rango.fechas$desde),
+                                             fecha.hasta = as.Date(config$meses.validacion$rango.fechas$hasta)) %>%
+    dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
+    dplyr::select(-clase_ternaria)
+} else {
+  proporcion.train <- config$proporcion.train
 }
 # ------------------------------------------------------------------------------
 
@@ -86,11 +103,11 @@ limites.parametros <- ParamHelpers::makeParamSet(
 
 funcion_modelo    <- m_xgboost_closure(booster = "gbtree", objective = "binary:logistic", eval_metric = pe_perdida_xgboost,
                                        tree_method = "hist", grow_policy = "lossguide", nrounds = config$nrounds)
-resultados.xgb.bo <- ps_bayesian_optimization(set.datos = set.datos, clase = "clase", semillas = config$semillas,
-                                              proporcion_train = 0.7, funcion_modelo = funcion_modelo,
+resultados.xgb.bo <- ps_bayesian_optimization(set.datos = set.datos, set.datos.test = set.datos.test, clase = "clase", 
+                                              semillas = config$semillas, proporcion_train = proporcion.train, funcion_modelo = funcion_modelo,
                                               n_iter = config$iteraciones, init_points = 5 * length(limites.parametros$pars),
                                               funcion_prediccion = pr_xgboost, limites.parametros = limites.parametros, 
-                                              logger = logger, file_persistence_interval = 0,
+                                              logger = logger, file_persistence_interval = config$file.persistence.interval,
                                               file_persistence_path = paste0(config$dir$output, "/xgboost_con_fe.mbo.RData"))
 end.time          <- proc.time()
 elapsed.time      <- end.time[3] - start.time[3]

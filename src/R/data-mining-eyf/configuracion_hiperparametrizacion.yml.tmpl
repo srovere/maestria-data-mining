@@ -12,11 +12,21 @@ semillas: [ 102191 ]
 meses.entrenamiento:
   lista.meses:
   rango.fechas:
-    desde: 2018-07-01
+    desde: 2018-05-01
+    hasta: 2019-02-01
+    
+# Meses para validacion (puede no indicarse, en cuyo caso debe indicarse la proporcion de train)
+meses.validacion:
+  rango.fechas:
+    desde: 2019-04-01
     hasta: 2019-04-01
+proporcion.train: 1
 
 # Cantidad de rondas
 nrounds: 300
 
 # Cantidad de iteraciones
 iteraciones: 50
+
+# Intervalo de guardado de datos (en segundos)
+file.persistence.interval: 0
