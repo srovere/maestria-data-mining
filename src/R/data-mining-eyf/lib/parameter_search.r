@@ -283,7 +283,7 @@ ps_ga_optimization <- function(set.datos, set.datos.test = NULL, clase, semillas
 # Seleccion de features con algoritmos geneticos (con GA)
 ps_ga_feature_selection <- function(set.datos, set.datos.test = NULL, clase, semillas, proporcion_train = 0.7, 
                                     funcion_modelo, funcion_prediccion, parametros, max_iterations = 20, 
-                                    tamano_poblacion = 50, run = 10, logger) {
+                                    tamano_poblacion = 50, run = 10, elitismo = 3, probabilidad.mutacion = 0.03, logger) {
   # i. Definir closure para funcion objetivo
   funcion_objetivo_closure <- function(funcion_modelo, parametros, nombres.variables, semillas, set.datos, set.datos.test = NULL, clase, proporcion_train) {
     funcion <- function(variables.seleccionadas) {
@@ -335,8 +335,8 @@ ps_ga_feature_selection <- function(set.datos, set.datos.test = NULL, clase, sem
     fitness = funcion_objetivo,
     type = "binary", # optimization data type
     crossover = gabin_uCrossover,  # cross-over method
-    elitism = 3, # best N indiv. to pass to next iteration
-    pmutation = 0.03, # mutation rate prob
+    elitism = elitismo, # best N indiv. to pass to next iteration
+    pmutation = probabilidad.mutacion, # mutation rate prob
     nBits = cantidad.bits.features, # total number of variables
     names = feature.names, # variable name
     keepBest = TRUE, # keep the best solution at the end

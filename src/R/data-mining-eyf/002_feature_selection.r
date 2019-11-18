@@ -82,7 +82,11 @@ funcion_modelo    <- m_xgboost_closure(booster = "gbtree", objective = "binary:l
                                        tree_method = "hist", grow_policy = "lossguide", nrounds = config$nrounds)
 resultados.xgb.ga <- ps_ga_feature_selection(set.datos = set.datos, set.datos.test = set.datos.test ,clase = "clase", 
                                              semillas = config$semilla, proporcion_train = 1, funcion_modelo = funcion_modelo,
-                                             max_iterations = 50, tamano_poblacion = 25, run = 10,
+                                             max_iterations = config$parametros.optimizador$iteraciones, 
+                                             tamano_poblacion = config$parametros.optimizador$tamano.poblacion, 
+                                             run = config$parametros.optimizador$max.iteraciones.sin.avance,
+                                             elitismo = config$parametros.optimizador$elitismo,
+                                             probabilidad.mutacion = config$parametros.optimizador$probabilidad.mutacion,
                                              funcion_prediccion = pr_xgboost, parametros = parametros,
                                              logger = logger)
 save(resultados.xgb.ga, file = paste0(config$dir$output, "/seleccion_variables.RData"))
