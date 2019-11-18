@@ -20,6 +20,7 @@ src/R/data-mining-eyf/*.log
 src/R/data-mining-eyf/derby.log
 src/R/data-mining-eyf/input/*
 src/R/data-mining-eyf/output/*
+src/R/data-mining-eyf/work/*
 src/R/data-mining-eyf/metastore_db/*
 src/R/data-mining-cyt/input/*
 src/R/data-mining-cyt/output/*

@@ -3,8 +3,8 @@
 # -----------------------------------------------------------------------------#
 rm(list = ls()); gc()
 Sys.setenv(TZ = "UTC")
-list.of.packages <- c("caret", "data.table", "dplyr", "futile.logger", "R6",
-                      "ROCR", "utils", "xgboost", "yaml")
+list.of.packages <- c("caret", "data.table", "dplyr", "futile.logger", "magrittr",
+                      "R6", "ROCR", "utils", "xgboost", "yaml")
 for (pack in list.of.packages) {
   if (! require(pack, character.only = TRUE)) {
     stop(paste0("Paquete no encontrado: ", pack))
@@ -60,6 +60,12 @@ parametros <- append(list(
 ), config$hiperparametros)
 
 hiperparametros <- as.data.frame(config$hiperparametros)
+
+# Si se definicion un archivo de seleccion de mejores variables, cargarlo
+mejores.variables <- NULL
+if (! is.null(config$archivo.seleccion.variables)) {
+  mejores.variables <- c(base::readRDS(paste0(config$dir$work, "/", config$archivo.seleccion.variables)), "clase_ternaria")
+}
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
@@ -73,7 +79,8 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
   # Lectura de conjunto de datos de test
   test <- leer_set_datos_mensuales(config$dir$input, 
                                    fecha.desde = as.Date(periodo.test),
-                                   fecha.hasta = as.Date(periodo.test)) %>%
+                                   fecha.hasta = as.Date(periodo.test),
+                                   mejores.variables = mejores.variables) %>%
     dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
     dplyr::select(-clase_ternaria)
   
@@ -81,13 +88,15 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
   if (config$unificar.clases) {
     train <- leer_set_datos_mensuales(config$dir$input, 
                                       fecha.desde = as.Date(periodo.test) - months(config$offset.meses.train.test + config$meses.entrenamiento - 1),
-                                      fecha.hasta = as.Date(periodo.test) - months(config$offset.meses.train.test)) %>%
+                                      fecha.hasta = as.Date(periodo.test) - months(config$offset.meses.train.test),
+                                      mejores.variables = mejores.variables) %>%
       dplyr::mutate(clase = fe_clase_binaria_unificada(clase_ternaria)) %>%
       dplyr::select(-clase_ternaria)
   } else {
     train <- leer_set_datos_mensuales(config$dir$input, 
                                       fecha.desde = as.Date(periodo.test) - months(config$offset.meses.train.test + config$meses.entrenamiento - 1),
-                                      fecha.hasta = as.Date(periodo.test) - months(config$offset.meses.train.test)) %>%
+                                      fecha.hasta = as.Date(periodo.test) - months(config$offset.meses.train.test),
+                                      mejores.variables = mejores.variables) %>%
       dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
       dplyr::select(-clase_ternaria)
   }
