@@ -1,0 +1,111 @@
+---
+title: "Enfoque estadístico del aprendizaje: Trabajo Práctico nº 3"
+subtitle: "Regresión logística"
+author:
+- Santiago Rovere (srovere@gmail.com), Facultad de Ingeniería, Universidad de Buenos Aires
+date: '`r format(Sys.Date(), "%d de %B de %Y")`'
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    theme: flatly
+    css: styles.css
+lang: es
+---
+
+# Preparación de los datos
+
+Se comienza el análisis propuesto cargando los paquetes necesarios, leyendo el conjunto de datos y mostrando la estructura del mismo a fin de conocer los atributos sobre los que se van a trabajar.
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Borrar variables del ambiente
+rm(list = objects())
+
+# Carga de paquetes necesarios para hacer los gráficos
+require(Cairo)
+require(cowplot)
+require(GGAlly)
+require(ggpubr)
+require(highcharter)
+require(Hmisc)
+require(knitr)
+require(magrittr)
+require(modelr)
+require(tidyverse)
+
+# Uso de Cairo para renderizar los gráficos.
+options(bitmapType = "cairo")
+
+# Cargar conjunto de datos deo sobrevivientes del Titanic
+datos_train <- readr::read_csv(file = "titanic_complete_train.csv")
+
+# Mostrar estructura
+head(datos_train)
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+datos_train %<>%
+  # Seleccionar las variables PassengerId, Survived, Pclass, Sex, Age, SibSp,Parch, Fare y Embarked  
+  dplyr::select(PassengerId, Survived, Pclass, Sex, Age, SibSp,Parch, Fare, Embarked) %>%
+  # Transformar las variables Survived, Pclass, Sex y Embarked a factor
+  dplyr::mutate(Survived = as.factor(Survived), 
+                Pclass = as.factor(Pclass),
+                Sex = as.factor(Sex),
+                Embarked = as.factor(Embarked))
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.width=8, fig.height=10 }
+GGally::ggpairs(data = datos_train,
+                mapping = ggplot2::aes(col = Survived),
+                columns = which(colnames(datos_train) %in% c("Pclass", "Sex", "Age", "Fare"))) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    axis.text.x = element_text(angle = 90, hjust = 1)
+  ) 
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Dividir el conjunto de entrenamiento en 70% para entrenamiento y 30% para validacion.
+# Se define una semilla para que el ejemplo sea reproducible.
+set.seed(0)
+entrenamiento_validacion <- datos_train %>% 
+  modelr::resample_partition(c(train = 0.7, test = 0.3))
+datos_entrenamiento <- entrenamiento_validacion$train %>%
+  as_tibble()
+datos_validacion <- entrenamiento_validacion$test %>% 
+  as_tibble()
+
+# Analizar distribución de clase para verificar que se preserven las proporciones
+datos.grafico.proporcion.clase <- dplyr::bind_rows(
+  datos_train %>% dplyr::mutate(Conjunto = "Original de entrenamiento"),
+  datos_entrenamiento %>% dplyr::mutate(Conjunto = "Entrenamiento (70%)"),
+  datos_validacion %>% dplyr::mutate(Conjunto = "Validación (30%)")) %>%
+  dplyr::mutate(Survived = dplyr::case_when(Survived == 0 ~ "No sobrevivió",
+                                            TRUE ~ "Sobrevivió"),
+                Conjunto = factor(Conjunto, levels = c("Original de entrenamiento", "Entrenamiento (70%)", "Validación (30%)"))) %>%
+  dplyr::group_by(Conjunto) %>%
+  dplyr::mutate(Total = dplyr::n()) %>%
+  dplyr::group_by(Conjunto, Survived, Total) %>%
+  dplyr::summarise(Cantidad = dplyr::n()) %>%
+  dplyr::mutate(Porcentaje = 100 * Cantidad / Total)
+  
+highcharter::highchart() %>%
+  highcharter::hc_add_series(data = datos.grafico.proporcion.clase, type = "column",
+                             mapping = highcharter::hcaes(x = Conjunto, y = Porcentaje, group = Survived)) %>%
+  highcharter::hc_colors(c("#e31a1c", "#1f78b4")) %>%
+  highcharter::hc_xAxis(title = list(text = "Conjunto de datos"), type = "category", 
+                        categories = unique(datos.grafico.proporcion.clase$Conjunto)) %>%
+  highcharter::hc_yAxis(title = list(text = "Porcentaje de datos en la clase"), min = 0, max = 100) %>%
+  highcharter::hc_tooltip(valueDecimals = 2, valueSuffix = ' %') %>%
+  highcharter::hc_title(text = "Distribución de clases por conjunto de datos")
+```
+
+# Predicciones 
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+modelo.1 <- glm(formula = Survived ~ Pclass + Sex + Age, family = 'binomial', data = datos_entrenamiento)
+knitr::kable(
+  broom::tidy(modelo.1)
+)
+```
