@@ -31,6 +31,7 @@ require(Hmisc)
 require(knitr)
 require(magrittr)
 require(modelr)
+require(pROC)
 require(tidyverse)
 
 # Uso de Cairo para renderizar los gráficos.
@@ -130,15 +131,16 @@ prob.jack <- predict(object = modelo.1,
 formulas.modelos <- modelr::formulas(.response = ~Survived,
                                      sexo_tarifa_edad = ~Sex + Fare + Age,
                                      tarifa_lugar = ~Fare + Embarked,
-                                     sexo_clase_lugar_edad = ~Sex + Pclass + Embarked + Age)
+                                     sexo_clase_lugar_edad = ~ Sex + Pclass + Embarked + Age)
 
 # Generar modelos en base a las formulas
 modelos <- dplyr::data_frame(formulas.modelos) %>% 
   # Generar features con el modelo y la expresion del mismo
   dplyr::mutate(Expresion = paste(formulas.modelos),
+                Nombre = names(formulas.modelos),
                 Modelo = purrr::map(formulas.modelos, ~glm(.,family = 'binomial', data = datos_entrenamiento))) %>%
   # Seleccionar Expresion y Modelo
-  dplyr::select(Expresion, Modelo) %>%
+  dplyr::select(Expresion, Nombre, Modelo) %>%
   # Agregar modelo inicial
   dplyr::bind_rows(tibble::tibble(Expresion = "Survived ~ Pclass + Sex + Age", Modelo = list(modelo.1)))
 
@@ -148,4 +150,66 @@ modelos %>%
   tidyr::unnest(glance) %>%
   dplyr::select(Expresion, deviance, null.deviance, logLik, AIC, BIC) %>%
   dplyr::arrange(deviance)
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Generamos la curva ROC y calculamos ROC AUC para el modelo elegido (sexo_clase_lugar_edad)
+prediccion.mejor.modelo <- modelos %>% 
+  dplyr::filter(Nombre == "sexo_clase_lugar_edad") %>% 
+  dplyr::mutate(pred = purrr::map(Modelo, broom::augment, type.predict = "response")) %>%
+  tidyr::unnest(pred, .drop=TRUE)
+
+# Calcular ROC
+roc.mejor.modelo <- pROC::roc(response = prediccion.mejor.modelo$Survived, predictor = prediccion.mejor.modelo$.fitted)
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Graficar ROC
+pROC::ggroc(roc.mejor.modelo, size=1) + 
+  ggplot2::geom_abline(slope = 1, intercept = 1, linetype='dashed') + 
+  ggplot2::theme_bw() + 
+  ggplot2::labs(title='Curvas ROC', color='Modelo')
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Violing plot
+ggplot2::ggplot(data = prediccion.mejor.modelo, 
+                mapping = ggplot2::aes(x = Survived, y = .fitted, group = Survived, fill = Survived)) + 
+  ggplot2::geom_violin() +
+  ggplot2::labs(title = 'Gráfico de violín', subtitle = 'Modelo basado en sexo, clase, lugar de embarcación y edad', 
+                y = 'Probabilidad predicha') +
+  ggplot2::theme_bw() + 
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+#prediction_metrics <- function(cutoff, predictions=prediction_full){
+#  table <- predictions %>% 
+#    mutate(predicted_class=if_else(.fitted>cutoff, 1, 0) %>% as.factor(),
+#           default= factor(default))
+#  
+#  confusionMatrix(table(table$predicted_class, table$default), positive = "1") %>%
+#    tidy() %>%
+#    select(term, estimate) %>%
+#    filter(term %in% c('accuracy', 'sensitivity', 'specificity', 'precision','recall')) %>%
+#    mutate(cutoff=cutoff)
+#  
+#}
+
+# Prediccion para conjunto de validacion
+#prediccion.validacion <- modelos %>% 
+#  dplyr::filter(Nombre == "sexo_clase_lugar_edad") %>% 
+#  dplyr::mutate(pred = purrr::map(Modelo, broom::augment, data = datos_validacion, type.predict = "response")) %>%
+#  tidyr::unnest(pred, .drop=TRUE)
+
+#cutoffs = seq(0.01,0.95,0.01)
+#logit_pred= map_dfr(cutoffs, prediction_metrics)%>% mutate(term=as.factor(term))
+
+#ggplot(logit_pred, aes(cutoff,estimate, group=term, color=term)) + geom_line(size=1) +
+#  theme_bw() +
+#  labs(title= 'Accuracy, Sensitivity, Specificity, Recall y Precision', subtitle= 'Modelo completo', color="")
 ```
