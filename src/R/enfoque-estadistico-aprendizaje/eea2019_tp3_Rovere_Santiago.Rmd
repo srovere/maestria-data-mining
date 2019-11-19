@@ -104,8 +104,48 @@ highcharter::highchart() %>%
 # Predicciones 
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Se realiza el primer modelo con las variables Pclass, Sex y Age
 modelo.1 <- glm(formula = Survived ~ Pclass + Sex + Age, family = 'binomial', data = datos_entrenamiento)
 knitr::kable(
   broom::tidy(modelo.1)
 )
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Ahora se reponde a la pregunta: Quien tiene mas chances de sobrevivir?
+prob.rose <- predict(object = modelo.1, 
+                     newdata = data.frame(Pclass = factor(1, levels = levels(datos_entrenamiento$Pclass)), 
+                                          Sex = factor("female", levels = levels(datos_entrenamiento$Sex)),
+                                          Age = 17), type = "response")
+prob.jack <- predict(object = modelo.1, 
+                     newdata = data.frame(Pclass = factor(3, levels = levels(datos_entrenamiento$Pclass)), 
+                                          Sex = factor("male", levels = levels(datos_entrenamiento$Sex)),
+                                          Age = 20), type = "response")
+```
+
+# Generación de modelos
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Se defines las formulas para los 3 modelos a analizar
+formulas.modelos <- modelr::formulas(.response = ~Survived,
+                                     sexo_tarifa_edad = ~Sex + Fare + Age,
+                                     tarifa_lugar = ~Fare + Embarked,
+                                     sexo_clase_lugar_edad = ~Sex + Pclass + Embarked + Age)
+
+# Generar modelos en base a las formulas
+modelos <- dplyr::data_frame(formulas.modelos) %>% 
+  # Generar features con el modelo y la expresion del mismo
+  dplyr::mutate(Expresion = paste(formulas.modelos),
+                Modelo = purrr::map(formulas.modelos, ~glm(.,family = 'binomial', data = datos_entrenamiento))) %>%
+  # Seleccionar Expresion y Modelo
+  dplyr::select(Expresion, Modelo) %>%
+  # Agregar modelo inicial
+  dplyr::bind_rows(tibble::tibble(Expresion = "Survived ~ Pclass + Sex + Age", Modelo = list(modelo.1)))
+
+# Mostrar los modelos ordenados por el deviance de cada uno de ellos
+modelos %>% 
+  dplyr::mutate(glance = purrr::map(Modelo, broom::glance)) %>%
+  tidyr::unnest(glance) %>%
+  dplyr::select(Expresion, deviance, null.deviance, logLik, AIC, BIC) %>%
+  dplyr::arrange(deviance)
 ```
