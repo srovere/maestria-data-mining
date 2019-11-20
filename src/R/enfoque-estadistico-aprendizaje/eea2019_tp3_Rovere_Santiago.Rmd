@@ -23,6 +23,7 @@ rm(list = objects())
 
 # Carga de paquetes necesarios para hacer los gráficos
 require(Cairo)
+require(caret)
 require(cowplot)
 require(GGAlly)
 require(ggpubr)
@@ -187,29 +188,43 @@ ggplot2::ggplot(data = prediccion.mejor.modelo,
 ```
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
-#prediction_metrics <- function(cutoff, predictions=prediction_full){
-#  table <- predictions %>% 
-#    mutate(predicted_class=if_else(.fitted>cutoff, 1, 0) %>% as.factor(),
-#           default= factor(default))
-#  
-#  confusionMatrix(table(table$predicted_class, table$default), positive = "1") %>%
-#    tidy() %>%
-#    select(term, estimate) %>%
-#    filter(term %in% c('accuracy', 'sensitivity', 'specificity', 'precision','recall')) %>%
-#    mutate(cutoff=cutoff)
-#  
-#}
+# Prediccion utilizando conjunto de validacion
+prediccion.validacion <- modelos %>% 
+  dplyr::filter(Nombre == "sexo_clase_lugar_edad") %>% 
+  dplyr::mutate(pred = purrr::map(Modelo, predict, newdata = dplyr::select(datos_validacion, -Survived), 
+                                  type = "response")) %>%
+  tidyr::unnest(pred, .drop=TRUE) %>%
+  dplyr::pull(pred)
+clases.validacion <- datos_validacion %>%
+  dplyr::mutate(Clase = as.integer(as.character(Survived))) %>%
+  dplyr::pull(Clase)
 
-# Prediccion para conjunto de validacion
-#prediccion.validacion <- modelos %>% 
-#  dplyr::filter(Nombre == "sexo_clase_lugar_edad") %>% 
-#  dplyr::mutate(pred = purrr::map(Modelo, broom::augment, data = datos_validacion, type.predict = "response")) %>%
-#  tidyr::unnest(pred, .drop=TRUE)
+# Definir metricas de prediccion en funcion de un umbral de corte
+MetricasPrediccion <- function(probabilidades, clase, umbral.corte) {
+  predicciones     <- ifelse(probabilidades > umbral.corte, 1, 0)
+  matriz.confusion <- caret::confusionMatrix(
+    table(as.character(predicciones), as.character(clase)), 
+  positive = "1")
+  
+  broom::tidy(matriz.confusion) %>%
+    dplyr::select(term, estimate) %>%
+    dplyr::filter(term %in% c('accuracy', 'sensitivity', 'specificity', 'precision','recall')) %>%
+    dplyr::mutate(umbral = umbral.corte)
+}
 
-#cutoffs = seq(0.01,0.95,0.01)
-#logit_pred= map_dfr(cutoffs, prediction_metrics)%>% mutate(term=as.factor(term))
+# Calcular metricas
+metricas <- purrr::map_dfr(
+  .x = seq(from = 0.03, to = 0.96, by = 0.001),
+  .f = function(umbral.corte) {
+    MetricasPrediccion(prediccion.validacion, clases.validacion, umbral.corte = umbral.corte)
+  }
+)
 
-#ggplot(logit_pred, aes(cutoff,estimate, group=term, color=term)) + geom_line(size=1) +
-#  theme_bw() +
-#  labs(title= 'Accuracy, Sensitivity, Specificity, Recall y Precision', subtitle= 'Modelo completo', color="")
+ggplot2::ggplot(data = metricas, 
+                mapping = ggplot2::aes(x = umbral, y = estimate, group = term, color = term)) + 
+  ggplot2::geom_line(size = 1) +
+  ggplot2::theme_bw() +
+  ggplot2::labs(title = 'Accuracy, Sensitivity, Specificity, Recall y Precision', 
+                subtitle = 'Modelo basado en sexo, clase, lugar de embarcación y edad', 
+                col = "Métrica")
 ```
