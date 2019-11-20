@@ -86,7 +86,10 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
     dplyr::select(-clase_ternaria)
   
   # Lectura de conjunto de datos de train
+  mejor.corte <- list("ganancia_mejor" = 0, "prob_corte" = 0.025)
+  feval       <- NULL
   if (config$unificar.clases) {
+    feval <- pe_perdida_xgboost_clases_unificadas
     train <- leer_set_datos_mensuales(config$dir$input, 
                                       fecha.desde = as.Date(periodo.test) - months(config$offset.meses.train.test + config$meses.entrenamiento - 1),
                                       fecha.hasta = as.Date(periodo.test) - months(config$offset.meses.train.test),
@@ -94,6 +97,7 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
       dplyr::mutate(clase = fe_clase_binaria_unificada(clase_ternaria)) %>%
       dplyr::select(-clase_ternaria)
   } else {
+    feval <- pe_perdida_xgboost
     train <- leer_set_datos_mensuales(config$dir$input, 
                                       fecha.desde = as.Date(periodo.test) - months(config$offset.meses.train.test + config$meses.entrenamiento - 1),
                                       fecha.hasta = as.Date(periodo.test) - months(config$offset.meses.train.test),
@@ -115,17 +119,15 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
   logger$info("Ejecutando entrenamiento")
 	set.seed(config$semilla)
 	modelo <- xgboost::xgb.train(data = xgb.train, nrounds = config$rondas.entrenamiento, 
-	                             verbose = 2, maximize = FALSE, feval = pe_perdida_xgboost,
+	                             verbose = 2, maximize = FALSE, feval = feval,
 	                             watchlist = list(train = xgb.train, test = xgb.test),
 	                             params = parametros)
 	
 	logger$info("Calculando ganancia y guardando resultados")
 	xgb.pred.test           <- data.frame(pred = predict(modelo, xgb.test, reshape = T))
-	ganancia                <- pe_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 1)
-	mejor.ganancia          <- pe_maxima_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 1,
-	                                              puntos_corte = seq(0.01, 0.1, 0.001))
-  resultados.periodo      <- dplyr::bind_cols(hiperparametros, data.frame(semilla = config$semilla, ganancia = ganancia)) %>%
-    dplyr::mutate(modelo = list(modelo), mejor_punto_corte = mejor.ganancia$punto_corte, mejor_ganancia = mejor.ganancia$ganancia)
+	ganancia                <- pe_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 1, punto_corte = mejor.corte$prob_corte)
+  resultados.periodo      <- dplyr::bind_cols(hiperparametros, data.frame(semilla = config$semilla, ganancia = ganancia, punto_corte = mejor.corte$prob_corte)) %>%
+    dplyr::mutate(modelo = list(modelo))
   resultados.linea.muerte <- dplyr::bind_rows(resultados.linea.muerte, resultados.periodo)
   
   # Guardar datos a archivo RData
