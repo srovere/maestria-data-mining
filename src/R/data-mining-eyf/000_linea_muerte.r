@@ -64,7 +64,8 @@ hiperparametros <- as.data.frame(config$hiperparametros)
 # Si se definicion un archivo de seleccion de mejores variables, cargarlo
 mejores.variables <- NULL
 if (! is.null(config$archivo.seleccion.variables)) {
-  mejores.variables <- c(base::readRDS(paste0(config$dir$work, "/", config$archivo.seleccion.variables)), "clase_ternaria")
+  mejores.atributos <- union("numero_de_cliente", base::readRDS(paste0(config$dir$work, "/", config$archivo.seleccion.variables)))
+  mejores.variables <- c(mejores.atributos, "clase_ternaria")
 }
 # ------------------------------------------------------------------------------
 
