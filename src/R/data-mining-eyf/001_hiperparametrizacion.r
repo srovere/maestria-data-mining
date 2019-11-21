@@ -92,10 +92,10 @@ if (! is.null(config$meses.validacion$rango.fechas$desde) && ! is.null(config$me
 start.time         <- proc.time()
 limites.parametros <- ParamHelpers::makeParamSet(
   ParamHelpers::makeNumericParam("eta", lower = 0.005, upper = 0.1),
-  ParamHelpers::makeIntegerParam("max_depth", lower = 10, upper = 30),
+  ParamHelpers::makeIntegerParam("max_depth", lower = 5, upper = 25),
   ParamHelpers::makeNumericParam("gamma", lower = 1, upper = 10),
-  ParamHelpers::makeNumericParam("subsample", lower = 0.40, upper = 1),
-  ParamHelpers::makeNumericParam("colsample_bytree", lower = 0.25, upper = 0.95),
+  ParamHelpers::makeNumericParam("subsample", lower = 0.20, upper = 1),
+  ParamHelpers::makeNumericParam("colsample_bytree", lower = 0.2, upper = 0.9),
   ParamHelpers::makeNumericParam("min_child_weight", lower = 1, upper = 10),
   ParamHelpers::makeNumericParam("alpha", lower = 0, upper = 10),
   ParamHelpers::makeNumericParam("lambda", lower = 1, upper = 10)
