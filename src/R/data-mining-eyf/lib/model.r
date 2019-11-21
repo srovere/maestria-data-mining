@@ -40,13 +40,15 @@ m_xgboost_closure <- function(booster = "gbtree", objective = "binary:logistic",
       parametros$max_bin <- as.integer(round(parametros$max_bin))
     }
     
-    set.seed(semilla)
     parametros$booster     <- booster
     parametros$tree_method <- tree_method
     parametros$nrounds     <- nrounds
     tryCatch({
       xgb.train              <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(set.datos, -!!clase)),
                                                      label = as.matrix(dplyr::select(set.datos, !!clase)))
+      
+      # Definir semilla y ejecutar modelo
+      set.seed(semilla)
       modelo                 <- xgboost::xgb.train(data = xgb.train, nrounds = as.integer(round(parametros$nrounds)),
                                                    obj = obj, feval = feval, params = parametros)
       return (modelo)
