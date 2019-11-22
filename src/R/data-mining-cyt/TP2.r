@@ -11,10 +11,8 @@ require(Cairo)
 require(caret)
 require(dplyr)
 require(ggplot2)
-require(ggbiplot)
-require(GGally)
+require(igraph)
 require(magrittr)
-require(MASS)
 require(purrr)
 require(readr)
 require(stringr)
@@ -69,7 +67,7 @@ ObtenerGrafoBinario <- function(matriz.correlacion, punto.corte) {
   
   # Se crea el grafo a partir de la matriz de adyacencia.
   # Se eliminan los 1s de la diagonal para que no haya loops
-  graph.adjacency(matriz.adyacencia, mode = "undirected", diag = FALSE)
+  igraph::graph.adjacency(matriz.adyacencia, mode = "undirected", diag = FALSE)
 }
 
 # Para cada individuo, estado de sueño y umbral, obtener un grafo
@@ -170,7 +168,7 @@ metricas.louvain <- purrr::pmap_dfr(
   .l = dplyr::distinct(grafos, estadio, sujeto, punto_corte),
   .f = function(estadio, sujeto, punto_corte) {
     grafo.original <- grafos %>%
-      dplyr::filter(estadio == !! estadio & sujeto == !! sujeto & punto_corte == punto_corte) %>%
+      dplyr::filter(estadio == !! estadio & sujeto == !! sujeto & punto_corte == !! punto_corte) %>%
       dplyr::pull(grafo)
     grafo.original <- grafo.original[[1]]
     
@@ -235,7 +233,7 @@ metricas.girvan.newman <- purrr::pmap_dfr(
   .l = dplyr::distinct(grafos, estadio, sujeto, punto_corte),
   .f = function(estadio, sujeto, punto_corte) {
     grafo.original <- grafos %>%
-      dplyr::filter(estadio == !! estadio & sujeto == !! sujeto & punto_corte == punto_corte) %>%
+      dplyr::filter(estadio == !! estadio & sujeto == !! sujeto & punto_corte == !! punto_corte) %>%
       dplyr::pull(grafo)
     grafo.original <- grafo.original[[1]]
     
@@ -245,19 +243,8 @@ metricas.girvan.newman <- purrr::pmap_dfr(
     modularidad.original <- igraph::modularity(grafo.original, comunidad.original$membership)
     numero.com.original  <- length(unique(comunidad.original$membership))
     
-    # Ahora genero una red random con la misma distribucion de grado que el grafo inicial.
-    # Obntengo las comunidades y calculo modularidad y cantidad de comunidades.
-    grafo.random       <- igraph::sample_degseq(out.deg = igraph::degree(grafo.original))
-    comunidad.random   <- igraph::cluster_louvain(grafo.random)  
-    modularidad.random <- igraph::modularity(grafo.random, comunidad.random$membership)
-    numero.com.random  <- length(unique(comunidad.random$membership))
-    
-    return (dplyr::bind_rows(
-      data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Original',
-                 modularidad = modularidad.original, numero_comunidades = numero.com.original),
-      data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Random',
-                 modularidad = modularidad.random, numero_comunidades = numero.com.random)
-    )) 
+    return (data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Original',
+                 modularidad = modularidad.original, numero_comunidades = numero.com.original))
   }
 ) %>% tidyr::pivot_longer(names_to = "metrica", values_to = "valor", cols = c("modularidad", "numero_comunidades"))
 
