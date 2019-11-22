@@ -53,60 +53,240 @@ if (! file.exists(archivo.rdata)) {
 }
 # ----------------------------------------------------------------------------------------
 
-# Analisis de un grafo
-adj.mat <- datos.entrada %>%
-  dplyr::filter(sujeto == 1 & estadio == "N1") %>%
-  dplyr::select(-sujeto, -estadio) %>%
-  as.matrix()
-densidad.media <- mean(adj.mat)
+# ---------------------------------------------------------------------------------------#
+# ---- III. Generar grafos binarios para distintos puntos de corte ----                            
+# ---------------------------------------------------------------------------------------#
 
-grafo <- igraph::graph.adjacency(adj.mat, mode="undirected", diag=FALSE, weighted = T)
+# Definir función para generar un grafo binario a partir de uno pesado
+ObtenerGrafoBinario <- function(matriz.correlacion, punto.corte) {
+  # Creamos una matriz de adyacencia de la misma dimension que la
+  # matriz de correlacion. Inicializamos con ceros (sin conexion)
+  matriz.adyacencia <- matrix(data = 0, nrow = nrow(matriz.correlacion),
+                              ncol = ncol(matriz.correlacion))
+  
+  # A aquellas aritas cuyo peso supere el umbral, le asignamos un 1
+  matriz.adyacencia[which(matriz.correlacion >= punto.corte)] <- 1
+  
+  # Se crea el grafo a partir de la matriz de adyacencia.
+  # Se eliminan los 1s de la diagonal para que no haya loops
+  graph.adjacency(matriz.adyacencia, mode = "undirected", diag = FALSE)
+}
 
-densidad.umbrales <- purrr::map_dfr(
-  .x = seq(from = 0, to = 1, by = 0.01),
-  .f = function(umbral) {
-    adj.mat.2 <- adj.mat
-    adj.mat.2[which(adj.mat.2 < umbral)] <- 0
-    adj.mat.2[which(adj.mat.2 >= umbral)] <- 1
-    data.frame(umbral = umbral, densidad = mean(adj.mat.2))    
+# Para cada individuo, estado de sueño y umbral, obtener un grafo
+grafos <- purrr::pmap_dfr(
+  .l = dplyr::distinct(datos.entrada, estadio, sujeto),
+  .f = function(estadio, sujeto) {
+    matriz.correlacion <- datos.entrada %>%
+      dplyr::filter(estadio == !! estadio & sujeto == !! sujeto) %>%
+      dplyr::select(-estadio, -sujeto) %>%
+      as.matrix()
+    
+    # Generar grafos para distintos umbrales
+    grafos.estadio.sujeto <- purrr::map_dfr(
+      .x = seq(from = 0, to = 1, by = 0.01),
+      .f = function(punto.corte) {
+        return(dplyr::tibble(
+          estadio = estadio,
+          sujeto = sujeto,
+          punto_corte = punto.corte,
+          grafo = list(ObtenerGrafoBinario(matriz.correlacion, punto.corte))
+        ))
+      }    
+    )
   }
-) %>% dplyr::mutate(abs.dif = abs(densidad - densidad.media))
+)
 
-ggplot2::ggplot(data = densidad.umbrales) +
-  ggplot2::geom_point(mapping = ggplot2::aes(x = umbral, y = densidad)) +
-  ggplot2::geom_hline(yintercept = mean(adj.mat), col = "tomato") +
-  ggplot2::scale_x_continuous(breaks = seq(from = 0, to = 1, by = 0.1))
+# Guardar grafos a un archivo RData
+save(grafos, file = "output/Grafos.RData")
+# ----------------------------------------------------------------------------------------
 
-mejor.umbral <- densidad.umbrales %>%
-  dplyr::filter(abs.dif == min(abs.dif)) %>%
-  dplyr::pull(umbral)
+# ---------------------------------------------------------------------------------------#
+# ---- Tarea 1 ----                            
+# ---------------------------------------------------------------------------------------#
 
-adj.mat.3 <- adj.mat
-adj.mat.3[which(adj.mat.3 < mejor.umbral)] <- 0
-adj.mat.3[which(adj.mat.3 >= mejor.umbral)] <- 1
-grafo <- graph.adjacency(adj.mat.3, mode="undirected", diag=FALSE)
+# Para cada grafo, obtener:
+# - Grado medio
+# - Excentricidad promedio
+# - Cercania (closeness) promedio
+# - Intermediacion (betweeness) promedio
+# - Centralidad de autovector promedio
+# - Longitud caracteristica
+# - Coeficiente de clustering
 
-a<-igraph::degree(grafo)
-hist(a)
+metricas <- grafos %>%
+  dplyr::mutate(
+    grado = purrr::map(grafo, ~mean(igraph::degree(.x))),
+    excentricidad = purrr::map(grafo, ~mean(igraph::eccentricity(.x))),
+    cercania = purrr::map(grafo, ~mean(igraph::closeness(.x))),
+    intermediacion = purrr::map(grafo, ~mean(igraph::betweenness(.x))),
+    autovector = purrr::map(grafo, ~mean(igraph::eigen_centrality(.x)[["vector"]])),
+    longitud_caracteristica = purrr::map(grafo, ~igraph::mean_distance(.x)),
+    coeficiente_clustering = purrr::map(grafo, ~igraph::transitivity(.x, type = "average"))
+  ) %>% dplyr::select(-grafo)
 
-# download.file("http://moreno.ss.uci.edu/beach.dat", destfile = "windsurfers.dat")
-# ws <- read.table("windsurfers.dat", skip = 7)
-# dim(ws)
-# 
-# ws.obs <- as.matrix(ws[1:43, ])
-# ws.per <- as.matrix(ws[44:86, ])
-# # image(ws.obs)
-# # image(ws.per)
-# 
-# ws.obs.red <- graph.adjacency(ws.obs, mode="undirected", diag=FALSE, weighted = T)
-# plot(ws.obs.red)
-# 
-# hist(ws.per[lower.tri(ws.per)], main = "histograma de las interacciones percibidas")
-# 
-# umbral <- 0.5
-# ws.per.2 <- ws.per
-# ws.per.2[which(ws.per.2 <= umbral)] <- 0
-# ws.per.red <- graph.adjacency(ws.per.2, mode="undirected", diag=FALSE, weighted = T)
-# image(ws.per.2)
-# plot(ws.per.red)
-# 
+# Para cada estadio, metrica y punto de corte, calcular media y desvio de cada metrica
+estadisticas <- metricas %>%
+  tidyr::pivot_longer(cols = c(-estadio, -sujeto, -punto_corte), names_to = "metrica", values_to = "valor") %>%
+  dplyr::mutate(valor = unlist(valor)) %>%
+  dplyr::group_by(estadio, metrica, punto_corte) %>%
+  dplyr::summarise(media = mean(valor, na.rm = TRUE),
+                   desvio = sd(valor, na.rm = TRUE))
+
+# Guardar metricas y estadisticas a archivo RData
+save(metricas, estadisticas, file = "output/Metricas.RData")
+
+# Etiquetas para metricas
+etiquetas_metricas <- c(
+  grado = "Grado",
+  excentricidad = "Excentricidad",
+  cercania = "Cercanía",
+  intermediacion = "Intermediación",
+  autovector = "Centralización de autovector",
+  longitud_caracteristica = "Longitud característica",
+  coeficiente_clustering = "Coeficiente de clustering"
+)
+
+# Generar grafico
+ggplot2::ggplot(data = estadisticas) +
+  ggplot2::geom_errorbar(mapping = ggplot2::aes(x = punto_corte, ymin = media - desvio, ymax = media + desvio, col = estadio)) +
+  ggplot2::facet_wrap(~metrica, scales = "free", ncol = 2, labeller = ggplot2::labeller(metrica = etiquetas_metricas)) +
+  ggplot2::labs(x = "Densidad de corte", y = "Valor de la métrica", col = "Estadío de sueño",
+                title = "Métricas de grafos según de densidad de corte",
+                subtitle = "Valores medios y desvíos") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+# ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
+# ---- Tarea 2 ----                            
+# ---------------------------------------------------------------------------------------#
+
+# Calcular metricas pedidas
+metricas.louvain <- purrr::pmap_dfr(
+  .l = dplyr::distinct(grafos, estadio, sujeto, punto_corte),
+  .f = function(estadio, sujeto, punto_corte) {
+    grafo.original <- grafos %>%
+      dplyr::filter(estadio == !! estadio & sujeto == !! sujeto & punto_corte == punto_corte) %>%
+      dplyr::pull(grafo)
+    grafo.original <- grafo.original[[1]]
+    
+    # Obtendo las comunidades con el algoritmo de Louvain.
+    # Luego calculo la modularidad y la cantidad de comunidades.
+    comunidad.original   <- igraph::cluster_louvain(grafo.original)  
+    modularidad.original <- igraph::modularity(grafo.original, comunidad.original$membership)
+    numero.com.original  <- length(unique(comunidad.original$membership))
+    
+    # Ahora genero una red random con la misma distribucion de grado que el grafo inicial.
+    # Obntengo las comunidades y calculo modularidad y cantidad de comunidades.
+    grafo.random       <- igraph::sample_degseq(out.deg = igraph::degree(grafo.original))
+    comunidad.random   <- igraph::cluster_louvain(grafo.random)  
+    modularidad.random <- igraph::modularity(grafo.random, comunidad.random$membership)
+    numero.com.random  <- length(unique(comunidad.random$membership))
+    
+    return (dplyr::bind_rows(
+      data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Original',
+                 modularidad = modularidad.original, numero_comunidades = numero.com.original),
+      data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Random',
+                 modularidad = modularidad.random, numero_comunidades = numero.com.random)
+    )) 
+  }
+) %>% tidyr::pivot_longer(names_to = "metrica", values_to = "valor", cols = c("modularidad", "numero_comunidades"))
+
+# Calcular estadisticas
+estadisticas.louvain <- metricas.louvain %>%
+  dplyr::group_by(estadio, punto_corte, grafo, metrica) %>%
+  dplyr::summarise(media = mean(valor, na.rm = TRUE),
+                   desvio = sd(valor, na.rm = TRUE))
+
+# Guardar metricas y estadisticas a archivo RData
+save(metricas.louvain, estadisticas.louvain, file = "output/MetricasLouvain.RData")
+
+# Etiquetas para metricas
+etiquetas_metricas_louvain <- c(
+  modularidad = "Modularidad",
+  numero_comunidades = "Número de comunidades"
+)
+ 
+# Generar grafico comparativo
+ggplot2::ggplot(data = estadisticas.louvain) +
+  ggplot2::geom_errorbar(mapping = ggplot2::aes(x = punto_corte, ymin = media - desvio, ymax = media + desvio, col = grafo)) +
+  ggplot2::facet_grid(metrica~estadio, scales = "free", labeller = ggplot2::labeller(metrica = etiquetas_metricas_louvain)) +
+  ggplot2::labs(x = "Densidad de corte", y = "Valor de la métrica", col = "Tipo de grafo",
+                title = "Métricas de modularidad para grafos según de densidad de corte",
+                subtitle = "Valores medios y desvíos") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+# ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
+# ---- Opcional 1 (Tarea 2) ----                            
+# ---------------------------------------------------------------------------------------#
+
+# Calcular metricas pedidas
+metricas.girvan.newman <- purrr::pmap_dfr(
+  .l = dplyr::distinct(grafos, estadio, sujeto, punto_corte),
+  .f = function(estadio, sujeto, punto_corte) {
+    grafo.original <- grafos %>%
+      dplyr::filter(estadio == !! estadio & sujeto == !! sujeto & punto_corte == punto_corte) %>%
+      dplyr::pull(grafo)
+    grafo.original <- grafo.original[[1]]
+    
+    # Obtendo las comunidades con el algoritmo de Louvain.
+    # Luego calculo la modularidad y la cantidad de comunidades.
+    comunidad.original   <- igraph::cluster_edge_betweenness(grafo.original)
+    modularidad.original <- igraph::modularity(grafo.original, comunidad.original$membership)
+    numero.com.original  <- length(unique(comunidad.original$membership))
+    
+    # Ahora genero una red random con la misma distribucion de grado que el grafo inicial.
+    # Obntengo las comunidades y calculo modularidad y cantidad de comunidades.
+    grafo.random       <- igraph::sample_degseq(out.deg = igraph::degree(grafo.original))
+    comunidad.random   <- igraph::cluster_louvain(grafo.random)  
+    modularidad.random <- igraph::modularity(grafo.random, comunidad.random$membership)
+    numero.com.random  <- length(unique(comunidad.random$membership))
+    
+    return (dplyr::bind_rows(
+      data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Original',
+                 modularidad = modularidad.original, numero_comunidades = numero.com.original),
+      data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Random',
+                 modularidad = modularidad.random, numero_comunidades = numero.com.random)
+    )) 
+  }
+) %>% tidyr::pivot_longer(names_to = "metrica", values_to = "valor", cols = c("modularidad", "numero_comunidades"))
+
+# Calcular estadisticas
+estadisticas.girvan.newman <- metricas.girvan.newman %>%
+  dplyr::group_by(estadio, punto_corte, grafo, metrica) %>%
+  dplyr::summarise(media = mean(valor, na.rm = TRUE),
+                   desvio = sd(valor, na.rm = TRUE))
+
+# Guardar metricas y estadisticas a archivo RData
+save(metricas.girvan.newman, estadisticas.girvan.newman, file = "output/MetricasGirvanNewman.RData")
+
+# Etiquetas para metricas
+etiquetas_metricas_girvan_newman <- c(
+  modularidad = "Modularidad",
+  numero_comunidades = "Número de comunidades"
+)
+
+# Generar grafico comparativo
+ggplot2::ggplot(data = estadisticas.girvan.newman) +
+  ggplot2::geom_errorbar(mapping = ggplot2::aes(x = punto_corte, ymin = media - desvio, ymax = media + desvio, col = grafo)) +
+  ggplot2::facet_grid(metrica~estadio, scales = "free", labeller = ggplot2::labeller(metrica = etiquetas_metricas_girvan_newman)) +
+  ggplot2::labs(x = "Densidad de corte", y = "Valor de la métrica", col = "Tipo de grafo",
+                title = "Métricas de modularidad para grafos según de densidad de corte",
+                subtitle = "Valores medios y desvíos") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+# ----------------------------------------------------------------------------------------
