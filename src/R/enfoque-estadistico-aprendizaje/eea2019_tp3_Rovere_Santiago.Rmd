@@ -25,8 +25,9 @@ rm(list = objects())
 require(Cairo)
 require(caret)
 require(cowplot)
-require(GGAlly)
+require(GGally)
 require(ggpubr)
+require(ggrepel)
 require(highcharter)
 require(Hmisc)
 require(knitr)
@@ -38,7 +39,7 @@ require(tidyverse)
 # Uso de Cairo para renderizar los gráficos.
 options(bitmapType = "cairo")
 
-# Cargar conjunto de datos deo sobrevivientes del Titanic
+# Cargar conjunto de datos de sobrevivientes del Titanic
 datos_train <- readr::read_csv(file = "titanic_complete_train.csv")
 
 # Mostrar estructura
@@ -47,9 +48,9 @@ head(datos_train)
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 datos_train %<>%
-  # Seleccionar las variables PassengerId, Survived, Pclass, Sex, Age, SibSp,Parch, Fare y Embarked  
+  # Seleccionar PassengerId, Survived, Pclass, Sex, Age, SibSp,Parch, Fare y Embarked  
   dplyr::select(PassengerId, Survived, Pclass, Sex, Age, SibSp,Parch, Fare, Embarked) %>%
-  # Transformar las variables Survived, Pclass, Sex y Embarked a factor
+  # Transformar Survived, Pclass, Sex y Embarked a factor
   dplyr::mutate(Survived = as.factor(Survived), 
                 Pclass = as.factor(Pclass),
                 Sex = as.factor(Sex),
@@ -59,7 +60,8 @@ datos_train %<>%
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.width=8, fig.height=10 }
 GGally::ggpairs(data = datos_train,
                 mapping = ggplot2::aes(col = Survived),
-                columns = which(colnames(datos_train) %in% c("Pclass", "Sex", "Age", "Fare"))) +
+                columns = which(colnames(datos_train) %in% 
+                                  c("Pclass", "Sex", "Age", "Fare"))) +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'bottom',
@@ -85,29 +87,32 @@ datos.grafico.proporcion.clase <- dplyr::bind_rows(
   datos_validacion %>% dplyr::mutate(Conjunto = "Validación (30%)")) %>%
   dplyr::mutate(Survived = dplyr::case_when(Survived == 0 ~ "No sobrevivió",
                                             TRUE ~ "Sobrevivió"),
-                Conjunto = factor(Conjunto, levels = c("Original de entrenamiento", "Entrenamiento (70%)", "Validación (30%)"))) %>%
+                Conjunto = factor(Conjunto, 
+                                  levels = c("Original de entrenamiento", "Entrenamiento (70%)", "Validación (30%)"))) %>%
   dplyr::group_by(Conjunto) %>%
   dplyr::mutate(Total = dplyr::n()) %>%
   dplyr::group_by(Conjunto, Survived, Total) %>%
   dplyr::summarise(Cantidad = dplyr::n()) %>%
   dplyr::mutate(Porcentaje = 100 * Cantidad / Total)
   
-highcharter::highchart() %>%
+suppressWarnings(highcharter::highchart() %>%
   highcharter::hc_add_series(data = datos.grafico.proporcion.clase, type = "column",
                              mapping = highcharter::hcaes(x = Conjunto, y = Porcentaje, group = Survived)) %>%
   highcharter::hc_colors(c("#e31a1c", "#1f78b4")) %>%
   highcharter::hc_xAxis(title = list(text = "Conjunto de datos"), type = "category", 
                         categories = unique(datos.grafico.proporcion.clase$Conjunto)) %>%
-  highcharter::hc_yAxis(title = list(text = "Porcentaje de datos en la clase"), min = 0, max = 100) %>%
+  highcharter::hc_yAxis(title = list(text = "Porcentaje de datos en la clase"), 
+                        min = 0, max = 100) %>%
   highcharter::hc_tooltip(valueDecimals = 2, valueSuffix = ' %') %>%
-  highcharter::hc_title(text = "Distribución de clases por conjunto de datos")
+  highcharter::hc_title(text = "Distribución de clases por conjunto de datos"))
 ```
 
 # Predicciones 
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Se realiza el primer modelo con las variables Pclass, Sex y Age
-modelo.1 <- glm(formula = Survived ~ Pclass + Sex + Age, family = 'binomial', data = datos_entrenamiento)
+modelo.1 <- glm(formula = Survived ~ Pclass + Sex + Age, 
+                family = 'binomial', data = datos_entrenamiento)
 knitr::kable(
   broom::tidy(modelo.1)
 )
@@ -115,14 +120,15 @@ knitr::kable(
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Ahora se reponde a la pregunta: Quien tiene mas chances de sobrevivir?
-prob.rose <- predict(object = modelo.1, 
-                     newdata = data.frame(Pclass = factor(1, levels = levels(datos_entrenamiento$Pclass)), 
-                                          Sex = factor("female", levels = levels(datos_entrenamiento$Sex)),
-                                          Age = 17), type = "response")
-prob.jack <- predict(object = modelo.1, 
-                     newdata = data.frame(Pclass = factor(3, levels = levels(datos_entrenamiento$Pclass)), 
-                                          Sex = factor("male", levels = levels(datos_entrenamiento$Sex)),
-                                          Age = 20), type = "response")
+data.rose <- data.frame(Pclass = factor(1, levels = levels(datos_entrenamiento$Pclass)), 
+                        Sex = factor("female", levels = levels(datos_entrenamiento$Sex)),
+                        Age = 17)
+prob.rose <- predict(object = modelo.1, newdata = data.rose, type = "response")
+
+data.jack <- data.frame(Pclass = factor(3, levels = levels(datos_entrenamiento$Pclass)), 
+                        Sex = factor("male", levels = levels(datos_entrenamiento$Sex)),
+                        Age = 20)
+prob.jack <- predict(object = modelo.1, newdata = data.jack, type = "response")
 ```
 
 # Generación de modelos
@@ -135,7 +141,7 @@ formulas.modelos <- modelr::formulas(.response = ~Survived,
                                      sexo_clase_lugar_edad = ~ Sex + Pclass + Embarked + Age)
 
 # Generar modelos en base a las formulas
-modelos <- dplyr::data_frame(formulas.modelos) %>% 
+modelos <- dplyr::tibble(formulas.modelos) %>% 
   # Generar features con el modelo y la expresion del mismo
   dplyr::mutate(Expresion = paste(formulas.modelos),
                 Nombre = names(formulas.modelos),
@@ -153,12 +159,14 @@ modelos %>%
   dplyr::arrange(deviance)
 ```
 
+# Evaluación del modelo
+
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Generamos la curva ROC y calculamos ROC AUC para el modelo elegido (sexo_clase_lugar_edad)
 prediccion.mejor.modelo <- modelos %>% 
   dplyr::filter(Nombre == "sexo_clase_lugar_edad") %>% 
   dplyr::mutate(pred = purrr::map(Modelo, broom::augment, type.predict = "response")) %>%
-  tidyr::unnest(pred, .drop=TRUE)
+  tidyr::unnest(pred)
 
 # Calcular ROC
 roc.mejor.modelo <- pROC::roc(response = prediccion.mejor.modelo$Survived, predictor = prediccion.mejor.modelo$.fitted)
@@ -166,10 +174,17 @@ roc.mejor.modelo <- pROC::roc(response = prediccion.mejor.modelo$Survived, predi
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Graficar ROC
-pROC::ggroc(roc.mejor.modelo, size=1) + 
-  ggplot2::geom_abline(slope = 1, intercept = 1, linetype='dashed') + 
-  ggplot2::theme_bw() + 
-  ggplot2::labs(title='Curvas ROC', color='Modelo')
+pROC::ggroc(roc.mejor.modelo, size = 1, legacy.axes = TRUE) + 
+  ggplot2::geom_abline(slope = 1, intercept = 0, linetype = 'dashed') + 
+  ggplot2::geom_label(data = data.frame(x = 0.9, y = 0.1),
+                      mapping = ggplot2::aes(x = x, y = y, label = sprintf("AUC: %.3f", roc.mejor.modelo$auc))) +
+  ggplot2::labs(title = 'Curva ROC', subtitle = 'Modelo basado en sexo, clase, lugar de embarcación y edad',
+                y = 'Tasa de verdaderos positivos (TPR)', x = "Tasa de falsos positivos (FPR)") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
 ```
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
@@ -177,23 +192,29 @@ pROC::ggroc(roc.mejor.modelo, size=1) +
 ggplot2::ggplot(data = prediccion.mejor.modelo, 
                 mapping = ggplot2::aes(x = Survived, y = .fitted, group = Survived, fill = Survived)) + 
   ggplot2::geom_violin() +
+  ggplot2::scale_fill_manual(values = c("0" = "tomato", "1" = "darkslategray4"),
+                             labels = c("0" = "No sobrevivió", "1" = "Sobrevivió"), name = "") +
   ggplot2::labs(title = 'Gráfico de violín', subtitle = 'Modelo basado en sexo, clase, lugar de embarcación y edad', 
-                y = 'Probabilidad predicha') +
+                y = 'Probabilidad predicha', x = "") +
   ggplot2::theme_bw() + 
   ggplot2::theme(
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
-    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    axis.ticks.x = ggplot2::element_blank(),
+    axis.text.x = ggplot2::element_blank()
   )
 ```
 
-```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Elección del punto de corte
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.width=8 }
 # Prediccion utilizando conjunto de validacion
 prediccion.validacion <- modelos %>% 
   dplyr::filter(Nombre == "sexo_clase_lugar_edad") %>% 
   dplyr::mutate(pred = purrr::map(Modelo, predict, newdata = dplyr::select(datos_validacion, -Survived), 
                                   type = "response")) %>%
-  tidyr::unnest(pred, .drop=TRUE) %>%
+  tidyr::unnest(pred) %>%
   dplyr::pull(pred)
 clases.validacion <- datos_validacion %>%
   dplyr::mutate(Clase = as.integer(as.character(Survived))) %>%
@@ -208,23 +229,135 @@ MetricasPrediccion <- function(probabilidades, clase, umbral.corte) {
   
   broom::tidy(matriz.confusion) %>%
     dplyr::select(term, estimate) %>%
-    dplyr::filter(term %in% c('accuracy', 'sensitivity', 'specificity', 'precision','recall')) %>%
+    dplyr::filter(term %in% c('accuracy', 'recall', 'specificity', 'precision')) %>%
     dplyr::mutate(umbral = umbral.corte)
 }
 
-# Calcular metricas
-metricas <- purrr::map_dfr(
+# Calcular metricas en funcion del umbral
+puntos.corte  <- list(p1 = 0, p2 = 0)
+distancias    <- list(p1 = 1, p2 = 1)
+metricas      <- purrr::map_dfr(
   .x = seq(from = 0.03, to = 0.96, by = 0.001),
   .f = function(umbral.corte) {
-    MetricasPrediccion(prediccion.validacion, clases.validacion, umbral.corte = umbral.corte)
+    metricas.umbral    <- MetricasPrediccion(prediccion.validacion, clases.validacion, 
+                                             umbral.corte = umbral.corte)
+    recall.umbral      <- dplyr::filter(metricas.umbral, term == "recall") %>% 
+      dplyr::pull(estimate)
+    precision.umbral   <- dplyr::filter(metricas.umbral, term == "precision") %>% 
+      dplyr::pull(estimate)
+    accuracy.umbral    <- dplyr::filter(metricas.umbral, term == "accuracy") %>% 
+      dplyr::pull(estimate)
+    distancia.prec.rec <- abs(recall.umbral - precision.umbral)
+    distancia.acc.rec  <- abs(recall.umbral - accuracy.umbral)
+    if (distancia.prec.rec < distancias$p1) {
+      puntos.corte$p1 <<- umbral.corte
+      distancias$p1   <<- distancia.prec.rec
+    }
+    if (distancia.acc.rec < distancias$p2) {
+      puntos.corte$p2 <<- umbral.corte
+      distancias$p2   <<- distancia.acc.rec
+    }
+    return (metricas.umbral)
   }
 )
 
-ggplot2::ggplot(data = metricas, 
-                mapping = ggplot2::aes(x = umbral, y = estimate, group = term, color = term)) + 
-  ggplot2::geom_line(size = 1) +
-  ggplot2::theme_bw() +
-  ggplot2::labs(title = 'Accuracy, Sensitivity, Specificity, Recall y Precision', 
+# Graficamos metricas en funcion del umbral
+ggplot2::ggplot(data = metricas) + 
+  ggplot2::geom_line(mapping = ggplot2::aes(x = umbral, y = estimate, group = term, color = term), size = 0.7) +
+  ggplot2::geom_vline(xintercept = puntos.corte$p1, linetype = "dotted") +
+  ggplot2::geom_vline(xintercept = puntos.corte$p2, linetype = "dotted") +
+  ggrepel::geom_label_repel(data = data.frame(x = puntos.corte$p1, y = 0), 
+                            mapping = ggplot2::aes(x = x, y = y, label = sprintf("P1 = %.3f", x)), 
+                            colour = 'black', nudge_x = 0.1, nudge_y = 0.1) +
+  ggrepel::geom_label_repel(data = data.frame(x = puntos.corte$p2, y = 0), 
+                            mapping = ggplot2::aes(x = x, y = y, label = sprintf("P2 = %.3f", x)), 
+                            colour = 'black', nudge_x = -0.1, nudge_y = 0.1) +
+  ggplot2::labs(title = 'Accuracy, Sensitivity (o Recall), Specificity y Precision', 
                 subtitle = 'Modelo basado en sexo, clase, lugar de embarcación y edad', 
-                col = "Métrica")
+                col = "Métrica", x = "Punto de corte", y = "Valor de la métrica") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# MdC para primer punto de corte
+predicciones.1     <- ifelse(prediccion.validacion > puntos.corte$p1, 1, 0)
+matriz.confusion.1 <- caret::confusionMatrix(
+  table(as.character(predicciones.1), as.character(clases.validacion), dnn = c("predicciones", "observaciones")), 
+  positive = "1")$table
+rownames(matriz.confusion.1) <- c("Fallecidos predichos", "Sobrevivientes predichos")
+colnames(matriz.confusion.1) <- c("Fallecidos reales", "Sobrevivientes reales")
+
+# MdC para segundo punto de corte
+predicciones.2     <- ifelse(prediccion.validacion > puntos.corte$p2, 1, 0)
+matriz.confusion.2 <- caret::confusionMatrix(
+  table(as.character(predicciones.2), as.character(clases.validacion), dnn = c("predicciones", "observaciones")), 
+  positive = "1")$table
+rownames(matriz.confusion.2) <- c("Fallecidos predichos", "Sobrevivientes predichos")
+colnames(matriz.confusion.2) <- c("Fallecidos reales", "Sobrevivientes reales")
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+knitr::kable(matriz.confusion.1) 
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+knitr::kable(matriz.confusion.2)
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+comparacion.metricas.validacion <- MetricasPrediccion(prediccion.validacion, clases.validacion, puntos.corte$p1) %>%
+  dplyr::bind_rows(MetricasPrediccion(prediccion.validacion, clases.validacion, puntos.corte$p2)) %>%
+  tidyr::pivot_wider(names_from = "term", values_from = "estimate") %>%
+  dplyr::rename("Punto de corte" = umbral, Accuracy = accuracy, Recall = recall, Precision = precision, Specificity = specificity)
+knitr::kable(comparacion.metricas.validacion, digits = 3)
+```
+
+# Dataset de testeo
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+# Cargar conjunto de datos de test y aplicar las mismas transformaciones que para train
+datos_test <- readr::read_csv(file = "titanic_complete_test.csv") %>%
+  # Seleccionar las variables PassengerId, Survived, Pclass, Sex, Age, SibSp,Parch, Fare y Embarked  
+  dplyr::select(PassengerId, Survived, Pclass, Sex, Age, SibSp,Parch, Fare, Embarked) %>%
+  # Transformar las variables Survived, Pclass, Sex y Embarked a factor
+  dplyr::mutate(Survived = as.factor(Survived), 
+                Pclass = as.factor(Pclass),
+                Sex = as.factor(Sex),
+                Embarked = as.factor(Embarked))
+
+# Aplicar el modelo a conjunto de test
+prediccion.test <- modelos %>% 
+  dplyr::filter(Nombre == "sexo_clase_lugar_edad") %>% 
+  dplyr::mutate(pred = purrr::map(Modelo, predict, newdata = dplyr::select(datos_test, -Survived), 
+                                  type = "response")) %>%
+  tidyr::unnest(pred) %>%
+  dplyr::pull(pred)
+clases.test <- datos_test %>%
+  dplyr::mutate(Clase = as.integer(as.character(Survived))) %>%
+  dplyr::pull(Clase)
+
+# Realizar predicciones en base a mejor al punto de corte P2
+predicciones.3     <- ifelse(prediccion.test > puntos.corte$p1, 1, 0)
+matriz.confusion.3 <- caret::confusionMatrix(
+  table(as.character(predicciones.3), as.character(clases.test), dnn = c("predicciones", "observaciones")), 
+  positive = "1")$table
+rownames(matriz.confusion.3) <- c("Fallecidos predichos", "Sobrevivientes predichos")
+colnames(matriz.confusion.3) <- c("Fallecidos reales", "Sobrevivientes reales")
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+knitr::kable(matriz.confusion.3)
+```
+
+```{r, echo=TRUE, warnings=FALSE, message=FALSE }
+comparacion.metricas.test <- MetricasPrediccion(prediccion.test, clases.test, puntos.corte$p1) %>%
+  dplyr::bind_rows(MetricasPrediccion(prediccion.test, clases.test, puntos.corte$p2)) %>%
+  tidyr::pivot_wider(names_from = "term", values_from = "estimate") %>%
+  dplyr::rename("Punto de corte" = umbral, Accuracy = accuracy, Recall = recall, Precision = precision, Specificity = specificity)
+knitr::kable(comparacion.metricas.test, digits = 3)
 ```
