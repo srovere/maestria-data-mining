@@ -165,18 +165,3 @@ if (! dir.exists(kcarpeta_datasets)) {
   dir.create(kcarpeta_datasets)
 }
 saveRDS(object = dataset, file = paste0(kcarpeta_datasets, "/Extra.rds"))
-
-#lapply(  fotos_distintas,  fguardar_foto,  pdataset=dataset ) 
-
-
-
-#limpio la memoria
-
-rm( list=ls() )
-gc()
-
-
-
-quit( save="no" )
-
-
