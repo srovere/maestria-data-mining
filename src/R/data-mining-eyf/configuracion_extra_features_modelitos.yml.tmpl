@@ -1,0 +1,39 @@
+# Directorios de trabajo
+dir:
+  lib: ${base}/src/R/data-mining-eyf/lib
+  input: ${base}/src/R/data-mining-eyf/input/months_base_denicolay
+  output: ${base}/src/R/data-mining-eyf/output
+  work: ${base}/src/R/data-mining-eyf/work
+  
+# Semilla a utilizar
+semilla: 102191
+
+# Hiperparametros a utilizar
+hiperparametros:
+  eta: 0.048478970
+  max_depth: 10
+  gamma: 1.313529
+  subsample: 0.9642628
+  colsample_bytree: 0.3085149
+  min_child_weight: 1.169910
+  alpha: 7.27243913
+  lambda: 8.155388
+  
+# Indica si se debe unificar BAJA+1 con BAJA+2
+unificar.clases: FALSE
+  
+# Cantidad de rounds para entrendar
+rondas.entrenamiento: 300
+
+# Cantidad de meses para entrenar
+meses.entrenamiento: 1
+
+# Offset de meses entre train y test
+offset.meses.train.test: 2
+
+# Rango de fechas a evaluar:
+fecha.desde: 2016-09-01
+fecha.hasta: 2019-04-01
+
+# Nombre del modelo
+nombre.modelo: M1

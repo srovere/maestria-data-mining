@@ -3,6 +3,7 @@ src:
   R:
     data-mining-eyf:
       configuracion.yml: 0
+      configuracion_extra_features_modelitos.yml: 0
       configuracion_feature_engineering.yml: 0
       configuracion_linea_muerte.yml: 0
       configuracion_hiperparametrizacion.yml: 0
