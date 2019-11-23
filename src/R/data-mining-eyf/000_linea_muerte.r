@@ -40,7 +40,6 @@ rm(archivo.config, args); gc()
 source(file = paste0(config$dir$lib, "/io.r"), echo = FALSE)
 source(file = paste0(config$dir$lib, "/feature_engineering.r"), echo = FALSE)
 source(file = paste0(config$dir$lib, "/model.r"), echo = FALSE)
-source(file = paste0(config$dir$lib, "/parameter_search.r"), echo = FALSE)
 source(file = paste0(config$dir$lib, "/performance.r"), echo = FALSE)
 source(file = paste0(config$dir$lib, "/prediction.r"), echo = FALSE)
 
@@ -58,7 +57,6 @@ parametros <- append(list(
   grow_policy = "lossguide",
   tree_method = 'hist'
 ), config$hiperparametros)
-
 hiperparametros <- as.data.frame(config$hiperparametros)
 
 # Si se definicion un archivo de seleccion de mejores variables, cargarlo
@@ -66,6 +64,12 @@ mejores.variables <- NULL
 if (! is.null(config$archivo.seleccion.variables)) {
   mejores.atributos <- union("numero_de_cliente", base::readRDS(paste0(config$dir$work, "/", config$archivo.seleccion.variables)))
   mejores.variables <- c(mejores.atributos, "clase_ternaria")
+}
+
+# Si se indico agregar features "extra", cargarlos de archivo
+features.extra <- NULL
+if (! is.null(config$archivo.features.extra)) {
+  features.extra <- base::readRDS(paste0(config$dir$extra, "/", config$archivo.features.extra))
 }
 # ------------------------------------------------------------------------------
 
@@ -84,6 +88,10 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
                                    mejores.variables = mejores.variables) %>%
     dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
     dplyr::select(-clase_ternaria)
+  if (! is.null(features.extra)) {
+    test <- test %>%
+      dplyr::left_join(features.extra, by = c("numero_de_cliente", "foto_mes"))
+  }
   
   # Lectura de conjunto de datos de train
   mejor.corte <- list("ganancia_mejor" = 0, "prob_corte" = 0.025)
@@ -104,6 +112,10 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
                                       mejores.variables = mejores.variables) %>%
       dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
       dplyr::select(-clase_ternaria)
+  }
+  if (! is.null(features.extra)) {
+    train <- train %>%
+      dplyr::left_join(features.extra, by = c("numero_de_cliente", "foto_mes"))
   }
 
   # Definir conjuntos de train/test para XGBoost

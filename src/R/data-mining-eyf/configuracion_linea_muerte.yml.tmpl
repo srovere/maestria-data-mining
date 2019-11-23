@@ -1,7 +1,8 @@
 # Directorios de trabajo
 dir:
   lib: ${base}/src/R/data-mining-eyf/lib
-  input: ${base}/src/R/data-mining-eyf/input/months_base_denicolay
+  input: ${base}/src/R/data-mining-eyf/input/months_full
+  extra: ${base}/src/R/data-mining-eyf/input/extra
   output: ${base}/src/R/data-mining-eyf/output
   work: ${base}/src/R/data-mining-eyf/work
   
@@ -36,4 +37,7 @@ fecha.desde: 2019-04-01
 fecha.hasta: 2019-04-01
 
 # Definicion de archivo de seleccion de variables (se busca en la carpeta "work")
-archivo.seleccion.variables: "mejores_variables.rds"
+archivo.seleccion.variables: 
+
+# Definicion de archivo de features extra (probabilidades resultantes de modelos simples)
+archivo.features.extra:
