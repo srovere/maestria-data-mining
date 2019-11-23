@@ -105,15 +105,19 @@ cppFunction('NumericVector fhistC(NumericVector pcolumna, IntegerVector pdesde )
   return out;
 }')
 
-dataset <- list.files(path = kcarpeta_datasetsOri, pattern = "*.RData", full.names = TRUE) %>%
-  data.frame(archivo = .) %>%
-  purrr::pmap_dfr(
-    .l = .,
-    .f = function(archivo) {
-      load(file = as.character(archivo))
-      return (resultados.modelo)
-    }
-  ) %>% as.data.table()
+archivos.rdata <- list.files(path = kcarpeta_datasetsOri, pattern = "*.RData", full.names = TRUE)
+dataset        <- NULL
+for (archivo in archivos.rdata) {
+  load(file = as.character(archivo))
+  if (is.null(dataset)) {
+    dataset <- resultados.modelo
+  } else {
+    dataset <- dataset %>%
+      dplyr::inner_join(resultados.modelo, by = c("numero_de_cliente", "foto_mes"))
+  }
+  rm(resultados.modelo, resumen.modelo) 
+}
+dataset <- as.data.table(dataset)
 setorder(dataset, numero_de_cliente, foto_mes)
 
 
