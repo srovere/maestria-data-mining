@@ -113,7 +113,7 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
 	# Generar resumen
 	logger$info("Generando resumen")
 	resumen.periodo <- dplyr::bind_cols(
-	    data.frame(modelo = config$nombre.modelo, semilla = config$semilla, 
+	    data.frame(modelo = config$nombre.modelo, semilla = config$semilla, periodo = periodo.test,
 	               punto_corte = mejor.corte$prob_corte, ganancia = ganancia),
 	    as.data.frame(parametros)
 	)
