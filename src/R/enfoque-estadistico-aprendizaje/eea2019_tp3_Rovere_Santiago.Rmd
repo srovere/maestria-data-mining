@@ -15,7 +15,7 @@ lang: es
 
 # Preparación de los datos
 
-Se comienza el análisis propuesto cargando los paquetes necesarios, leyendo el conjunto de datos y mostrando la estructura del mismo a fin de conocer los atributos sobre los que se van a trabajar.
+Se comienza el análisis propuesto cargando los paquetes necesarios, leyendo el conjunto de datos de *entrenamiento* y mostrando la estructura del mismo a fin de conocer los atributos sobre los que se van a trabajar.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Borrar variables del ambiente
@@ -46,16 +46,30 @@ datos_train <- readr::read_csv(file = "titanic_complete_train.csv")
 head(datos_train)
 ```
 
+Luego se selecciona un subconjunto de *features*, algunos de los cuales son categóricos y son transformado a *factor* de R:
+
+  * *PassengerId*: identificador de pasajero;
+  * *Survived*: Esta es la clase a predecir. Indica si el pasajero sobrevivió o no al hundimiento del Titatic
+  * *Pclass*: Categoría de pasaje que compró el pasajero. Puede ser 1 (mejor categoría), 2 o 3 (peor categoría)
+  * *Sex*: Sexo del pasajero
+  * *Age*: Edad del pasajero
+  * *SibSp*: Número de hermanos y/o cónyuge que acompañan al pasajero
+  * *Parch*: Número de padres y/o hijos que acompañan al pasajero
+  * *Fare*: Monto de la tarifa pagada por el pasajero
+  * *Embarked*: Puerto en el cual embarcó el pasajero (C: Cherbourg, S: Southampton, Q: Queenstown)
+
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 datos_train %<>%
-  # Seleccionar PassengerId, Survived, Pclass, Sex, Age, SibSp,Parch, Fare y Embarked  
-  dplyr::select(PassengerId, Survived, Pclass, Sex, Age, SibSp,Parch, Fare, Embarked) %>%
+  # Seleccionar PassengerId, Survived, Pclass, Sex, Age, SibSp, Parch, Fare y Embarked  
+  dplyr::select(PassengerId, Survived, Pclass, Sex, Age, SibSp, Parch, Fare, Embarked) %>%
   # Transformar Survived, Pclass, Sex y Embarked a factor
   dplyr::mutate(Survived = as.factor(Survived), 
                 Pclass = as.factor(Pclass),
                 Sex = as.factor(Sex),
                 Embarked = as.factor(Embarked))
 ```
+
+A continuación se efectúa un gráfico *ggpairs* para observar las asociaciones entre variables incluyendo la clase. Lo primero que se destaca es la gran cantidad de fallecidos correspondientes a pasajeros de sexo *masculino* y que compraron pasajes de *tercera clase*. Esto indicaría que son variables con alto proder predictivo. También se observa que los pasajeros fallecidos tienen una mediana de edad un poco mayor que los sobrevivientes. Por último, también se observa que hay una cantidad levemente mayor de sobrevivientes de pasajeros que pagaron tarifas más altas.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.width=8, fig.height=10 }
 GGally::ggpairs(data = datos_train,
@@ -68,6 +82,8 @@ GGally::ggpairs(data = datos_train,
     axis.text.x = element_text(angle = 90, hjust = 1)
   ) 
 ```
+
+Para finalizar la etapa de preparación de los datos, tomamos el conjunto de datos de entrenamiento y separamos 70% de las observaciones para *entrenamiento* y el 30% restante con fines de *validación*. El gráfico interactivo de barras que se muestra a continuación fue confeccionado para corroborar que se mantenga la proporción de clases a predecir en los conjuntos de datos resultantes. Pueden visualizarse los porcentajes de cada clase deslizando el puntero del mouse sobre cada una de las barras.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Dividir el conjunto de entrenamiento en 70% para entrenamiento y 30% para validacion.
@@ -109,6 +125,8 @@ suppressWarnings(highcharter::highchart() %>%
 
 # Predicciones 
 
+Se realiza un primer modelo de regresión logística de acuerdo a los atributos propuestos: *Pclass*, *Sex* y *Age*. A continuación se presentan los coeficientes de cada una de las covariables. Para el caso de las variables categóricas *Pclass* y *Sex* se consideraron como categorías basales las correspondientes a *primera clase* y *sexo femenino* respectivamente.
+
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Se realiza el primer modelo con las variables Pclass, Sex y Age
 modelo.1 <- glm(formula = Survived ~ Pclass + Sex + Age, 
@@ -118,18 +136,36 @@ knitr::kable(
 )
 ```
 
+De la tabla anterior observamos que todos los coeficientes de las covariables propuestas son negativos y altamente significativos. Que un coeficiente sea negativo, indica que un incremento en el valor de la covariable disminuye la probabilidad de supervivencia esperada del pasajero *ceteris paribus*. Para el caso de la edad, esto es consistente con el análisis previo, donde se había observado que la edad de los fallecidos tenía una mediana mayor que la de los sobrevivientes.
+
+Para el caso de las variables categórias, se observa que ser de sexo masculino disminuye la probabilidad esperada de supervivencia. Lo mismo sucede cuando *empeora* la categoría en la que viaja del pasajero. Es decir, los de segunda categoría tienen menos probabilidad esperada de superviviencia que los de primera y lo mismo ocurre con los de tercera respecto de los de segunda. Hasta aquí todos los hallazgos han sido consistentes con lo observado en el gráfico de *ggpairs*.
+
+Finalmente, y a modo de ejemplo, se muestra la probabilidad esperada de supervivencia para dos pasajeros con las siguientes características:
+
+  * *Rose*: mujer de 17 años que viaja en primera clase
+  * *Jack*: hombre de 20 años que viaja en tercera clase
+
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Ahora se reponde a la pregunta: Quien tiene mas chances de sobrevivir?
-data.rose <- data.frame(Pclass = factor(1, levels = levels(datos_entrenamiento$Pclass)), 
+data.rose <- data.frame(Nombre = "Rose",
+                        Pclass = factor(1, levels = levels(datos_entrenamiento$Pclass)), 
                         Sex = factor("female", levels = levels(datos_entrenamiento$Sex)),
                         Age = 17)
 prob.rose <- predict(object = modelo.1, newdata = data.rose, type = "response")
 
-data.jack <- data.frame(Pclass = factor(3, levels = levels(datos_entrenamiento$Pclass)), 
+data.jack <- data.frame(Nombre = "Jack",
+                        Pclass = factor(3, levels = levels(datos_entrenamiento$Pclass)), 
                         Sex = factor("male", levels = levels(datos_entrenamiento$Sex)),
                         Age = 20)
 prob.jack <- predict(object = modelo.1, newdata = data.jack, type = "response")
+
+knitr::kable(
+  rbind(dplyr::mutate(data.rose, Prob = prob.rose), dplyr::mutate(data.jack, Prob = prob.jack)),
+  digits = 3, col.names = c("Pasajero", "Clase", "Sexo", "Edad", "Prob. esperada de sobrevivir")
+)
 ```
+
+Se observa que la probabilidad de supervivencia esperada de Rose es prácticamente 10 veces mayor que la de Jack, lo cual es esperable debido principalmente a las diferencias de sexo y clase en la que viajan ambos.
 
 # Generación de modelos
 
