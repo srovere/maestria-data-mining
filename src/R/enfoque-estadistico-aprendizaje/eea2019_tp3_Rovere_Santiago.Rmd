@@ -266,6 +266,15 @@ ggplot2::ggplot(data = prediccion.mejor.modelo,
 
 # Elección del punto de corte
 
+A continuación se utilizarán las 4 métricas propuestas para hacer una selección adecuada del punto de corte. En adelante, se denominará predicción positiva a la predicción asociada a un evento de supervivencia. Por el contrario, una predicción de deceso se denominará predicción negativa. Luego, los vedaderos positivos (TP) y verdaderos negativos (TN) serán aquellos eventos de supervivencia y deceso clasificados como tal, respectivamente. Finalmente, los falsos positivos (FP) y falsos negativos serán aquellos eventos de supervivencia y deceso clasificados erróneamente como el evento contrario, respectivamente.
+
+  * *Accuracy*: $\frac{TP+TN}{TP+TN+FP+FN}$ (cantidad de predicciones correctas sobre la cantidad total de eventos)
+  * *Precision*: $\frac{TP}{TP+FP}$ (cantidad de predicciones positivas correctas sobre la cantidad total de predicciones positivas)
+  * *Recall*: $\frac{TP}{TP+FN}$ (cantidad de predicciones positivas correctas sobre la cantidad total de eventos positivos reales)
+  * *Specificity*: $\frac{TN}{TN+FP}$ (cantidad de predicciones negativas correctas sobre la cantidad total de eventos negativos reales)
+  
+Para cada punto de corte evaluado entre 0 y 1, se calcularán los valores de cada una de las métricas indicadas. El valor ideal para todas estas métricas es 1, siendo 0 el peor indicador. Se deberá buscar un punto de corte haciendo un *trade-off* entre todos los valores de las métricas.
+
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.width=8 }
 # Prediccion utilizando conjunto de validacion
 prediccion.validacion <- modelos %>% 
@@ -341,6 +350,16 @@ ggplot2::ggplot(data = metricas) +
   )
 ```
 
+Del gráfico anterior se observa que conforme aumenta el punto de corte, también aumentan las métricas *specificity* y *precision* por efecto de la fuerte disminución de los falsos positivos. Del mismo modo, al aumentar el punto de corte, también aumentan fuertemente los falsos negativos, haciendo que la métrica *recall* disminuya. Finalmente, se observa que el *accuracy* no tiene un comportamiento monótono, lo cual es interesante dado que es posible encontrar un máximo. Esta métrica, al considerar tanto los falsos positivos como los falsos negativos, depende de cuánto peso tengan ambas cantidades las cuales tienen comportamientos opuestos al cambiar el punto de corte.
+
+Como primera aproximación, se podría argumentar que un buen punto de corte es **P1**, dado que el valor de *accuracy* es máximo y las demás métricas tienen todas un valor relativamente alto y ninguna es demasiado buena a expensas de que otra sea demasiado mala. Considerar valores mayores a **P1** (hasta el punto en que el *accuracy* comience a disminuir) implicaría aumentar tres de las las métricas a expensas de empeorar la métrica *recall*. Sin embargo, este enfoque está basado solamente en el valor de las métricas sin considerar las mismas en función de su significado.
+
+Sería bastante razonable suponer que un modelo como este se podría utilizar para predecir el número de supervivientes y en función a dicha cantidad, asignar recursos para una operación de rescate. Sabiendo que los recursos son siempre finitos y en general escasos, se debería hacer una análisis que contemple tal situación. Por tal motivo, no tiene la misma importancia dismuir la cantidad de falsos positivos que la cantidad de falsos negativos. Un falso positivo representa una persona clasificada como superviviente cuando en realidad está fallecida y un falso negativo es otra catalogada como fallecida cuando en realidad ha sobrevivido. Sobre la base del razonamiento inicial, si una persona es clasificada como fallecida, no se asignan recursos para ir al rescate de ésta. Por tal motivo el foco debe ponerse en disminuir los falsos negativos o FN. 
+
+Observando la definición de las métricas, se observa que *recall* es la que mejor penaliza los falsos negativos. Por tal motivo, si solamente nos focalizamos en estas 4 métricas, debemos priorizar un poco más a *recall* que a las demás (existen otras métricas como F1 o F$_{beta}$ que consideran *precision* y *recall* simultáneamente pero están fuera del foco de este trabajo). Se asume como hipótesis adicional que resultaría imposible considerar el punto de corte 0 a fin de maximizar *recall* dado que implicaría asignar recursos para el rescate de todos los pasajeros.
+
+Con la consideración anterior y teniento en cuenta la presmida de no mejorar mucho una métrica a expensas de empeorar mucho todas las demás, elegimos el punto **P2** que es muy cercano a la intersección de *accuracy*, *recall* y *specificity* (dado que la selección del umbral está discretizada). En este punto el valor *accuracy* está bastante cerca del máximo y las otras métricas son levemente menores que para el punto **P1**. Desde luego, podrían existir otros criterios igualmente válidos para seleccionar algún otro punto de corte.
+
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # MdC para primer punto de corte
 predicciones.1     <- ifelse(prediccion.validacion > puntos.corte$p1, 1, 0)
@@ -367,6 +386,8 @@ knitr::kable(matriz.confusion.1)
 knitr::kable(matriz.confusion.2)
 ```
 
+Las tablas previas muestran las matrices de confusión resultantes para cada punto de corte. La suma de los valores de las columnas representan la cantidad real de sobrevivientes y fallecidos. A su vez, la suma de los valores de las filas representan la cantidad predicha de sobrevivientes y fallecidos. Finalmente, cada celda indica la cantidad de personas con su clasificación real y su clasificación de acuerdo al modelo. Lo primero que es importante destacar es que hay muchos más aciertos que errores para ambos puntos de corte. Además, se observa que para el punto de corte **P1** hay 26 casos de FN, mientras que para **P2** hay 23. Esas son 3 personas que se podrían rescatar a expensas de aumentar en 9 la cantidad de falsos positivos. Más abajo se muestran los valores de las 4 métricas para cada punto de corte.
+
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 comparacion.metricas.validacion <- MetricasPrediccion(prediccion.validacion, clases.validacion, puntos.corte$p1) %>%
   dplyr::bind_rows(MetricasPrediccion(prediccion.validacion, clases.validacion, puntos.corte$p2)) %>%
@@ -376,6 +397,8 @@ knitr::kable(comparacion.metricas.validacion, digits = 3)
 ```
 
 # Dataset de testeo
+
+Por último, se aplica el modelo al conjunto de *test*. Se leen los datos, se aplican las mismas transformaciones indicadas en la primera sección del documento, y se realiza la predicción. A continuación se muestra la matriz de confusión para el punto de corte **P2** y los valores de las 4 métricas para ambos puntos de corte a fin de poder compararlos.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Cargar conjunto de datos de test y aplicar las mismas transformaciones que para train
@@ -411,6 +434,8 @@ colnames(matriz.confusion.3) <- c("Fallecidos reales", "Sobrevivientes reales")
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 knitr::kable(matriz.confusion.3)
 ```
+
+Al igual que con el conjunto de validación, se observa que la cantidad de aciertos (TP y TN) es bastante superior a la cantidad de errores. Las métricas son un poco peores que para el conjunto de validación a excepción de *recall*, que se mantiene bastante parecida (incluso para ambos puntos de corte). También se observa que el valor de *recall* es mayor para **P2** que para **P1**. Finalmente, también es importante destacar que la diferencia entre los valores de las métricas para ambos puntos es prácticamente la misma que se observa para el conjunto de validación.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 comparacion.metricas.test <- MetricasPrediccion(prediccion.test, clases.test, puntos.corte$p1) %>%
