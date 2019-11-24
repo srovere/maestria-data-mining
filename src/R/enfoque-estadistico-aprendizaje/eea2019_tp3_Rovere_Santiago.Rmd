@@ -48,7 +48,7 @@ head(datos_train)
 
 Luego se selecciona un subconjunto de *features*, algunos de los cuales son categóricos y son transformado a *factor* de R:
 
-  * *PassengerId*: identificador de pasajero;
+  * *PassengerId*: identificador de pasajero
   * *Survived*: Esta es la clase a predecir. Indica si el pasajero sobrevivió o no al hundimiento del Titatic
   * *Pclass*: Categoría de pasaje que compró el pasajero. Puede ser 1 (mejor categoría), 2 o 3 (peor categoría)
   * *Sex*: Sexo del pasajero
@@ -138,7 +138,7 @@ knitr::kable(
 
 De la tabla anterior observamos que todos los coeficientes de las covariables propuestas son negativos y altamente significativos. Que un coeficiente sea negativo, indica que un incremento en el valor de la covariable disminuye la probabilidad de supervivencia esperada del pasajero *ceteris paribus*. Para el caso de la edad, esto es consistente con el análisis previo, donde se había observado que la edad de los fallecidos tenía una mediana mayor que la de los sobrevivientes.
 
-Para el caso de las variables categórias, se observa que ser de sexo masculino disminuye la probabilidad esperada de supervivencia. Lo mismo sucede cuando *empeora* la categoría en la que viaja del pasajero. Es decir, los de segunda categoría tienen menos probabilidad esperada de superviviencia que los de primera y lo mismo ocurre con los de tercera respecto de los de segunda. Hasta aquí todos los hallazgos han sido consistentes con lo observado en el gráfico de *ggpairs*.
+Para el caso de las variables categórias, se observa que ser de sexo masculino disminuye la probabilidad esperada de supervivencia respecto del sexo femenino. Lo mismo sucede cuando *empeora* la categoría en la que viaja del pasajero. Es decir, los de segunda categoría tienen menos probabilidad esperada de superviviencia que los de primera y lo mismo ocurre con los de tercera respecto de los de segunda. Hasta aquí todos los hallazgos han sido consistentes con lo observado en el gráfico de *ggpairs*.
 
 Finalmente, y a modo de ejemplo, se muestra la probabilidad esperada de supervivencia para dos pasajeros con las siguientes características:
 
@@ -165,9 +165,15 @@ knitr::kable(
 )
 ```
 
-Se observa que la probabilidad de supervivencia esperada de Rose es prácticamente 10 veces mayor que la de Jack, lo cual es esperable debido principalmente a las diferencias de sexo y clase en la que viajan ambos.
+Se observa que la probabilidad de supervivencia esperada de Rose es prácticamente 10 veces mayor que la de Jack, lo cual es razonable debido principalmente a las diferencias de sexo y clase en la que viajan ambos.
 
 # Generación de modelos
+
+Se generan otros 3 nuevos modelos, los cuales incluyen las siguientes covariables:
+
+  * Sexo, tarifa pagada y edad
+  * Tarifa pagada y lugar de embarcación
+  * Sexo, clase de ticket, lugar de embarcación y edad
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Se defines las formulas para los 3 modelos a analizar
@@ -192,8 +198,12 @@ modelos %>%
   dplyr::mutate(glance = purrr::map(Modelo, broom::glance)) %>%
   tidyr::unnest(glance) %>%
   dplyr::select(Expresion, deviance, null.deviance, logLik, AIC, BIC) %>%
-  dplyr::arrange(deviance)
+  dplyr::arrange(deviance) %>%
+  knitr::kable(col.names = c("Modelo", "Deviance", "Null deviance", "Log-likelihood", "AIC", "BIC"),
+               digits = 2)
 ```
+
+En la tabla previa se muestran datos de bondad de ajuste para los 3 modelos anteriores y el modelo inicial. En particular, la tabla está ordenada por *deviance* en forma creciente. La *deviance* es la generalización de la idea de la suma de los cuadrados de los residuos que se aplica en mínimos cuadrados ordinarios para los casos donde el ajuste se realiza por el método de máxima verosimilitud. Cuanto mayor sea la diferencia entre la *null deviance* y la *deviance del modelo*, mayor será el porcentaje de variabilidad explicada por éste. En este caso, el modelo que capta el mayor porcentaje de variabilidad es el correspondiente a las covariables **sexo**, **clase de ticket**, **lugar de embarcación** y **edad**.
 
 # Evaluación del modelo
 
