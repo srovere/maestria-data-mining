@@ -207,6 +207,12 @@ En la tabla previa se muestran datos de bondad de ajuste para los 3 modelos ante
 
 # Evaluación del modelo
 
+En esta sección se realizará una primera evaluación de la performance del mejor modelo (basado en *sexo*, *clase de ticket*, *lugar de embarcación* y *edad*) sobre el conjunto de entrenamiento. El modelo predice la probabilidad esperada de supervivencia. Sin embargo, a fin de poder evaluar el poder de predicción, es necesario transformar esas probabilidades en eventos esperados de supervivencia. Es razonable pensar que una alta probabilidad está asociada a un evento de supervivencia, mientras que una baja probabilidad está asociada a un evento de fallecimiento. 
+
+Una forma de medir la concordancia entre los eventos esperados y los predichos es a través de la curva *ROC*. Esta curva se construye generando múltiples escenarios de eventos predichos a partir de distintos puntos de corte de la probabilidad de supervivencia. Probabilidades mayores al punto de corte se considerarán eventos de supervivencia y probabilidades menores, eventos de deceso. Luego, para cada escenario definido por un punto de corte, se calcularán dos indicadores de concordancia: la tasa de verdaderos positivos (cuántos eventos de supervivencia fueron realmente clasificados como tales) y la tasa de falsos positivos (cuántos de los eventos de deceso fueron erróneamente clasificados como de supervivencia).
+
+Si la predicción fuera hecha completamente al azar, sería de esperar que la tasa de verderos positivos (TPR) sea igual a la de falsos positivos (FPR). Esta asignación nos produciría una curva ROC igual a la función identidad. En un modelo con mayor capacidad predictiva, es de esperar que para una cierta tasa de falsos positivos, la tasa de verdaderos positivos sea mayor. Es por eso que un buen modelo presenta una curva ROC con valores mayores en las ordenadas que la ROC para un modelo aleatorio. La forma de cuantificar cuán mayor es la ROC de un modelo en comparación con la ROC de un modelo aleatorio es mediante al *área bajo la curva ROC* o *ROC AUC*. En el caso de un modelo alreatorio cuya curva ROC es la función identidad, la ROC AUC vale 0.5. Para el modelo perfecto, la ROC AUC vale 1.
+
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Generamos la curva ROC y calculamos ROC AUC para el modelo elegido (sexo_clase_lugar_edad)
 prediccion.mejor.modelo <- modelos %>% 
@@ -217,6 +223,8 @@ prediccion.mejor.modelo <- modelos %>%
 # Calcular ROC
 roc.mejor.modelo <- pROC::roc(response = prediccion.mejor.modelo$Survived, predictor = prediccion.mejor.modelo$.fitted)
 ```
+
+En el siguiente gráfico se observa a la curva ROC del modelo completamente aleatorio con líneas punteadas. La línea sólida que está por encima es la curva ROC del mejor modelo de los probados anteriormente. Se observa que para este modelo, la ROC AUC es de 0.858, lo cual a priori indicaría que es un modelo bastante bueno considerando la simpleza del mismo.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # Graficar ROC
@@ -233,8 +241,12 @@ pROC::ggroc(roc.mejor.modelo, size = 1, legacy.axes = TRUE) +
   )
 ```
 
+En este próximo gráfico observamos dos superficies correspondientes a los eventos reales de supervivencia y fallecimiento. En el eje de las ordenadas se muestran las posibles probabilidades de predicción que serán candidatas a tomarse como puntos de corte. Para cada superficie, se observa la *densidad* de casos del evento correspondiente en relación a la probabilidad de supervivencia esperada. Se observa que los casos de supervivencia tienen mayor densidad de casos en probabilidades altas, mientras que los eventos de deceso tiene mucha mayor densidad en las probabilidades bajas. 
+
+Esto es consistente con el planteo inicial que se hizo al comienzo de la sección. Dado que los casos de decesos tienen mucha mayor densidad en probabilidades bajas que los de supervivencia en probabilidades altas, sería de esperar - a priori - que el punto de corte para separar eventos de deceso y supervivencia esté en valores más cercanos a 0 que a 1. A continuación se realizará un análisis más exhaustivo del punto de corte.
+
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
-# Violing plot
+# Violin plot
 ggplot2::ggplot(data = prediccion.mejor.modelo, 
                 mapping = ggplot2::aes(x = Survived, y = .fitted, group = Survived, fill = Survived)) + 
   ggplot2::geom_violin() +
