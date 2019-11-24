@@ -109,6 +109,14 @@ archivos.rdata <- list.files(path = kcarpeta_datasetsOri, pattern = "*.RData", f
 dataset        <- NULL
 for (archivo in archivos.rdata) {
   load(file = as.character(archivo))
+  # Agregar columna de ranking de probabilidad
+  columna_probabilidad <- colnames(resultados.modelo)[3]
+  columna_ranking      <- paste0(columna_probabilidad, "_ranking")
+  resultados.modelo    <- resultados.modelo %>%
+    dplyr::group_by(foto_mes) %>%
+    dplyr::mutate(!! columna_ranking := dplyr::percent_rank(!! rlang::sym(columna_probabilidad))) %>%
+    dplyr::ungroup()
+  
   if (is.null(dataset)) {
     dataset <- resultados.modelo
   } else {
@@ -117,9 +125,12 @@ for (archivo in archivos.rdata) {
   }
   rm(resultados.modelo, resumen.modelo) 
 }
-dataset <- as.data.table(dataset)
-setorder(dataset, numero_de_cliente, foto_mes)
 
+# Transformar dataset en data.table
+dataset <- as.data.table(dataset)
+
+# Ordenar dataset por numero de cliente y periodo
+setorder(dataset, numero_de_cliente, foto_mes)
 
 nrow( dataset )
 ncol( dataset )
