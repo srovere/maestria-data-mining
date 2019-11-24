@@ -36,13 +36,16 @@ leer_set_datos <- function(input.dir, denominacion) {
 }
 
 # Funcion para leer set de datos con feature engineering agrupados a nivel mensual (desde - hasta)
-leer_set_datos_mensuales <- function(input.dir, fecha.desde, fecha.hasta, mejores.variables = NULL) {
+leer_set_datos_mensuales <- function(input.dir, fecha.desde, fecha.hasta, mejores.variables = NULL, proporcion = 1) {
   fechas    <- seq(from = fecha.desde, to = fecha.hasta, by = "months")
   set.datos <- purrr::map_dfr(
     .x = fechas,
     .f = function(fecha.mes) {
       archivo.mes <- paste0(format(fecha.mes, "%Y%m"), ".rds")
       datos.mes   <- base::readRDS(paste0(input.dir, "/", archivo.mes))
+      if (proporcion < 1) {
+        datos.mes %<>% dplyr::sample_frac(size = proporcion)  
+      }
       if (! is.null(mejores.variables)) {
         return (datos.mes[, mejores.variables])
       } else {
@@ -54,12 +57,15 @@ leer_set_datos_mensuales <- function(input.dir, fecha.desde, fecha.hasta, mejore
 }
 
 # Funcion para leer set de datos con feature engineering agrupados a nivel mensual (vector de meses)
-leer_set_datos_mensuales_meses_varios <- function(input.dir, fechas.meses, mejores.variables = NULL) {
+leer_set_datos_mensuales_meses_varios <- function(input.dir, fechas.meses, mejores.variables = NULL, proporcion = 1) {
   set.datos <- purrr::map_dfr(
     .x = fechas.meses,
     .f = function(fecha.mes) {
       archivo.mes <- paste0(format(fecha.mes, "%Y%m"), ".rds")
       datos.mes   <- base::readRDS(paste0(input.dir, "/", archivo.mes))
+      if (proporcion < 1) {
+        datos.mes %<>% dplyr::sample_frac(size = proporcion)  
+      }
       if (! is.null(mejores.variables)) {
         return (datos.mes[, mejores.variables])
       } else {

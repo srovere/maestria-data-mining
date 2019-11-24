@@ -4,7 +4,8 @@
 rm(list = ls()); gc()
 Sys.setenv(TZ = "UTC")
 list.of.packages <- c("caret", "data.table", "dplyr", "futile.logger", "R6", 
-                      "mlrMBO", "rgenoud", "ROCR", "utils", "xgboost", "yaml")
+                      "magrittr", "mlrMBO", "rgenoud", "ROCR", "utils", "xgboost", 
+                      "yaml")
 for (pack in list.of.packages) {
   if (! require(pack, character.only = TRUE)) {
     stop(paste0("Paquete no encontrado: ", pack))
@@ -51,21 +52,33 @@ logger <- Logger$new(log.level = INFO)
 # --- IV. Leer set de datos y realizar operaciones basicas de FE ----
 # -----------------------------------------------------------------------------#
 
+# Si se indico agregar features "extra", cargarlos de archivo
+features.extra <- NULL
+if (! is.null(config$archivo.features.extra)) {
+  features.extra <- base::readRDS(paste0(config$dir$extra, "/", config$archivo.features.extra))
+}
+
 # Cargar conjunto de datos de entrenamiento
 if (! is.null(config$meses.entrenamiento$lista.meses)) {
   logger$info(paste0("Leyendo conjunto de datos de entrenamiento para los meses ", paste0(config$meses.entrenamiento$lista.meses, collapse = ", ")))
-  set.datos <- leer_set_datos_mensuales_meses_varios(paste0(config$dir$input), 
-                                                     as.Date(config$meses.entrenamiento$lista.meses)) %>%
+  set.datos <- leer_set_datos_mensuales_meses_varios(input.dir = paste0(config$dir$input), 
+                                                     fechas.meses = as.Date(config$meses.entrenamiento$lista.meses),
+                                                     proporcion = config$proporcion.undersampling) %>%
     dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
     dplyr::select(-clase_ternaria)
 } else {
   logger$info(paste0("Leyendo conjunto de datos de entrenamiento desde ", config$meses.entrenamiento$rango.fechas$desde, 
                      " hasta ", config$meses.entrenamiento$rango.fechas$hasta))
-  set.datos <- leer_set_datos_mensuales(paste0(config$dir$input), 
+  set.datos <- leer_set_datos_mensuales(input.dir = paste0(config$dir$input), 
                                         fecha.desde = as.Date(config$meses.entrenamiento$rango.fechas$desde),
-                                        fecha.hasta = as.Date(config$meses.entrenamiento$rango.fechas$hasta)) %>%
+                                        fecha.hasta = as.Date(config$meses.entrenamiento$rango.fechas$hasta),
+                                        proporcion = config$proporcion.undersampling) %>%
     dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
     dplyr::select(-clase_ternaria)
+}
+if (! is.null(features.extra)) {
+  set.datos <- set.datos %>%
+    dplyr::left_join(features.extra, by = c("numero_de_cliente", "foto_mes"))
 }
 
 # Cargar conjunto de datos de validacion
@@ -79,9 +92,17 @@ if (! is.null(config$meses.validacion$rango.fechas$desde) && ! is.null(config$me
                                              fecha.hasta = as.Date(config$meses.validacion$rango.fechas$hasta)) %>%
     dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
     dplyr::select(-clase_ternaria)
+  if (! is.null(features.extra)) {
+    set.datos.test <- set.datos.test %>%
+      dplyr::left_join(features.extra, by = c("numero_de_cliente", "foto_mes"))
+  }
 } else {
   proporcion.train <- config$proporcion.train
 }
+
+# Limpiar memoria
+rm(features.extra)
+gc(full = TRUE)
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
@@ -92,10 +113,10 @@ if (! is.null(config$meses.validacion$rango.fechas$desde) && ! is.null(config$me
 start.time         <- proc.time()
 limites.parametros <- ParamHelpers::makeParamSet(
   ParamHelpers::makeNumericParam("eta", lower = 0.005, upper = 0.1),
-  ParamHelpers::makeIntegerParam("max_depth", lower = 5, upper = 25),
+  ParamHelpers::makeIntegerParam("max_depth", lower = 5, upper = 20),
   ParamHelpers::makeNumericParam("gamma", lower = 1, upper = 10),
   ParamHelpers::makeNumericParam("subsample", lower = 0.20, upper = 1),
-  ParamHelpers::makeNumericParam("colsample_bytree", lower = 0.2, upper = 0.9),
+  ParamHelpers::makeNumericParam("colsample_bytree", lower = 0.2, upper = 0.7),
   ParamHelpers::makeNumericParam("min_child_weight", lower = 1, upper = 10),
   ParamHelpers::makeNumericParam("alpha", lower = 0, upper = 10),
   ParamHelpers::makeNumericParam("lambda", lower = 1, upper = 10)

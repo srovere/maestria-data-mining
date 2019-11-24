@@ -2,6 +2,7 @@
 dir:
   lib: ${base}/src/R/data-mining-eyf/lib
   input: ${base}/src/R/data-mining-eyf/input/months_full
+  extra: ${base}/src/R/data-mining-eyf/input/extra
   output: ${base}/src/R/data-mining-eyf/output
   work: ${base}/src/R/data-mining-eyf/work
   
@@ -30,3 +31,9 @@ iteraciones: 50
 
 # Intervalo de guardado de datos (en segundos)
 file.persistence.interval: 0
+
+# Proporcion para undersampling (1 = no hay undersampling)
+proporcion.undersampling: 1
+
+# Definicion de archivo de features extra (probabilidades resultantes de modelos simples)
+archivo.features.extra:
