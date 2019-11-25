@@ -183,7 +183,7 @@ if (file.exists("output/MetricasLouvain.RData")) {
         dplyr::pull(grafo)
       grafo.original <- grafo.original[[1]]
       
-      # Obtendo las comunidades con el algoritmo de Louvain.
+      # Obtengo las comunidades con el algoritmo de Louvain.
       # Luego calculo la modularidad y la cantidad de comunidades.
       comunidad.original   <- igraph::cluster_louvain(grafo.original)  
       modularidad.original <- igraph::modularity(grafo.original, comunidad.original$membership)
@@ -240,58 +240,76 @@ ggplot2::ggplot(data = estadisticas.louvain) +
 # ---- Opcional 1 (Tarea 2) ----                            
 # ---------------------------------------------------------------------------------------#
 
-if (file.exists("output/MetricasGirvanNewman.RData")) {
-  load(file = "output/MetricasGirvanNewman.RData")
+if (file.exists("output/MetricasClausetNewmanMoore.RData")) {
+  load(file = "output/MetricasClausetNewmanMoore.RData")
 } else {
   # Calcular metricas pedidas
-  progress.bar           <- txtProgressBar(min = 0, max = nrow(grafos))
-  metricas.girvan.newman <- NULL
+  progress.bar                  <- txtProgressBar(min = 0, max = nrow(grafos))
+  metricas.clauset.newman.moore <- NULL
   for (nivel.progreso in seq(from = 1, to = nrow(grafos))) {
+    estadio        <- grafos[nivel.progreso, ]$estadio
+    sujeto         <- grafos[nivel.progreso, ]$sujeto
+    punto_corte    <- grafos[nivel.progreso, ]$punto_corte
     grafo.original <- as.list(grafos[nivel.progreso, ]$grafo)[[1]]
       
-    # Obtendo las comunidades con el algoritmo de Louvain.
+    # Obtengo las comunidades con el algoritmo de Clauset-Newman-Moore
     # Luego calculo la modularidad y la cantidad de comunidades.
-    comunidad.original   <- igraph::cluster_edge_betweenness(grafo.original)
+    comunidad.original   <- igraph::cluster_fast_greedy(grafo.original)
     modularidad.original <- igraph::modularity(grafo.original, comunidad.original$membership)
     numero.com.original  <- length(unique(comunidad.original$membership))
     
     # Incrementar barra de progreso
     setTxtProgressBar(progress.bar, value = nivel.progreso)
 
-    if (! is.null(metricas.girvan.newman)) {
-      metricas.girvan.newman <- rbind(
-        metricas.girvan.newman,
+    if (! is.null(metricas.clauset.newman.moore)) {
+      metricas.clauset.newman.moore <- rbind(
+        metricas.clauset.newman.moore,
         (data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Original',
                     modularidad = modularidad.original, numero_comunidades = numero.com.original))
       )
     } else {
-      metricas.girvan.newman <- (data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Original',
-                                            modularidad = modularidad.original, numero_comunidades = numero.com.original))
+      metricas.clauset.newman.moore <- (data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Original',
+                                                   modularidad = modularidad.original, numero_comunidades = numero.com.original))
     }
   }
-  metricas.girvan.newman %<>% tidyr::pivot_longer(names_to = "metrica", values_to = "valor", cols = c("modularidad", "numero_comunidades"))
+  metricas.clauset.newman.moore %<>% tidyr::pivot_longer(names_to = "metrica", values_to = "valor", cols = c("modularidad", "numero_comunidades"))
   
   # Calcular estadisticas
-  estadisticas.girvan.newman <- metricas.girvan.newman %>%
+  estadisticas.clauset.newman.moore <- metricas.clauset.newman.moore %>%
     dplyr::group_by(estadio, punto_corte, grafo, metrica) %>%
     dplyr::summarise(media = mean(valor, na.rm = TRUE),
                      desvio = sd(valor, na.rm = TRUE))
   
   # Guardar metricas y estadisticas a archivo RData
-  save(metricas.girvan.newman, estadisticas.girvan.newman, file = "output/MetricasGirvanNewman.RData")
+  save(metricas.clauset.newman.moore, estadisticas.clauset.newman.moore, file = "output/MetricasClausetNewmanMoore.RData")
 }
 
 # Etiquetas para metricas
-etiquetas_metricas_girvan_newman <- c(
+etiquetas_metricas_clauset_newman_moore <- c(
   modularidad = "Modularidad",
   numero_comunidades = "Número de comunidades"
 )
 
-# Generar grafico comparativo
-ggplot2::ggplot(data = estadisticas.girvan.newman) +
-  ggplot2::geom_errorbar(mapping = ggplot2::aes(x = punto_corte, ymin = media - desvio, ymax = media + desvio, col = grafo)) +
-  ggplot2::facet_grid(metrica~estadio, scales = "free", labeller = ggplot2::labeller(metrica = etiquetas_metricas_girvan_newman)) +
-  ggplot2::labs(x = "Densidad de corte", y = "Valor de la métrica", col = "Tipo de grafo",
+# Generar grafico comparativo entre Louvain y Clauset-Newman-Moore
+diferencias.louvain.clauset.newman.moore <- dplyr::inner_join(
+  estadisticas.louvain %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(grafo == "Original") %>%
+    dplyr::rename(L_media = media, L_desvio = desvio) %>%
+    dplyr::select(-grafo),
+  estadisticas.clauset.newman.moore %>%
+    dplyr::ungroup() %>%
+    dplyr::rename(CNM_media = media, CNM_desvio = desvio) %>%
+    dplyr::select(-grafo),
+  by = c("estadio", "punto_corte", "metrica")
+) %>% dplyr::mutate(Media = L_media - CNM_media,
+                    Desvio = L_desvio - CNM_desvio) %>%
+  dplyr::select(estadio, punto_corte, metrica, Media, Desvio) %>%
+  tidyr::pivot_longer(cols = c("Media", "Desvio"), names_to = "diferencia", values_to = "valor")
+ggplot2::ggplot(data = diferencias.louvain.clauset.newman.moore) +
+  ggplot2::geom_line(mapping = ggplot2::aes(x = punto_corte, y = valor, col = estadio)) +
+  ggplot2::facet_grid(metrica~diferencia, scales = "free", labeller = ggplot2::labeller(metrica = etiquetas_metricas_clauset_newman_moore)) +
+  ggplot2::labs(x = "Densidad de corte", y = "Valor de la métrica", col = "Estadío",
                 title = "Métricas de modularidad para grafos según de densidad de corte",
                 subtitle = "Valores medios y desvíos") +
   ggplot2::theme_bw() +
