@@ -84,13 +84,15 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
   # Lectura de conjunto de datos de test
   test <- leer_set_datos_mensuales(config$dir$input, 
                                    fecha.desde = as.Date(periodo.test),
-                                   fecha.hasta = as.Date(periodo.test),
-                                   mejores.variables = mejores.variables) %>%
+                                   fecha.hasta = as.Date(periodo.test)) %>%
     dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
     dplyr::select(-clase_ternaria)
   if (! is.null(features.extra)) {
     test <- test %>%
       dplyr::left_join(features.extra, by = c("numero_de_cliente", "foto_mes"))
+  }
+  if (! is.null(mejores.variables)) {
+    test <- test[, mejores.variables]
   }
   
   # Lectura de conjunto de datos de train
@@ -100,22 +102,23 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
     feval <- pe_perdida_xgboost_clases_unificadas
     train <- leer_set_datos_mensuales(config$dir$input, 
                                       fecha.desde = as.Date(periodo.test) - months(config$offset.meses.train.test + config$meses.entrenamiento - 1),
-                                      fecha.hasta = as.Date(periodo.test) - months(config$offset.meses.train.test),
-                                      mejores.variables = mejores.variables) %>%
+                                      fecha.hasta = as.Date(periodo.test) - months(config$offset.meses.train.test)) %>%
       dplyr::mutate(clase = fe_clase_binaria_unificada(clase_ternaria)) %>%
       dplyr::select(-clase_ternaria)
   } else {
     feval <- pe_perdida_xgboost
     train <- leer_set_datos_mensuales(config$dir$input, 
                                       fecha.desde = as.Date(periodo.test) - months(config$offset.meses.train.test + config$meses.entrenamiento - 1),
-                                      fecha.hasta = as.Date(periodo.test) - months(config$offset.meses.train.test),
-                                      mejores.variables = mejores.variables) %>%
+                                      fecha.hasta = as.Date(periodo.test) - months(config$offset.meses.train.test)) %>%
       dplyr::mutate(clase = fe_clase_binaria(clase_ternaria)) %>%
       dplyr::select(-clase_ternaria)
   }
   if (! is.null(features.extra)) {
     train <- train %>%
       dplyr::left_join(features.extra, by = c("numero_de_cliente", "foto_mes"))
+  }
+  if (! is.null(mejores.variables)) {
+    train <- train[, mejores.variables]
   }
 
   # Definir conjuntos de train/test para XGBoost
