@@ -70,32 +70,36 @@ ObtenerGrafoBinario <- function(matriz.correlacion, punto.corte) {
   igraph::graph.adjacency(matriz.adyacencia, mode = "undirected", diag = FALSE)
 }
 
+if (file.exists("output/Grafos.RData")) {
+  load(file = "output/Grafos.RData")
+} else {
 # Para cada individuo, estado de sueño y umbral, obtener un grafo
 grafos <- purrr::pmap_dfr(
-  .l = dplyr::distinct(datos.entrada, estadio, sujeto),
-  .f = function(estadio, sujeto) {
-    matriz.correlacion <- datos.entrada %>%
-      dplyr::filter(estadio == !! estadio & sujeto == !! sujeto) %>%
-      dplyr::select(-estadio, -sujeto) %>%
-      as.matrix()
-    
-    # Generar grafos para distintos umbrales
-    grafos.estadio.sujeto <- purrr::map_dfr(
-      .x = seq(from = 0, to = 1, by = 0.01),
-      .f = function(punto.corte) {
-        return(dplyr::tibble(
-          estadio = estadio,
-          sujeto = sujeto,
-          punto_corte = punto.corte,
-          grafo = list(ObtenerGrafoBinario(matriz.correlacion, punto.corte))
-        ))
-      }    
-    )
-  }
-)
-
-# Guardar grafos a un archivo RData
-save(grafos, file = "output/Grafos.RData")
+    .l = dplyr::distinct(datos.entrada, estadio, sujeto),
+    .f = function(estadio, sujeto) {
+      matriz.correlacion <- datos.entrada %>%
+        dplyr::filter(estadio == !! estadio & sujeto == !! sujeto) %>%
+        dplyr::select(-estadio, -sujeto) %>%
+        as.matrix()
+      
+      # Generar grafos para distintos umbrales
+      grafos.estadio.sujeto <- purrr::map_dfr(
+        .x = seq(from = 0, to = 1, by = 0.01),
+        .f = function(punto.corte) {
+          return(dplyr::tibble(
+            estadio = estadio,
+            sujeto = sujeto,
+            punto_corte = punto.corte,
+            grafo = list(ObtenerGrafoBinario(matriz.correlacion, punto.corte))
+          ))
+        }    
+      )
+    }
+  )
+  
+  # Guardar grafos a un archivo RData
+  save(grafos, file = "output/Grafos.RData")
+}
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -111,27 +115,31 @@ save(grafos, file = "output/Grafos.RData")
 # - Longitud caracteristica
 # - Coeficiente de clustering
 
-metricas <- grafos %>%
-  dplyr::mutate(
-    grado = purrr::map(grafo, ~mean(igraph::degree(.x))),
-    excentricidad = purrr::map(grafo, ~mean(igraph::eccentricity(.x))),
-    cercania = purrr::map(grafo, ~mean(igraph::closeness(.x))),
-    intermediacion = purrr::map(grafo, ~mean(igraph::betweenness(.x))),
-    autovector = purrr::map(grafo, ~mean(igraph::eigen_centrality(.x)[["vector"]])),
-    longitud_caracteristica = purrr::map(grafo, ~igraph::mean_distance(.x)),
-    coeficiente_clustering = purrr::map(grafo, ~igraph::transitivity(.x, type = "average"))
-  ) %>% dplyr::select(-grafo)
-
-# Para cada estadio, metrica y punto de corte, calcular media y desvio de cada metrica
-estadisticas <- metricas %>%
-  tidyr::pivot_longer(cols = c(-estadio, -sujeto, -punto_corte), names_to = "metrica", values_to = "valor") %>%
-  dplyr::mutate(valor = unlist(valor)) %>%
-  dplyr::group_by(estadio, metrica, punto_corte) %>%
-  dplyr::summarise(media = mean(valor, na.rm = TRUE),
-                   desvio = sd(valor, na.rm = TRUE))
-
-# Guardar metricas y estadisticas a archivo RData
-save(metricas, estadisticas, file = "output/Metricas.RData")
+if (file.exists("output/Metricas.RData")) {
+  load(file = "output/Metricas.RData")
+} else {
+  metricas <- grafos %>%
+    dplyr::mutate(
+      grado = purrr::map(grafo, ~mean(igraph::degree(.x))),
+      excentricidad = purrr::map(grafo, ~mean(igraph::eccentricity(.x))),
+      cercania = purrr::map(grafo, ~mean(igraph::closeness(.x))),
+      intermediacion = purrr::map(grafo, ~mean(igraph::betweenness(.x))),
+      autovector = purrr::map(grafo, ~mean(igraph::eigen_centrality(.x)[["vector"]])),
+      longitud_caracteristica = purrr::map(grafo, ~igraph::mean_distance(.x)),
+      coeficiente_clustering = purrr::map(grafo, ~igraph::transitivity(.x, type = "average"))
+    ) %>% dplyr::select(-grafo)
+  
+  # Para cada estadio, metrica y punto de corte, calcular media y desvio de cada metrica
+  estadisticas <- metricas %>%
+    tidyr::pivot_longer(cols = c(-estadio, -sujeto, -punto_corte), names_to = "metrica", values_to = "valor") %>%
+    dplyr::mutate(valor = unlist(valor)) %>%
+    dplyr::group_by(estadio, metrica, punto_corte) %>%
+    dplyr::summarise(media = mean(valor, na.rm = TRUE),
+                     desvio = sd(valor, na.rm = TRUE))
+  
+  # Guardar metricas y estadisticas a archivo RData
+  save(metricas, estadisticas, file = "output/Metricas.RData")
+}
 
 # Etiquetas para metricas
 etiquetas_metricas <- c(
@@ -163,46 +171,50 @@ ggplot2::ggplot(data = estadisticas) +
 # ---- Tarea 2 ----                            
 # ---------------------------------------------------------------------------------------#
 
-# Calcular metricas pedidas
-metricas.louvain <- purrr::pmap_dfr(
-  .l = dplyr::distinct(grafos, estadio, sujeto, punto_corte),
-  .f = function(estadio, sujeto, punto_corte) {
-    grafo.original <- grafos %>%
-      dplyr::filter(estadio == !! estadio & sujeto == !! sujeto & punto_corte == !! punto_corte) %>%
-      dplyr::pull(grafo)
-    grafo.original <- grafo.original[[1]]
-    
-    # Obtendo las comunidades con el algoritmo de Louvain.
-    # Luego calculo la modularidad y la cantidad de comunidades.
-    comunidad.original   <- igraph::cluster_louvain(grafo.original)  
-    modularidad.original <- igraph::modularity(grafo.original, comunidad.original$membership)
-    numero.com.original  <- length(unique(comunidad.original$membership))
-    
-    # Ahora genero una red random con la misma distribucion de grado que el grafo inicial.
-    # Obntengo las comunidades y calculo modularidad y cantidad de comunidades.
-    grafo.random       <- igraph::sample_degseq(out.deg = igraph::degree(grafo.original))
-    comunidad.random   <- igraph::cluster_louvain(grafo.random)  
-    modularidad.random <- igraph::modularity(grafo.random, comunidad.random$membership)
-    numero.com.random  <- length(unique(comunidad.random$membership))
-    
-    return (dplyr::bind_rows(
-      data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Original',
-                 modularidad = modularidad.original, numero_comunidades = numero.com.original),
-      data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Random',
-                 modularidad = modularidad.random, numero_comunidades = numero.com.random)
-    )) 
-  }
-) %>% tidyr::pivot_longer(names_to = "metrica", values_to = "valor", cols = c("modularidad", "numero_comunidades"))
-
-# Calcular estadisticas
-estadisticas.louvain <- metricas.louvain %>%
-  dplyr::group_by(estadio, punto_corte, grafo, metrica) %>%
-  dplyr::summarise(media = mean(valor, na.rm = TRUE),
-                   desvio = sd(valor, na.rm = TRUE))
-
-# Guardar metricas y estadisticas a archivo RData
-save(metricas.louvain, estadisticas.louvain, file = "output/MetricasLouvain.RData")
-
+if (file.exists("output/MetricasLouvain.RData")) {
+  load(file = "output/MetricasLouvain.RData")
+} else {
+  # Calcular metricas pedidas
+  metricas.louvain <- purrr::pmap_dfr(
+    .l = dplyr::distinct(grafos, estadio, sujeto, punto_corte),
+    .f = function(estadio, sujeto, punto_corte) {
+      grafo.original <- grafos %>%
+        dplyr::filter(estadio == !! estadio & sujeto == !! sujeto & punto_corte == !! punto_corte) %>%
+        dplyr::pull(grafo)
+      grafo.original <- grafo.original[[1]]
+      
+      # Obtendo las comunidades con el algoritmo de Louvain.
+      # Luego calculo la modularidad y la cantidad de comunidades.
+      comunidad.original   <- igraph::cluster_louvain(grafo.original)  
+      modularidad.original <- igraph::modularity(grafo.original, comunidad.original$membership)
+      numero.com.original  <- length(unique(comunidad.original$membership))
+      
+      # Ahora genero una red random con la misma distribucion de grado que el grafo inicial.
+      # Obntengo las comunidades y calculo modularidad y cantidad de comunidades.
+      grafo.random       <- igraph::sample_degseq(out.deg = igraph::degree(grafo.original))
+      comunidad.random   <- igraph::cluster_louvain(grafo.random)  
+      modularidad.random <- igraph::modularity(grafo.random, comunidad.random$membership)
+      numero.com.random  <- length(unique(comunidad.random$membership))
+      
+      return (dplyr::bind_rows(
+        data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Original',
+                   modularidad = modularidad.original, numero_comunidades = numero.com.original),
+        data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Random',
+                   modularidad = modularidad.random, numero_comunidades = numero.com.random)
+      )) 
+    }
+  ) %>% tidyr::pivot_longer(names_to = "metrica", values_to = "valor", cols = c("modularidad", "numero_comunidades"))
+  
+  # Calcular estadisticas
+  estadisticas.louvain <- metricas.louvain %>%
+    dplyr::group_by(estadio, punto_corte, grafo, metrica) %>%
+    dplyr::summarise(media = mean(valor, na.rm = TRUE),
+                     desvio = sd(valor, na.rm = TRUE))
+  
+  # Guardar metricas y estadisticas a archivo RData
+  save(metricas.louvain, estadisticas.louvain, file = "output/MetricasLouvain.RData")
+}
+  
 # Etiquetas para metricas
 etiquetas_metricas_louvain <- c(
   modularidad = "Modularidad",
@@ -228,34 +240,46 @@ ggplot2::ggplot(data = estadisticas.louvain) +
 # ---- Opcional 1 (Tarea 2) ----                            
 # ---------------------------------------------------------------------------------------#
 
-# Calcular metricas pedidas
-metricas.girvan.newman <- purrr::pmap_dfr(
-  .l = dplyr::distinct(grafos, estadio, sujeto, punto_corte),
-  .f = function(estadio, sujeto, punto_corte) {
-    grafo.original <- grafos %>%
-      dplyr::filter(estadio == !! estadio & sujeto == !! sujeto & punto_corte == !! punto_corte) %>%
-      dplyr::pull(grafo)
-    grafo.original <- grafo.original[[1]]
-    
+if (file.exists("output/MetricasGirvanNewman.RData")) {
+  load(file = "output/MetricasGirvanNewman.RData")
+} else {
+  # Calcular metricas pedidas
+  progress.bar           <- txtProgressBar(min = 0, max = nrow(grafos))
+  metricas.girvan.newman <- NULL
+  for (nivel.progreso in seq(from = 1, to = nrow(grafos))) {
+    grafo.original <- as.list(grafos[nivel.progreso, ]$grafo)[[1]]
+      
     # Obtendo las comunidades con el algoritmo de Louvain.
     # Luego calculo la modularidad y la cantidad de comunidades.
     comunidad.original   <- igraph::cluster_edge_betweenness(grafo.original)
     modularidad.original <- igraph::modularity(grafo.original, comunidad.original$membership)
     numero.com.original  <- length(unique(comunidad.original$membership))
     
-    return (data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Original',
-                 modularidad = modularidad.original, numero_comunidades = numero.com.original))
+    # Incrementar barra de progreso
+    setTxtProgressBar(progress.bar, value = nivel.progreso)
+
+    if (! is.null(metricas.girvan.newman)) {
+      metricas.girvan.newman <- rbind(
+        metricas.girvan.newman,
+        (data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Original',
+                    modularidad = modularidad.original, numero_comunidades = numero.com.original))
+      )
+    } else {
+      metricas.girvan.newman <- (data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Original',
+                                            modularidad = modularidad.original, numero_comunidades = numero.com.original))
+    }
   }
-) %>% tidyr::pivot_longer(names_to = "metrica", values_to = "valor", cols = c("modularidad", "numero_comunidades"))
-
-# Calcular estadisticas
-estadisticas.girvan.newman <- metricas.girvan.newman %>%
-  dplyr::group_by(estadio, punto_corte, grafo, metrica) %>%
-  dplyr::summarise(media = mean(valor, na.rm = TRUE),
-                   desvio = sd(valor, na.rm = TRUE))
-
-# Guardar metricas y estadisticas a archivo RData
-save(metricas.girvan.newman, estadisticas.girvan.newman, file = "output/MetricasGirvanNewman.RData")
+  metricas.girvan.newman %<>% tidyr::pivot_longer(names_to = "metrica", values_to = "valor", cols = c("modularidad", "numero_comunidades"))
+  
+  # Calcular estadisticas
+  estadisticas.girvan.newman <- metricas.girvan.newman %>%
+    dplyr::group_by(estadio, punto_corte, grafo, metrica) %>%
+    dplyr::summarise(media = mean(valor, na.rm = TRUE),
+                     desvio = sd(valor, na.rm = TRUE))
+  
+  # Guardar metricas y estadisticas a archivo RData
+  save(metricas.girvan.newman, estadisticas.girvan.newman, file = "output/MetricasGirvanNewman.RData")
+}
 
 # Etiquetas para metricas
 etiquetas_metricas_girvan_newman <- c(
