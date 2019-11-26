@@ -126,8 +126,11 @@ for (archivo in archivos.rdata) {
   rm(resultados.modelo, resumen.modelo) 
 }
 
-# Transformar dataset en data.table
-dataset <- as.data.table(dataset)
+# Promediar probabilidades y transformar dataset en data.table
+# Lo de sumar explicitamente (hardcoded) las probabilidades es MUY GRASA, pero a esta altura vale todo
+dataset <- dataset %>%
+  dplyr::mutate(probabilidad_promedio = (prob_M0_base+prob_M0_denicolay+prob_M0_full+prob_M1_base+prob_M1_denicolay+prob_M1_full)/6) %>%
+  as.data.table()
 
 # Ordenar dataset por numero de cliente y periodo
 setorder(dataset, numero_de_cliente, foto_mes)
@@ -179,4 +182,4 @@ for(  campo  in  campos_a_procesar )
 if (! dir.exists(kcarpeta_datasets)) {
   dir.create(kcarpeta_datasets)
 }
-saveRDS(object = dataset, file = paste0(kcarpeta_datasets, "/Extra.rds"))
+saveRDS(object = dataset, file = paste0(kcarpeta_datasets, "/Extra2.rds"))
