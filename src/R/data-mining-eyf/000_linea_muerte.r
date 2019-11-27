@@ -77,7 +77,8 @@ if (! is.null(config$archivo.features.extra)) {
 # --- V. Realizar ejecucion de linea de muerte ----
 # -----------------------------------------------------------------------------#
 
-resultados.linea.muerte <- NULL
+resultados.linea.muerte     <- NULL
+probabilidades.linea.muerte <- NULL
 for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = as.Date(config$fecha.hasta), by = 'months'))) {
   logger$info(paste0("Leyendo conjunto de datos de train/test para ", periodo.test))  
   
@@ -141,11 +142,20 @@ for (periodo.test in as.character(seq(from = as.Date(config$fecha.desde), to = a
 	logger$info("Calculando ganancia y guardando resultados")
 	xgb.pred.test           <- data.frame(pred = predict(modelo, xgb.test, reshape = T))
 	ganancia                <- pe_ganancia(probabilidades = xgb.pred.test$pred, clase = test$clase, proporcion = 1, punto_corte = mejor.corte$prob_corte)
-  resultados.periodo      <- dplyr::bind_cols(hiperparametros, data.frame(semilla = config$semilla, ganancia = ganancia, punto_corte = mejor.corte$prob_corte)) %>%
-    dplyr::mutate(modelo = list(modelo))
-  resultados.linea.muerte <- dplyr::bind_rows(resultados.linea.muerte, resultados.periodo)
+  resultados.periodo      <- dplyr::bind_cols(
+    hiperparametros, 
+    data.frame(semilla = config$semilla, ganancia = ganancia, punto_corte = mejor.corte$prob_corte, periodo = periodo.test)
+  ) %>% 
+    dplyr::mutate(foto_mes = as.integer(format(as.Date(periodo.test), "%Y%m")), modelo = list(modelo))
+  probabilidades.periodo  <- test %>%
+    dplyr::select(numero_de_cliente, foto_mes, clase) %>%
+    dplyr::mutate(probabilidad_baja = xgb.pred.test$pred)
+  
+  # Consolidar resultados
+  resultados.linea.muerte     <- dplyr::bind_rows(resultados.linea.muerte, resultados.periodo)
+  probabilidades.linea.muerte <- dplyr::bind_rows(probabilidades.linea.muerte, probabilidades.periodo)
   
   # Guardar datos a archivo RData
-  save(resultados.linea.muerte, file = paste0(config$dir$output, "/LineaMuerte.RData"))
+  save(resultados.linea.muerte, probabilidades.linea.muerte, file = paste0(config$dir$output, "/LineaMuerte.RData"))
 }
 # ------------------------------------------------------------------------------
