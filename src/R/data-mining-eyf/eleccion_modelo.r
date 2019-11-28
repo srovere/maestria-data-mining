@@ -61,11 +61,11 @@ rm(probabilidades_LM, probabilidades_M1, probabilidades_M2)
 # i. Calcular ganancias por modelo
 ganancias <- probabilidades %>%
   dplyr::mutate(Periodo = as.Date(sprintf("%d-%02d-01", foto_mes %/% 100, foto_mes %% 100))) %>%
-  dplyr::group_by(Periodo) %>%
   dplyr::mutate(prob_LM_M1 = (prob_LM+prob_M1)/2,
                 prob_LM_M2 = (prob_LM+prob_M2)/2,
                 prob_M1_M2 = (prob_M1+prob_M2)/2,
                 prob_LM_M1_M2 = (prob_LM+prob_M1+prob_M2)/2) %>%
+  dplyr::group_by(Periodo) %>%
   dplyr::summarise(LM = pe_ganancia(prob_LM, clase),
                    M1 = pe_ganancia(prob_M1, clase),
                    M2 = pe_ganancia(prob_M2, clase),

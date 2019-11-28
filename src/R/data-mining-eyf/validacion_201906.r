@@ -60,11 +60,33 @@ M2_S <- probabilidades.linea.muerte %>%
   dplyr::rename(prob_M2 = probabilidad_baja)
 rm(probabilidades.linea.muerte, resultados.linea.muerte)
 
-# ?. Definir modelo final
-M5 <- dplyr::inner_join(M1_S, M2_S, by = c("numero_de_cliente")) %>%
+# iv. Cargar datos de Axel
+load("output/LineasMuerte/M1_201906_Axel.RData")
+M1_A <- probabilidades.linea.muerte %>%
+  dplyr::select(numero_de_cliente, probabilidad_baja) %>%
+  dplyr::rename(prob_M1 = probabilidad_baja)
+rm(probabilidades.linea.muerte, resultados.linea.muerte)
+load("output/LineasMuerte/M2_201906_Axel.RData")
+M2_A <- probabilidades.linea.muerte %>%
+  dplyr::select(numero_de_cliente, probabilidad_baja) %>%
+  dplyr::rename(prob_M2 = probabilidad_baja)
+rm(probabilidades.linea.muerte, resultados.linea.muerte)
+
+# v. Chequear integridad y definir modelo final
+M5_A <- dplyr::inner_join(M1_A, M2_A, by = c("numero_de_cliente")) %>%
   dplyr::mutate(probabilidad_baja = (prob_M1+prob_M2)/2) %>%
   dplyr::filter(probabilidad_baja >= 0.025) %>%
   dplyr::select(numero_de_cliente, probabilidad_baja)
+M5_S <- dplyr::inner_join(M1_S, M2_S, by = c("numero_de_cliente")) %>%
+  dplyr::mutate(probabilidad_baja = (prob_M1+prob_M2)/2) %>%
+  dplyr::filter(probabilidad_baja >= 0.025) %>%
+  dplyr::select(numero_de_cliente, probabilidad_baja)
+if (all(M5_A == M5_S)) {
+  M5 <- M5_S
+  rm(M5_S, M5_A, M1_A, M2_A, M1_S, M2_S)
+} else {
+  warning("Los modelos son diferentes!!")
+}
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
