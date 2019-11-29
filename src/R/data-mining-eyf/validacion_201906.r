@@ -90,7 +90,7 @@ if (all(M5_A == M5_S)) {
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
-# --- IV. Realizar comparaciones por cuantiles ----
+# --- IV. Realizar comparaciones por cuantiles y guardar resultados ----
 # -----------------------------------------------------------------------------#
 
 # i. Calcular deciles de probabilidad para la linea de muerte
@@ -113,4 +113,8 @@ coincidencias <- purrr::map_dfr(
     return (data.frame(cuantil = cuantil, cantidad = cantidad, porcentaje = 100 * cantidad / length(clientes.cuantil)))
   }
 )
+
+# iii. Guardar resultados a enviar por mail
+readr::write_csv(x = dplyr::select(M5, numero_de_cliente), path = "output/rovere_mantalian.txt",
+                 col_names = FALSE)
 # ------------------------------------------------------------------------------
