@@ -64,7 +64,8 @@ ganancias <- probabilidades %>%
   dplyr::mutate(prob_LM_M1 = (prob_LM+prob_M1)/2,
                 prob_LM_M2 = (prob_LM+prob_M2)/2,
                 prob_M1_M2 = (prob_M1+prob_M2)/2,
-                prob_LM_M1_M2 = (prob_LM+prob_M1+prob_M2)/2) %>%
+                prob_LM_M1_M2 = (prob_LM+prob_M1+prob_M2)/2,
+                prob_M7 = 0.18*prob_LM+0.52*prob_M1+0.3*prob_M2) %>%
   dplyr::group_by(Periodo) %>%
   dplyr::summarise(LM = pe_ganancia(prob_LM, clase),
                    M1 = pe_ganancia(prob_M1, clase),
@@ -72,7 +73,8 @@ ganancias <- probabilidades %>%
                    M3 = pe_ganancia(prob_LM_M1, clase),
                    M4 = pe_ganancia(prob_LM_M2, clase),
                    M5 = pe_ganancia(prob_M1_M2, clase),
-                   M6 = pe_ganancia(prob_LM_M1_M2, clase))
+                   M6 = pe_ganancia(prob_LM_M1_M2, clase),
+                   M7 = pe_ganancia(prob_M7, clase))
 
 # ii. Calcular porcentajes en relacion a la linea de muerta
 porcentajes <- ganancias %>%
@@ -81,8 +83,24 @@ porcentajes <- ganancias %>%
                 M3 = 100 * (M3 - LM) / LM,
                 M4 = 100 * (M4 - LM) / LM,
                 M5 = 100 * (M5 - LM) / LM,
-                M6 = 100 * (M6 - LM) / LM) %>%
-  dplyr::select(Periodo, M1, M2, M3, M4, M5, M6)
+                M6 = 100 * (M6 - LM) / LM,
+                M7 = 100 * (M7 - LM) / LM,) %>%
+  dplyr::select(Periodo, M1, M2, M3, M4, M5, M6, M7)
+
+# iii. Cantidades
+cantidades <- probabilidades %>%
+  dplyr::mutate(Periodo = as.Date(sprintf("%d-%02d-01", foto_mes %/% 100, foto_mes %% 100))) %>%
+  dplyr::mutate(prob_LM_M1 = (prob_LM+prob_M1)/2,
+                prob_LM_M2 = (prob_LM+prob_M2)/2,
+                prob_M1_M2 = (prob_M1+prob_M2)/2,
+                prob_LM_M1_M2 = (prob_LM+prob_M1+prob_M2)/2,
+                prob_M7 = 0.18*prob_LM+0.52*prob_M1+0.3*prob_M2) %>%
+  dplyr::select(-numero_de_cliente, -foto_mes, -clase) %>%
+  tidyr::pivot_longer(cols = c(-"Periodo"), names_to = "Modelo", values_to = "probabilidad_baja") %>%
+  dplyr::filter(probabilidad_baja >= 0.025) %>%
+  dplyr::group_by(Periodo, Modelo) %>%
+  dplyr::summarise(Cantidad = dplyr::n()) %>%
+  tidyr::pivot_wider(names_from = "Modelo", values_from = "Cantidad")
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#

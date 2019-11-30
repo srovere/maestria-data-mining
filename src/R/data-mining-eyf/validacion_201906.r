@@ -45,8 +45,7 @@ LM <- readRDS("output/LineasMuerte/SalidaLineaMuerteOriginal.rds") %>%
   dplyr::filter(month == 201906) %>%
   dplyr::select(prob) %>%
   tidyr::unnest(cols = "prob") %>%
-  dplyr::filter(probs >= 0.025) %>%
-  dplyr::rename(numero_de_cliente = id, probabilidad_baja = probs)
+  dplyr::rename(numero_de_cliente = id, prob_LM = probs)
 
 # iii. Cargar datos de Santiago
 load("output/LineasMuerte/M1_201906_Santiago.RData")
@@ -73,17 +72,19 @@ M2_A <- probabilidades.linea.muerte %>%
 rm(probabilidades.linea.muerte, resultados.linea.muerte)
 
 # v. Chequear integridad y definir modelo final
-M5_A <- dplyr::inner_join(M1_A, M2_A, by = c("numero_de_cliente")) %>%
-  dplyr::mutate(probabilidad_baja = (prob_M1+prob_M2)/2) %>%
+M7_A <- dplyr::inner_join(M1_A, M2_A, by = c("numero_de_cliente")) %>%
+  dplyr::inner_join(LM, by = c("numero_de_cliente")) %>%
+  dplyr::mutate(probabilidad_baja = (0.18*prob_LM+0.52*prob_M1+0.3*prob_M2)) %>%
   dplyr::filter(probabilidad_baja >= 0.025) %>%
   dplyr::select(numero_de_cliente, probabilidad_baja)
-M5_S <- dplyr::inner_join(M1_S, M2_S, by = c("numero_de_cliente")) %>%
-  dplyr::mutate(probabilidad_baja = (prob_M1+prob_M2)/2) %>%
+M7_S <- dplyr::inner_join(M1_S, M2_S, by = c("numero_de_cliente")) %>%
+  dplyr::inner_join(LM, by = c("numero_de_cliente")) %>%
+  dplyr::mutate(probabilidad_baja = (0.18*prob_LM+0.52*prob_M1+0.3*prob_M2)) %>%
   dplyr::filter(probabilidad_baja >= 0.025) %>%
   dplyr::select(numero_de_cliente, probabilidad_baja)
-if (all(M5_A == M5_S)) {
-  M5 <- M5_S
-  rm(M5_S, M5_A, M1_A, M2_A, M1_S, M2_S)
+if (all(M7_A == M7_S)) {
+  M7 <- M7_S
+  rm(M7_S, M7_A, M1_A, M2_A, M1_S, M2_S)
 } else {
   warning("Los modelos son diferentes!!")
 }
@@ -94,14 +95,15 @@ if (all(M5_A == M5_S)) {
 # -----------------------------------------------------------------------------#
 
 # i. Calcular deciles de probabilidad para la linea de muerte
-paso                   <- 0.1
-cuantiles.linea.muerte <- c(0, quantile(x = LM$probabilidad_baja, probs = seq(from = paso, to = 1-paso, by = paso)), 1)
+LM.corte               <- dplyr::filter(LM, prob_LM >= 0.025)
+paso                   <- 0.05
+cuantiles.linea.muerte <- c(0, quantile(x = LM.corte$prob_LM, probs = seq(from = paso, to = 1-paso, by = paso)), 1)
 etiquetas.cuantiles    <- paste0("Q", sprintf("%02d", seq_len(length(cuantiles.linea.muerte)-1)))
-LM.cuantiles           <- LM %>%
-  dplyr::mutate(cuantil = cut(x = probabilidad_baja, breaks = cuantiles.linea.muerte, labels = etiquetas.cuantiles))
+LM.cuantiles           <- LM.corte %>%
+  dplyr::mutate(cuantil = cut(x = prob_LM, breaks = cuantiles.linea.muerte, labels = etiquetas.cuantiles))
 
 # ii. Verificar cuantas coincidencias hay por cuantiles.
-M5.clientes   <- M5 %>%
+M7.clientes   <- M7 %>%
   dplyr::pull(numero_de_cliente)
 coincidencias <- purrr::map_dfr(
   .x = levels(LM.cuantiles$cuantil),
@@ -109,12 +111,12 @@ coincidencias <- purrr::map_dfr(
     clientes.cuantil <- LM.cuantiles %>%
       dplyr::filter(cuantil == !! cuantil) %>%
       dplyr::pull(numero_de_cliente)
-    cantidad <- length(which(clientes.cuantil %in% M5.clientes))
+    cantidad <- length(which(clientes.cuantil %in% M7.clientes))
     return (data.frame(cuantil = cuantil, cantidad = cantidad, porcentaje = 100 * cantidad / length(clientes.cuantil)))
   }
 )
 
 # iii. Guardar resultados a enviar por mail
-readr::write_csv(x = dplyr::select(M5, numero_de_cliente), path = "output/rovere_mantalian.txt",
+readr::write_csv(x = dplyr::select(M7, numero_de_cliente), path = "output/rovere_mantalian.txt",
                  col_names = FALSE)
 # ------------------------------------------------------------------------------
