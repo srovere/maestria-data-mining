@@ -46,7 +46,7 @@ datos_train <- readr::read_csv(file = "titanic_complete_train.csv")
 head(datos_train)
 ```
 
-Luego se selecciona un subconjunto de *features*, algunos de los cuales son categóricos y son transformado a *factor* de R:
+Luego se selecciona un subconjunto de *features*, algunos de los cuales son categóricos y son transformados a *factor* de R:
 
   * *PassengerId*: identificador de pasajero
   * *Survived*: Esta es la clase a predecir. Indica si el pasajero sobrevivió o no al hundimiento del Titatic
@@ -69,7 +69,7 @@ datos_train %<>%
                 Embarked = as.factor(Embarked))
 ```
 
-A continuación se efectúa un gráfico *ggpairs* para observar las asociaciones entre variables incluyendo la clase. Lo primero que se destaca es la gran cantidad de fallecidos correspondientes a pasajeros de sexo *masculino* y que compraron pasajes de *tercera clase*. Esto indicaría que son variables con alto proder predictivo. También se observa que los pasajeros fallecidos tienen una mediana de edad un poco mayor que los sobrevivientes. Por último, también se observa que hay una cantidad levemente mayor de sobrevivientes de pasajeros que pagaron tarifas más altas.
+A continuación se efectúa un gráfico con *ggpairs* para observar las asociaciones entre variables incluyendo la clase. Lo primero que se destaca es la gran cantidad de fallecidos correspondientes a pasajeros de sexo *masculino* y que compraron pasajes de *tercera clase*. Esto indicaría que son variables con alto poder predictivo. También se observa que los pasajeros fallecidos tienen una mediana de edad un poco mayor que los sobrevivientes. Por último, también se observa que hay una cantidad levemente mayor de sobrevivientes entre los pasajeros que pagaron tarifas más altas.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE, fig.width=8, fig.height=10 }
 GGally::ggpairs(data = datos_train,
@@ -266,7 +266,7 @@ ggplot2::ggplot(data = prediccion.mejor.modelo,
 
 # Elección del punto de corte
 
-A continuación se utilizarán las 4 métricas propuestas para hacer una selección adecuada del punto de corte. En adelante, se denominará predicción positiva a la predicción asociada a un evento de supervivencia. Por el contrario, una predicción de deceso se denominará predicción negativa. Luego, los vedaderos positivos (TP) y verdaderos negativos (TN) serán aquellos eventos de supervivencia y deceso clasificados como tal, respectivamente. Finalmente, los falsos positivos (FP) y falsos negativos serán aquellos eventos de supervivencia y deceso clasificados erróneamente como el evento contrario, respectivamente.
+A continuación se utilizarán las 4 métricas propuestas para hacer una selección adecuada del punto de corte. En adelante, se denominará predicción positiva a la predicción asociada a un evento de supervivencia. Por el contrario, una predicción de deceso se denominará predicción negativa. Luego, los vedaderos positivos (TP) y verdaderos negativos (TN) serán aquellos eventos de supervivencia y deceso clasificados como tales, respectivamente. Finalmente, los falsos positivos (FP) y falsos negativos (FN) serán aquellos eventos de supervivencia y deceso clasificados erróneamente como el evento contrario, respectivamente.
 
   * *Accuracy*: $\frac{TP+TN}{TP+TN+FP+FN}$ (cantidad de predicciones correctas sobre la cantidad total de eventos)
   * *Precision*: $\frac{TP}{TP+FP}$ (cantidad de predicciones positivas correctas sobre la cantidad total de predicciones positivas)
@@ -358,7 +358,7 @@ Sería bastante razonable suponer que un modelo como este se podría utilizar pa
 
 Observando la definición de las métricas, se observa que *recall* es la que mejor penaliza los falsos negativos. Por tal motivo, si solamente nos focalizamos en estas 4 métricas, debemos priorizar un poco más a *recall* que a las demás (existen otras métricas como F1 o F$_{beta}$ que consideran *precision* y *recall* simultáneamente pero están fuera del foco de este trabajo). Se asume como hipótesis adicional que resultaría imposible considerar el punto de corte 0 a fin de maximizar *recall* dado que implicaría asignar recursos para el rescate de todos los pasajeros.
 
-Con la consideración anterior y teniento en cuenta la presmida de no mejorar mucho una métrica a expensas de empeorar mucho todas las demás, elegimos el punto **P2** que es muy cercano a la intersección de *accuracy*, *recall* y *specificity* (dado que la selección del umbral está discretizada). En este punto el valor *accuracy* está bastante cerca del máximo y las otras métricas son levemente menores que para el punto **P1**. Desde luego, podrían existir otros criterios igualmente válidos para seleccionar algún otro punto de corte.
+Con la consideración anterior y teniendo en cuenta la premisa de no mejorar una métrica a expensas de empeorar mucho todas las demás, elegimos el punto **P2** que es muy cercano a la intersección de *accuracy*, *recall* y *specificity* (dado que la selección del umbral está discretizada). En este punto el valor *accuracy* está bastante cerca del máximo y las otras métricas son levemente menores que para el punto **P1**. Desde luego, podrían existir otros criterios igualmente válidos para seleccionar algún otro punto de corte.
 
 ```{r, echo=TRUE, warnings=FALSE, message=FALSE }
 # MdC para primer punto de corte
