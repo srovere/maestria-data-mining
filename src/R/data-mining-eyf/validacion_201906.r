@@ -53,7 +53,7 @@ M1 <- readRDS("output/LineasMuerte/M1_completo.rds") %>%
   dplyr::rename(prob_M1 = probabilidad_baja)
 M2 <- readRDS("output/LineasMuerte/M2_completo.rds") %>%
   dplyr::filter(foto_mes == periodo) %>%
-  dplyr::select(numero_de_cliente, probabilidad_baja) %>%
+  dplyr::select(numero_de_cliente, probabilidad_baja, clase) %>%
   dplyr::rename(prob_M2 = probabilidad_baja)
 
 # Definir M6
@@ -61,7 +61,14 @@ M6 <- dplyr::inner_join(M1, M2, by = c("numero_de_cliente")) %>%
   dplyr::inner_join(LM, by = c("numero_de_cliente")) %>%
   dplyr::mutate(probabilidad_baja = (prob_LM+prob_M1+prob_M2)/3) %>%
   dplyr::filter(probabilidad_baja >= 0.025) %>%
-  dplyr::select(numero_de_cliente, probabilidad_baja)
+  dplyr::select(numero_de_cliente, probabilidad_baja, clase)
+
+# Verificar ganancia (para meses menores a 201906)
+if (! all(is.na(M6$clase))) {
+  ganancia <- pe_ganancia(M6$probabilidad_baja, M6$clase)
+} else {
+  ganancia <- NULL
+}
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
