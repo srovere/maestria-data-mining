@@ -86,16 +86,24 @@ grafos <- purrr::pmap_dfr(
       grafos.estadio.sujeto <- purrr::map_dfr(
         .x = seq(from = 0, to = 1, by = 0.01),
         .f = function(punto.corte) {
+          grafo <- ObtenerGrafoBinario(matriz.correlacion, punto.corte)
           return(dplyr::tibble(
             estadio = estadio,
             sujeto = sujeto,
             punto_corte = punto.corte,
-            grafo = list(ObtenerGrafoBinario(matriz.correlacion, punto.corte))
+            densidad = igraph::edge_density(grafo),
+            grafo = list(grafo)
           ))
         }    
       )
     }
   )
+
+  # Se realiza binning de la densidad para no tener una cantidad enorme de valores.
+  # Para ello, se consideran bins del siguiente modo [ x, x + 0.01 )
+  intervalos <- seq(from = 0, to = 1, by = 0.01)
+  grafos <- grafos %>%
+    dplyr::mutate(rango_densidad = cut(x = densidad, breaks = intervalos, include.lowest = TRUE))
   
   # Guardar grafos a un archivo RData
   save(grafos, file = "output/Grafos.RData")
@@ -131,9 +139,10 @@ if (file.exists("output/Metricas.RData")) {
   
   # Para cada estadio, metrica y punto de corte, calcular media y desvio de cada metrica
   estadisticas <- metricas %>%
-    tidyr::pivot_longer(cols = c(-estadio, -sujeto, -punto_corte), names_to = "metrica", values_to = "valor") %>%
+    tidyr::pivot_longer(cols = c(-estadio, -sujeto, -punto_corte, -densidad, -rango_densidad), 
+                        names_to = "metrica", values_to = "valor") %>%
     dplyr::mutate(valor = unlist(valor)) %>%
-    dplyr::group_by(estadio, metrica, punto_corte) %>%
+    dplyr::group_by(estadio, metrica, rango_densidad) %>%
     dplyr::summarise(media = mean(valor, na.rm = TRUE),
                      desvio = sd(valor, na.rm = TRUE))
   
@@ -153,10 +162,14 @@ etiquetas_metricas <- c(
 )
 
 # Generar grafico
+rangos.densidades <- levels(estadisticas$rango_densidad)
+breaks.rangos     <- c(rangos.densidades[seq(from = 1, to = length(rangos.densidades), by = 10)], 
+                       rangos.densidades[length(rangos.densidades)])
 ggplot2::ggplot(data = estadisticas) +
-  ggplot2::geom_errorbar(mapping = ggplot2::aes(x = punto_corte, ymin = media - desvio, ymax = media + desvio, col = estadio)) +
+  ggplot2::geom_errorbar(mapping = ggplot2::aes(x = rango_densidad, ymin = media - desvio, ymax = media + desvio, col = estadio)) +
   ggplot2::facet_wrap(~metrica, scales = "free", ncol = 2, labeller = ggplot2::labeller(metrica = etiquetas_metricas)) +
-  ggplot2::labs(x = "Densidad de corte", y = "Valor de la métrica", col = "Estadío de sueño",
+  ggplot2::scale_x_discrete(breaks = breaks.rangos) +
+  ggplot2::labs(x = "Densidad de aristas", y = "Valor de la métrica", col = "Estadío de sueño",
                 title = "Métricas de grafos según de densidad de corte",
                 subtitle = "Valores medios y desvíos") +
   ggplot2::theme_bw() +
@@ -178,10 +191,11 @@ if (file.exists("output/MetricasLouvain.RData")) {
   metricas.louvain <- purrr::pmap_dfr(
     .l = dplyr::distinct(grafos, estadio, sujeto, punto_corte),
     .f = function(estadio, sujeto, punto_corte) {
-      grafo.original <- grafos %>%
+      grafo <- grafos %>%
         dplyr::filter(estadio == !! estadio & sujeto == !! sujeto & punto_corte == !! punto_corte) %>%
-        dplyr::pull(grafo)
-      grafo.original <- grafo.original[[1]]
+        dplyr::select(rango_densidad, grafo)
+      grafo.original <- grafo[1, ]$grafo[[1]]
+      rango.densidad <- grafo[1, ]$rango_densidad
       
       # Obtengo las comunidades con el algoritmo de Louvain.
       # Luego calculo la modularidad y la cantidad de comunidades.
@@ -198,16 +212,18 @@ if (file.exists("output/MetricasLouvain.RData")) {
       
       return (dplyr::bind_rows(
         data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Original',
-                   modularidad = modularidad.original, numero_comunidades = numero.com.original),
+                   modularidad = modularidad.original, numero_comunidades = numero.com.original,
+                   rango_densidad = rango.densidad),
         data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Random',
-                   modularidad = modularidad.random, numero_comunidades = numero.com.random)
+                   modularidad = modularidad.random, numero_comunidades = numero.com.random,
+                   rango_densidad = rango.densidad)
       )) 
     }
   ) %>% tidyr::pivot_longer(names_to = "metrica", values_to = "valor", cols = c("modularidad", "numero_comunidades"))
   
   # Calcular estadisticas
   estadisticas.louvain <- metricas.louvain %>%
-    dplyr::group_by(estadio, punto_corte, grafo, metrica) %>%
+    dplyr::group_by(estadio, rango_densidad, grafo, metrica) %>%
     dplyr::summarise(media = mean(valor, na.rm = TRUE),
                      desvio = sd(valor, na.rm = TRUE))
   
@@ -223,16 +239,18 @@ etiquetas_metricas_louvain <- c(
  
 # Generar grafico comparativo
 ggplot2::ggplot(data = estadisticas.louvain) +
-  ggplot2::geom_errorbar(mapping = ggplot2::aes(x = punto_corte, ymin = media - desvio, ymax = media + desvio, col = grafo)) +
+  ggplot2::geom_errorbar(mapping = ggplot2::aes(x = rango_densidad, ymin = media - desvio, ymax = media + desvio, col = grafo)) +
   ggplot2::facet_grid(metrica~estadio, scales = "free", labeller = ggplot2::labeller(metrica = etiquetas_metricas_louvain)) +
-  ggplot2::labs(x = "Densidad de corte", y = "Valor de la métrica", col = "Tipo de grafo",
+  ggplot2::scale_x_discrete(breaks = breaks.rangos) +
+  ggplot2::labs(x = "Densidad de aristas", y = "Valor de la métrica", col = "Tipo de grafo",
                 title = "Métricas de modularidad para grafos según de densidad de corte",
                 subtitle = "Valores medios y desvíos") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
-    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    axis.text.x = ggplot2::element_text(angle = 90)
   )
 # ----------------------------------------------------------------------------------------
 
@@ -250,6 +268,7 @@ if (file.exists("output/MetricasClausetNewmanMoore.RData")) {
     estadio        <- grafos[nivel.progreso, ]$estadio
     sujeto         <- grafos[nivel.progreso, ]$sujeto
     punto_corte    <- grafos[nivel.progreso, ]$punto_corte
+    rango.densidad <- grafos[nivel.progreso, ]$rango_densidad
     grafo.original <- as.list(grafos[nivel.progreso, ]$grafo)[[1]]
       
     # Obtengo las comunidades con el algoritmo de Clauset-Newman-Moore
@@ -265,18 +284,21 @@ if (file.exists("output/MetricasClausetNewmanMoore.RData")) {
       metricas.clauset.newman.moore <- rbind(
         metricas.clauset.newman.moore,
         (data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Original',
-                    modularidad = modularidad.original, numero_comunidades = numero.com.original))
+                    modularidad = modularidad.original, numero_comunidades = numero.com.original,
+                    rango_densidad = rango.densidad))
       )
     } else {
       metricas.clauset.newman.moore <- (data.frame(estadio = estadio, sujeto = sujeto, punto_corte = punto_corte, grafo = 'Original',
-                                                   modularidad = modularidad.original, numero_comunidades = numero.com.original))
+                                                   modularidad = modularidad.original, numero_comunidades = numero.com.original,
+                                                   rango_densidad = rango.densidad))
     }
   }
-  metricas.clauset.newman.moore %<>% tidyr::pivot_longer(names_to = "metrica", values_to = "valor", cols = c("modularidad", "numero_comunidades"))
+  metricas.clauset.newman.moore %<>% 
+    tidyr::pivot_longer(names_to = "metrica", values_to = "valor", cols = c("modularidad", "numero_comunidades"))
   
   # Calcular estadisticas
   estadisticas.clauset.newman.moore <- metricas.clauset.newman.moore %>%
-    dplyr::group_by(estadio, punto_corte, grafo, metrica) %>%
+    dplyr::group_by(estadio, rango_densidad, grafo, metrica) %>%
     dplyr::summarise(media = mean(valor, na.rm = TRUE),
                      desvio = sd(valor, na.rm = TRUE))
   
@@ -291,31 +313,29 @@ etiquetas_metricas_clauset_newman_moore <- c(
 )
 
 # Generar grafico comparativo entre Louvain y Clauset-Newman-Moore
-diferencias.louvain.clauset.newman.moore <- dplyr::inner_join(
+estadisticas.louvain.clauset <- dplyr::bind_rows(
   estadisticas.louvain %>%
     dplyr::ungroup() %>%
     dplyr::filter(grafo == "Original") %>%
-    dplyr::rename(L_media = media, L_desvio = desvio) %>%
+    dplyr::mutate(algoritmo = "Louvain") %>%
     dplyr::select(-grafo),
   estadisticas.clauset.newman.moore %>%
     dplyr::ungroup() %>%
-    dplyr::rename(CNM_media = media, CNM_desvio = desvio) %>%
-    dplyr::select(-grafo),
-  by = c("estadio", "punto_corte", "metrica")
-) %>% dplyr::mutate(Media = L_media - CNM_media,
-                    Desvio = L_desvio - CNM_desvio) %>%
-  dplyr::select(estadio, punto_corte, metrica, Media, Desvio) %>%
-  tidyr::pivot_longer(cols = c("Media", "Desvio"), names_to = "diferencia", values_to = "valor")
-ggplot2::ggplot(data = diferencias.louvain.clauset.newman.moore) +
-  ggplot2::geom_line(mapping = ggplot2::aes(x = punto_corte, y = valor, col = estadio)) +
-  ggplot2::facet_grid(metrica~diferencia, scales = "free", labeller = ggplot2::labeller(metrica = etiquetas_metricas_clauset_newman_moore)) +
-  ggplot2::labs(x = "Densidad de corte", y = "Valor de la métrica", col = "Estadío",
+    dplyr::mutate(algoritmo = "Clauset-Girvan-Moore") %>%
+    dplyr::select(-grafo)
+)
+ggplot2::ggplot(data = estadisticas.louvain.clauset) +
+  ggplot2::geom_errorbar(mapping = ggplot2::aes(x = rango_densidad, ymin = media - desvio, ymax = media + desvio, col = algoritmo)) +
+  ggplot2::facet_grid(metrica~estadio, scales = "free", labeller = ggplot2::labeller(metrica = etiquetas_metricas_louvain)) +
+  ggplot2::scale_x_discrete(breaks = breaks.rangos) +
+  ggplot2::labs(x = "Densidad de aristas", y = "Valor de la métrica", col = "Algoritmo",
                 title = "Métricas de modularidad para grafos según de densidad de corte",
                 subtitle = "Valores medios y desvíos") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
-    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    axis.text.x = ggplot2::element_text(angle = 90)
   )
 # ----------------------------------------------------------------------------------------
