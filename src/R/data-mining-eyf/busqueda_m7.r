@@ -50,6 +50,7 @@ probabilidades_M2 <- readRDS("output/LineasMuerte/M2.rds") %>%
 probabilidades    <- probabilidades_LM %>%
   dplyr::left_join(probabilidades_M2, by = c("numero_de_cliente", "foto_mes", "clase")) %>%
   dplyr::left_join(probabilidades_M1, by = c("numero_de_cliente", "foto_mes", "clase"))
+
 rm(probabilidades_LM, probabilidades_M1, probabilidades_M2)
 # ------------------------------------------------------------------------------
 
@@ -57,6 +58,21 @@ rm(probabilidades_LM, probabilidades_M1, probabilidades_M2)
 # --- IV. Buscar M7 ----
 # -----------------------------------------------------------------------------#
 
+CalcularGananciasTrain <- function(probabilidades, A, B, C) {
+  ganancias <- probabilidades %>%
+    dplyr::mutate(prob_M7 = (A * prob_LM + B * prob_M1 + C * prob_M2)) %>%
+    dplyr::group_by(foto_mes) %>%
+    dplyr::summarise(LM = pe_ganancia(prob_LM, clase),
+                     M7 = pe_ganancia(prob_M7, clase)) %>%
+    dplyr::mutate(valor = 100 * (M7 - LM) / LM) %>%
+    dplyr::mutate(referencia = as.character(foto_mes)) %>%
+    dplyr::select(referencia, valor) %>%
+    tidyr::pivot_wider(names_from = referencia, values_from = valor) %>%
+    dplyr::mutate(Promedio = mean(c(.[[1]], .[[2]], .[[3]], .[[4]], .[[5]], .[[6]], .[[7]], .[[8]], .[[9]])),
+                  Desvio = sd(c(.[[1]], .[[2]], .[[3]], .[[4]], .[[5]], .[[6]], .[[7]], .[[8]], .[[9]])),
+                  CV = Desvio / Promedio, A = A, B = B, C = C)
+  return (ganancias)
+}
 CalcularGanancias <- function(probabilidades, A, B, C) {
   ganancias <- probabilidades %>%
     dplyr::mutate(prob_M7 = (A * prob_LM + B * prob_M1 + C * prob_M2)) %>%
@@ -73,17 +89,26 @@ CalcularGanancias <- function(probabilidades, A, B, C) {
                   CV = Desvio / Promedio, A = A, B = B, C = C)
   return (ganancias)
 }
-  
 
+probabilidades.train <- probabilidades %>%
+  dplyr::filter(! foto_mes  %in% c(201903, 201904))
 paso      <- 0.01
-ganancias <- purrr::pmap_dfr(
+ganancias.train <- purrr::pmap_dfr(
   .l = purrr::transpose(purrr::cross2(seq(from = 0, to = 1, by = paso), seq(from = 0, to = 1, by = paso))),
   .f = function(A, B) {
     if (A + B > 1) {
       return (NULL)
     }
     C <- 1 - (A + B)
+    return (CalcularGananciasTrain(probabilidades.train, A, B, C))
+  }
+) %>% dplyr::filter(Promedio >= 3) 
+
+probabilidades.test <- probabilidades
+ganancias.test      <- purrr::pmap_dfr(
+  .l = dplyr::select(ganancias.train, A, B, C),
+  .f = function(A, B, C) {
     return (CalcularGanancias(probabilidades, A, B, C))
   }
-) %>% dplyr::filter(Promedio >= 2.5)
+)
 # ------------------------------------------------------------------------------

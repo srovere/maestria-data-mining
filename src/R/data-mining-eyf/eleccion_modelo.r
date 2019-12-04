@@ -49,12 +49,10 @@ probabilidades_M1 <- readRDS("output/LineasMuerte/M1.rds") %>%
   dplyr::rename(prob_M1 = probabilidad_baja)
 probabilidades_M2 <- readRDS("output/LineasMuerte/M2.rds") %>%
   dplyr::rename(prob_M2 = probabilidad_baja)
-probabilidades_M8 <- readRDS("output/LineasMuerte/M8.rds") %>%
-  dplyr::rename(prob_M8 = probabilidad_baja)
+
 probabilidades    <- probabilidades_LM %>%
   dplyr::left_join(probabilidades_M2, by = c("numero_de_cliente", "foto_mes", "clase")) %>%
-  dplyr::left_join(probabilidades_M1, by = c("numero_de_cliente", "foto_mes", "clase")) %>%
-  dplyr::left_join(probabilidades_M8, by = c("numero_de_cliente", "foto_mes", "clase"))
+  dplyr::left_join(probabilidades_M1, by = c("numero_de_cliente", "foto_mes", "clase"))
 rm(probabilidades_LM, probabilidades_M1, probabilidades_M2, probabilidades_M8)
 # ------------------------------------------------------------------------------
 
@@ -67,9 +65,7 @@ ganancias <- probabilidades %>%
   dplyr::mutate(prob_M3 = (prob_LM+prob_M1)/2,
                 prob_M4 = (prob_LM+prob_M2)/2,
                 prob_M5 = (prob_M1+prob_M2)/2,
-                prob_M6 = (prob_LM+prob_M1+prob_M2)/3,
-                prob_M7 = 0.18*prob_LM+0.52*prob_M1+0.3*prob_M2,
-                prob_M9 = (prob_LM+prob_M1+prob_M2+prob_M8)/4) %>%
+                prob_M6 = (prob_LM+prob_M1+prob_M2)/3) %>%
   dplyr::group_by(Periodo) %>%
   dplyr::summarise(LM = pe_ganancia(prob_LM, clase),
                    M1 = pe_ganancia(prob_M1, clase),
@@ -77,10 +73,7 @@ ganancias <- probabilidades %>%
                    M3 = pe_ganancia(prob_M3, clase),
                    M4 = pe_ganancia(prob_M4, clase),
                    M5 = pe_ganancia(prob_M5, clase),
-                   M6 = pe_ganancia(prob_M6, clase),
-                   M7 = pe_ganancia(prob_M7, clase),
-                   M8 = pe_ganancia(prob_M8, clase),
-                   M9 = pe_ganancia(prob_M9, clase))
+                   M6 = pe_ganancia(prob_M6, clase))
 
 # ii. Calcular porcentajes en relacion a la linea de muerta
 porcentajes <- ganancias %>%
@@ -89,11 +82,8 @@ porcentajes <- ganancias %>%
                 M3 = 100 * (M3 - LM) / LM,
                 M4 = 100 * (M4 - LM) / LM,
                 M5 = 100 * (M5 - LM) / LM,
-                M6 = 100 * (M6 - LM) / LM,
-                M7 = 100 * (M7 - LM) / LM,
-                M8 = 100 * (M8 - LM) / LM,
-                M9 = 100 * (M9 - LM) / LM) %>%
-  dplyr::select(Periodo, M1, M2, M3, M4, M5, M6, M7, M8, M9)
+                M6 = 100 * (M6 - LM) / LM) %>%
+  dplyr::select(Periodo, M1, M2, M3, M4, M5, M6)
 
 # iii. Cantidades
 cantidades <- probabilidades %>%
@@ -101,9 +91,7 @@ cantidades <- probabilidades %>%
   dplyr::mutate(prob_M3 = (prob_LM+prob_M1)/2,
                 prob_M4 = (prob_LM+prob_M2)/2,
                 prob_M5 = (prob_M1+prob_M2)/2,
-                prob_M6 = (prob_LM+prob_M1+prob_M2)/2,
-                prob_M7 = 0.18*prob_LM+0.52*prob_M1+0.3*prob_M2,
-                prob_M9 = (prob_LM+prob_M1+prob_M2+prob_M8)/4) %>%
+                prob_M6 = (prob_LM+prob_M1+prob_M2)/3) %>%
   dplyr::select(-numero_de_cliente, -foto_mes, -clase) %>%
   tidyr::pivot_longer(cols = c(-"Periodo"), names_to = "Modelo", values_to = "probabilidad_baja") %>%
   dplyr::filter(probabilidad_baja >= 0.025) %>%
@@ -118,7 +106,7 @@ cantidades <- probabilidades %>%
 
 # i. Grafico de ganancias (eliminamos M1, M2 y M6)
 ganancias.grafico <- ganancias %>%
-  dplyr::select(-M1, -M2, -M6) %>%
+  dplyr::select(-M1, -M2) %>%
   tidyr::pivot_longer(cols = c(-"Periodo"), names_to = "Modelo", values_to = "Ganancia")
 ggplot2::ggplot(data = ganancias.grafico) + 
   ggplot2::geom_line(mapping = ggplot2::aes(x = Periodo, y = Ganancia, col = Modelo)) + 
@@ -130,7 +118,7 @@ ggplot2::ggplot(data = ganancias.grafico) +
 
 # ii. Grafico de porcentajes
 porcentajes.grafico <- porcentajes %>%
-  dplyr::select(-M1, -M2, -M6) %>%
+  dplyr::select(-M1, -M2) %>%
   tidyr::pivot_longer(cols = c(-"Periodo"), names_to = "Modelo", values_to = "Porcentaje")
 ggplot2::ggplot(data = porcentajes.grafico) + 
   ggplot2::geom_line(mapping = ggplot2::aes(x = Periodo, y = Porcentaje, col = Modelo)) +
