@@ -101,12 +101,12 @@ if (file.exists("output/Grafos.RData")) {
         as.matrix()
       
       # Generar grafos para distintas densidades
-      densidades <- seq(from = 0, to = 0.5, by = 0.005)
+      densidades <- seq(from = 0.025, to = 0.15, by = 0.005)
       return (ObtenerGrafosDensidades(matriz.correlacion, estadio, sujeto, densidades))
     }
   )
   
-  # Grafos promedio para ciertas densidades (0.075, 0.25 y 0.5)
+  # Grafos promedio para ciertas densidades (0.075, 0.1 y 0.15)
   grafos.promedio <- purrr::pmap_dfr(
     .l = dplyr::distinct(datos.entrada, estadio),
     .f = function(estadio) {
@@ -129,7 +129,7 @@ if (file.exists("output/Grafos.RData")) {
       matriz.promedio <- matriz.promedio / length(sujetos)
       
       # Generar grafos para distintas densidades
-      densidades <- c(0.075, 0.25, 0.5)
+      densidades <- c(0.075, 0.1, 0.15)
       return (ObtenerGrafosDensidades(matriz.promedio, estadio, NA, densidades))
     }
   ) %>% dplyr::select(-sujeto)
