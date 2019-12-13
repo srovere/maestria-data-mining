@@ -47,6 +47,10 @@ if (! file.exists(archivo.rdata)) {
 } else {
   load(archivo.rdata)  
 }
+
+# Regiones del cerebro
+regiones.cerebro <- readr::read_csv(file = "input/aal_extended.csv", 
+                                    col_names = c("id", "nombre_completo", "n", "region", "hemisferio"))
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -207,24 +211,35 @@ ggplot2::ggplot(data = estadisticas) +
   ) + ggplot2::ggsave(filename = "output/Metricas.png", device = "png", dpi = 300)
 
 # Mostrar algunos grafos promedio
-graficos.grafos.promedio <- purrr::pmap(
-  .l = dplyr::select(grafos.promedio, densidad, estadio) %>% dplyr::arrange(densidad, estadio),
-  .f = function(densidad, estadio) {
-    grafo.promedio <- dplyr::filter(grafos.promedio, estadio == !! estadio & densidad == !! densidad)
-    grafo.promedio <- grafo.promedio[1, ]$grafo[[1]]
-    GGally::ggnet2(net = grafo.promedio, size = 2, label = FALSE,
-                   color = "darkslategray4", alpha = 0.5, edge.lty = "dotted") +
-      ggplot2::ggtitle(paste0("Estadío: ", estadio, " - Densidad: ", densidad)) +
-      ggplot2::theme(
-        legend.position = "none",
-        text = ggplot2::element_text(size = 8),
-        panel.background = ggplot2::element_rect(color = "grey50")
-      )
+regiones.vertices <- regiones.cerebro %>%
+  dplyr::arrange(id) %>%
+  dplyr::pull(region)
+purrr::walk(
+  .x = dplyr::distinct(grafos.promedio, densidad) %>% dplyr::pull(densidad),
+  .f = function(densidad) {
+    graficos.grafos.promedio <- purrr::map(
+      .x = dplyr::distinct(grafos.promedio, estadio) %>% dplyr::arrange(estadio) %>% dplyr::pull(estadio),
+      .f = function(estadio) {
+        grafo.promedio <- dplyr::filter(grafos.promedio, estadio == !! estadio & densidad == !! densidad)
+        grafo.promedio <- grafo.promedio[1, ]$grafo[[1]] %>%
+          igraph::set_vertex_attr("region", value = regiones.vertices)
+        GGally::ggnet2(net = grafo.promedio, size = 1.5, label = FALSE, palette = "Set1",
+                       color = "region", alpha = 0.75, edge.lty = "dotted", color.legend = "") +
+          ggplot2::labs(title = estadio) +
+          ggplot2::theme(
+            legend.position = "none",
+            text = ggplot2::element_text(size = 7),
+            panel.background = ggplot2::element_rect(color = "grey50")
+          )
+      }
+    )
+    panel.graficos.grafos.promedio <- ggpubr::ggarrange(plotlist = graficos.grafos.promedio, ncol=2, nrow=2, 
+                                                        common.legend = TRUE, legend="bottom")
+    ggplot2::ggsave(filename = paste0("output/GrafosPromedio-", densidad, ".png"), 
+                                      plot = panel.graficos.grafos.promedio,
+                                      device = "png", dpi = 300)
   }
 )
-panel.graficos.grafos.promedio <- gridExtra::marrangeGrob(graficos.grafos.promedio, nrow = 4, ncol = 3)
-ggplot2::ggsave(filename = "output/GrafosPromedio.png", plot = panel.graficos.grafos.promedio,
-                device = "png", dpi = 300)
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
