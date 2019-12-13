@@ -568,9 +568,27 @@ if (file.exists("output/IndicesRandMembresias.RData")) {
     return (indices.rand.estadio)
   }
   snow::stopCluster(cluster)
+  indices.rand.permutados <- data.table::rbindlist(indices.rand.permutados)
+  
+  # Realizar comparacion
+  estadisticas.rand.permutados <- indices.rand.permutados %>%
+    dplyr::group_by(estadio, densidad, permutacion) %>%
+    dplyr::summarise(media = mean(rand_ajustado, na.rm = TRUE),
+                     desvio = sd(rand_ajustado, na.rm = TRUE))
+  comparacion.indices.rand     <- estadisticas.rand.permutados %>%
+    dplyr::select(-desvio) %>%
+    dplyr::rename(RIp = media) %>%
+    dplyr::inner_join(estadisticas.rand.observadas, by = c("estadio", "densidad")) %>%
+    dplyr::rename(RIo = media) %>%
+    dplyr::select(-desvio) %>%
+    dplyr::mutate(mayor = dplyr::if_else(RIp > RIo, 1, 0)) %>%
+    dplyr::group_by(estadio, densidad) %>%
+    dplyr::summarise(cantidad = sum(mayor), total = dplyr::n()) %>%
+    dplyr::mutate(p_valor = cantidad/total)
   
   # Guardar los datos calculados
-  save(indices.rand, estadisticas.rand.observadas, estadisticas.rand.permutadas, file = "output/IndicesRandMembresias.RData")
+  save(indices.rand, indices.rand.permutados, estadisticas.rand.observadas, estadisticas.rand.permutados, 
+       comparacion.indices.rand, file = "output/IndicesRandMembresias.RData")
 }
 
 # Graficar valores observados
