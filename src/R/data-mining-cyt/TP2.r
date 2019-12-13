@@ -7,9 +7,10 @@
 # ---------------------------------------------------------------------------------------#
 rm(list = objects())
 
-list.of.packages <- c("Cairo", "caret", "doSNOW", "dplyr", "foreach", "ggplot2", "gtools", 
-                      "igraph", "iterators", "magrittr", "mclust", "purrr", "readr", "snow", 
-                      "stringr", "tibble", "tidyr")
+list.of.packages <- c("Cairo", "caret", "doSNOW", "data.table", "dplyr", "foreach", "GGally",
+                      "ggplot2", "gtools", "igraph", "intergraph", "iterators", "magrittr", 
+                      "mclust", "network", "purrr", "readr", "sna", "snow", "stringr", 
+                      "tibble", "tidyr")
 for (pack in list.of.packages) {
   if (!require(pack, character.only = TRUE)) {
     stop(paste0("Paquete no encontrado: ", pack))
@@ -201,11 +202,29 @@ ggplot2::ggplot(data = estadisticas) +
   ggplot2::theme(
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
-    plot.subtitle = ggplot2::element_text(hjust = 0.5)
-  )
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    text = ggplot2::element_text(size = 8)
+  ) + ggplot2::ggsave(filename = "output/Metricas.png", device = "png", dpi = 300)
 
-# TODO: Mostrar algunos grafos promedio
-
+# Mostrar algunos grafos promedio
+graficos.grafos.promedio <- purrr::pmap(
+  .l = dplyr::select(grafos.promedio, densidad, estadio) %>% dplyr::arrange(densidad, estadio),
+  .f = function(densidad, estadio) {
+    grafo.promedio <- dplyr::filter(grafos.promedio, estadio == !! estadio & densidad == !! densidad)
+    grafo.promedio <- grafo.promedio[1, ]$grafo[[1]]
+    GGally::ggnet2(net = grafo.promedio, size = 2, label = FALSE,
+                   color = "darkslategray4", alpha = 0.5, edge.lty = "dotted") +
+      ggplot2::ggtitle(paste0("Estadío: ", estadio, " - Densidad: ", densidad)) +
+      ggplot2::theme(
+        legend.position = "none",
+        text = ggplot2::element_text(size = 8),
+        panel.background = ggplot2::element_rect(color = "grey50")
+      )
+  }
+)
+panel.graficos.grafos.promedio <- gridExtra::marrangeGrob(graficos.grafos.promedio, nrow = 4, ncol = 3)
+ggplot2::ggsave(filename = "output/GrafosPromedio.png", plot = panel.graficos.grafos.promedio,
+                device = "png", dpi = 300)
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -591,17 +610,42 @@ if (file.exists("output/IndicesRandMembresias.RData")) {
        comparacion.indices.rand, file = "output/IndicesRandMembresias.RData")
 }
 
-# Graficar valores observados
-ggplot2::ggplot(data = dplyr::filter(estadisticas.rand.observadas, estadio %in% c("N2", "W"))) +
-  ggplot2::geom_errorbar(mapping = ggplot2::aes(x = densidad, ymin = media - desvio, ymax = media + desvio, col = estadio)) +
-  ggplot2::labs(x = "Densidad de aristas", y = "Rand ajustado", col = "Estadío",
-                title = "Índices de rand ajustados para membresías de sujetos",
-                subtitle = "Valores medios y desvío para cada densidad y estadío de sueño") +
+# Graficar p-valores
+datos.grafico.p.valor <- comparacion.indices.rand %>%
+  dplyr::mutate(significativo = p_valor < 0.05)
+ggplot2::ggplot(data = datos.grafico.p.valor) +
+  ggplot2::geom_line(mapping = ggplot2::aes(x = densidad, y = p_valor), linetype = "dotted") +
+  ggplot2::geom_hline(yintercept = 0.05, col = "red", linetype = "dashed", size = 0.2) +
+  ggplot2::geom_point(mapping = ggplot2::aes(x = densidad, y = p_valor, col = significativo)) +
+  ggplot2::scale_color_manual(name = "", values = c("darkslategray4", "tomato"),
+                              labels = c("Diferencia no significativa", "Diferencia significativa")) +
+  ggplot2::facet_wrap(~estadio, ncol = 1) +
+  ggplot2::labs(x = "Densidad de aristas", y = "p-valor",
+                title = "p-valores para la comparación de membresías",
+                subtitle = "Se comparan N1, N2 y N3 con W") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
-    plot.subtitle = ggplot2::element_text(hjust = 0.5),
-    axis.text.x = ggplot2::element_text(angle = 90)
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+
+# Graficar valores medios de indices Rand para N1, N2 y N3
+# Agregar boxplots con los valores resultantes de las permutaciones
+ggplot2::ggplot(data = estadisticas.rand.permutados) +
+  ggplot2::geom_boxplot(mapping = ggplot2::aes(x = densidad, y = media, group = densidad),
+                        outlier.shape = 1) +
+  ggplot2::geom_point(data = dplyr::filter(estadisticas.rand.observadas, estadio != 'W'),
+                      mapping = ggplot2::aes(x = densidad, y = media), 
+                      size = 2, col = "tomato", shape = 19) +
+  ggplot2::facet_wrap(~estadio, ncol = 1, scales = "free") +
+  ggplot2::labs(x = "Densidad de aristas", y = "Rand ajustado", col = "Estadío",
+                title = "Índices de rand ajustados para membresías de sujetos",
+                subtitle = "Valores medios observados y boxplots de valores medios resultantes de permutaciones") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
   )
 # ----------------------------------------------------------------------------------------
