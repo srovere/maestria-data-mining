@@ -664,3 +664,105 @@ ggplot2::ggplot(data = estadisticas.rand.permutados) +
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
   )
 # ----------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------#
+# ---- Opcional 5 ----                            
+# ---------------------------------------------------------------------------------------#
+
+if (file.exists("output/RolesNodos.RData")) {
+  load(file = "output/RolesNodos.RData")
+} else {
+  # Para cada estadio, densidad y sujeto, buscar el rol de cada vertice
+  roles       <- c("Hub", "Provincial Hub", "Connector Node", "Provincial Node")
+  roles.nodos <- purrr::pmap_dfr(
+    .l = dplyr::select(membresias, estadio, densidad, sujeto),
+    .f = function(estadio, densidad, sujeto) {
+      # Obtengo las membresias para el estadio, densidad y sujeto
+      membresias.sujeto <- membresias %>%
+        dplyr::filter(estadio == !!estadio & densidad == !!densidad & sujeto == !!sujeto) %>%
+        dplyr::select(membresias) %>%
+        tidyr::unnest(membresias) %>%
+        dplyr::pull(membresias)
+      
+      # Me genero una lista de los miembros de cada comunidad
+      comunidades <- purrr::map(
+        .x = sort(unique(membresias.sujeto)),
+        .f = function(comunidad) {
+          return (which(membresias.sujeto == comunidad))
+        }
+      )
+      
+      # Para cada miembro, obtengo las aristas y observo a que comunidades pertenecen las mismas
+      # Con esos datos, genero una matriz con el "grado" de cada vertice segun la comunidad del
+      # vecino con el que esta conectado
+      grafo.sujeto <- grafos %>%
+        dplyr::filter(estadio == !!estadio & densidad == !!densidad & sujeto == !!sujeto) %>%
+        dplyr::select(grafo)
+      grafo.sujeto <- grafo.sujeto[1, ]$grafo[[1]]
+      vecinos      <- igraph::ego(grafo.sujeto, order = 1, mindist = 1)
+      matriz.grado <- matrix(data = 0, nrow = length(comunidades), ncol = length(vecinos))
+      for (nodo in seq_along(vecinos)) {
+        for (vecino in vecinos[[nodo]]) {
+          comunidad.vecino <- membresias.sujeto[vecino]
+          matriz.grado[comunidad.vecino, nodo] <- matriz.grado[comunidad.vecino, nodo] + 1
+        }
+      }
+      estadisticas.intra.comunidad <- purrr::map(
+        .x = seq_along(comunidades),
+        .f = function(comunidad) {
+          nodos.comunidad  <- comunidades[[comunidad]]
+          return (list(
+            media = mean(matriz.grado[comunidad, nodos.comunidad]),
+            desvio = sd(matriz.grado[comunidad, nodos.comunidad])
+          ))
+        }
+      )
+      
+      # Dado Zc = 1 y Pc = 0.05, definir los roles de la siguiente manera
+      # Hub: Z > Zc y P > Pc
+      # Provincial Hub: Z > Zc y P < Pc
+      # Connector Node: Z < Zc y P > Pc
+      # Provincial Node: Z < Zc y P < Pc
+      roles.nodos <- purrr::map_dfr(
+        .x = seq_along(vecinos),
+        .f = function(nodo) {
+          comunidad.nodo <- membresias.sujeto[nodo]
+          grado_nodo     <- sum(matriz.grado[,nodo])
+          grado_ic_nodo  <- matriz.grado[comunidad.nodo, nodo]
+          grado_media    <- estadisticas.intra.comunidad[[comunidad.nodo]]$media
+          grado_desvio   <- estadisticas.intra.comunidad[[comunidad.nodo]]$desvio
+          if (! is.na(grado_desvio) && (grado_desvio > 0)) {
+            Z <- (grado_ic_nodo - grado_media) / grado_desvio
+          } else {
+            Z <- -Inf
+          }
+          
+          suma <- 0
+          for (comunidad.participacion in seq_along(comunidades)) {
+            suma <- suma + (matriz.grado[comunidad.participacion, nodo])^2
+          }
+          if (grado_nodo > 0) {
+            P <- 1 - suma/(grado_nodo^2)
+          } else {
+            P <- -Inf
+          }
+          
+          return (data.frame(estadio = estadio, densidad = densidad, sujeto = sujeto, nodo = nodo, z = Z, p = P))
+        }
+      ) %>% dplyr::mutate(
+        rol = dplyr::case_when(
+          ((z > 1) & (p > 0.05)) ~ factor("Hub", levels = roles),
+          ((z > 1) & (p <= 0.05)) ~ factor("Provincial Hub", levels = roles),
+          ((z <= 1) & (p > 0.05)) ~ factor("Connector Node", levels = roles),
+          ((z <= 1) & (p <= 0.05)) ~ factor("Provincial Node", levels = roles)
+        )
+      )
+      return (roles.nodos)
+    }
+  )
+  
+  # Guardar roles
+  save(roles.nodos, file = "output/RolesNodos.RData")
+}
+
+# ----------------------------------------------------------------------------------------
