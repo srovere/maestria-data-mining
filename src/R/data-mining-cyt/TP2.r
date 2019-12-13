@@ -7,19 +7,14 @@
 # ---------------------------------------------------------------------------------------#
 rm(list = objects())
 
-require(Cairo)
-require(caret)
-require(dplyr)
-require(ggplot2)
-require(gtools)
-require(igraph)
-require(magrittr)
-require(mclust)
-require(purrr)
-require(readr)
-require(stringr)
-require(tibble)
-require(tidyr)
+list.of.packages <- c("Cairo", "caret", "doSNOW", "dplyr", "foreach", "ggplot2", "gtools", 
+                      "igraph", "iterators", "magrittr", "mclust", "purrr", "readr", "snow", 
+                      "stringr", "tibble", "tidyr")
+for (pack in list.of.packages) {
+  if (!require(pack, character.only = TRUE)) {
+    stop(paste0("Paquete no encontrado: ", pack))
+  }
+}
 
 options(bitmapType = "cairo")
 # ----------------------------------------------------------------------------------------
@@ -210,6 +205,7 @@ ggplot2::ggplot(data = estadisticas) +
   )
 
 # TODO: Mostrar algunos grafos promedio
+
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -471,9 +467,39 @@ ggplot2::ggplot() +
 # ---- Tarea 4 ----                            
 # ---------------------------------------------------------------------------------------#
 
+# funcion para calcular indice Rand ajustado entre membresias
+CalcularRandAjustadoMembresias <- function(membresias.estadio, combinaciones, estadio) {
+  indices.rand.estadio <- combinaciones %>%
+    dplyr::inner_join(membresias.estadio, by = c("sujeto_x" = "sujeto", "densidad")) %>%
+    dplyr::rename(membresias_x = membresias) %>%
+    dplyr::inner_join(membresias.estadio, by = c("sujeto_y" = "sujeto", "densidad")) %>%
+    dplyr::rename(membresias_y = membresias) %>%
+    dplyr::mutate(rand_ajustado = purrr::map2(
+      .x = membresias_x,
+      .y = membresias_y,
+      .f = function(mx, my) {
+        return (mclust::adjustedRandIndex(unlist(mx), unlist(my)))  
+      }
+    ) %>% unlist()) %>%
+    dplyr::mutate(estadio = estadio) %>%
+    dplyr::select(estadio, densidad, sujeto_x, sujeto_y, rand_ajustado)
+  return (indices.rand.estadio)
+}
+
 if (file.exists("output/IndicesRandMembresias.RData")) {
   load(file = "output/IndicesRandMembresias.RData")
 } else {
+  # Variables comunes
+  sujetos <- membresias %>%
+    dplyr::pull(sujeto) %>%
+    unique()
+  pares.sujetos <- gtools::combinations(n = length(sujetos), r = 2, v = sujetos) %>%
+    as.data.frame() %>%
+    dplyr::rename(sujeto_x = V1, sujeto_y = V2)
+  densidades <- membresias %>%
+    dplyr::distinct(densidad)
+  combinaciones <- tidyr::crossing(pares.sujetos, densidades)
+  
   # 1-2. Para todos los pares de sujetos de Nx se calcula el indice de Rand ajustado
   #      de las comunidades. Esto debe hacerse para todas las densidades
   indices.rand <- purrr::map_dfr(
@@ -483,38 +509,10 @@ if (file.exists("output/IndicesRandMembresias.RData")) {
       membresias.estadio <- membresias %>%
         dplyr::filter(estadio == !! estadio) %>%
         dplyr::select(-estadio)
-        
-      # Obtener todas las combinaciones posibles de sujetos tomados de a 2
-      sujetos <- membresias.estadio %>%
-        dplyr::pull(sujeto) %>%
-        unique()
-      pares.sujetos <- gtools::combinations(n = length(sujetos), r = 2, v = sujetos) %>%
-        as.data.frame() %>%
-        dplyr::rename(sujeto_x = V1, sujeto_y = V2)
-      
-      # Obtener densidades para cada estadio
-      densidades <- membresias.estadio %>%
-        dplyr::distinct(densidad)
-      
-      # Cruzar las combinaciones de sujetos con las densidades
-      combinaciones <- tidyr::crossing(pares.sujetos, densidades)
       
       # Para cada densidad, calcular el indice Rand ajustado para las membresias
       # de cada combinacion de sujetos
-      indices.rand.estadio <- combinaciones %>%
-        dplyr::inner_join(membresias.estadio, by = c("sujeto_x" = "sujeto", "densidad")) %>%
-        dplyr::rename(membresias_x = membresias) %>%
-        dplyr::inner_join(membresias.estadio, by = c("sujeto_y" = "sujeto", "densidad")) %>%
-        dplyr::rename(membresias_y = membresias) %>%
-        dplyr::mutate(rand_ajustado = purrr::map2(
-          .x = membresias_x,
-          .y = membresias_y,
-          .f = function(mx, my) {
-            return (mclust::adjustedRandIndex(unlist(mx), unlist(my)))  
-          }
-        ) %>% unlist()) %>%
-        dplyr::mutate(estadio = estadio) %>%
-        dplyr::select(estadio, densidad, sujeto_x, sujeto_y, rand_ajustado)
+      return (CalcularRandAjustadoMembresias(membresias.estadio, combinaciones, estadio))
     }
   )
   
@@ -525,53 +523,51 @@ if (file.exists("output/IndicesRandMembresias.RData")) {
                      desvio = sd(rand_ajustado, na.rm = TRUE))
   
   # 4. Permutaciones: Se realizan N permutaciones entre los estadios Nx-W para calcular nuevamente las medias de
-  #    Rand ajustado.
+  #    Rand ajustado. Esto se hace paralelizado porque tarda muchisimo.
   set.seed(0)
-  permutaciones.estadios <- purrr::cross_df(
-    .l = list(
-      estadio = c('N1', 'N2', 'N3'), 
-      densidad = dplyr::distinct(membresias, densidad) %>% dplyr::pull(densidad)
-    )
-  )
-  estadisticas.rand.permutadas <- purrr::pmap_dfr(
-    .l = permutaciones.estadios,
-    .f = function(estadio, densidad) {
-      estadios <- c(estadio, 'W')
-      indices.rand.combinacion <- indices.rand %>%
-        dplyr::filter(estadio %in% estadios & densidad == !! densidad) %>%
-        dplyr::select(-densidad) %>%
-        tidyr::pivot_wider(id_cols = c("estadio", "sujeto_x", "sujeto_y"), names_from = "estadio", values_from = "rand_ajustado") %>%
-        dplyr::rename(N = !! estadio)
-      
-      # Generar N permutaciones distintas y calcular nuevamente el promedio para Nx y W
-      estadisticas.rand <- purrr::map_dfr(
-        .x = seq(from = 1, to = 1000),
-        .f = function(permutacion) {
-          indices.rand.permutacion <- indices.rand.combinacion %>%
-            dplyr::mutate(
-              permutar = as.logical(rbinom(n = nrow(indices.rand.combinacion), size = 1, prob = 0.5)),
-              nuevo_N := dplyr::if_else(permutar, W, N), 
-              nuevo_W := dplyr::if_else(permutar, N, W)
-            ) %>%
-            dplyr::select(-N, -W) %>%
-            dplyr::rename(N = nuevo_N, W = nuevo_W) %>%
-            dplyr::mutate(permutacion = permutacion)
-        }
-      ) %>% dplyr::group_by(permutacion) %>%
-        dplyr::summarise(media_nueva = mean(N, na.rm = TRUE)) %>%
-        dplyr::mutate(estadio = estadio, densidad = densidad)
-      
-      # Comparar y calcular p-valor
-      estadisticas.rand.observadas.combinacion <- estadisticas.rand.observadas %>%
-        dplyr::inner_join(estadisticas.rand, by = c("estadio", "densidad")) %>%
-        dplyr::mutate(mayor = dplyr::if_else(media_nueva > media, 1, 0))
-      return (estadisticas.rand.observadas.combinacion)
-    }
-  ) %>%
-    dplyr::filter(! is.na(mayor)) %>%
-    dplyr::group_by(estadio, densidad) %>%
-    dplyr::summarise(cantidad = sum(mayor), total = dplyr::n()) %>%
-    dplyr::mutate(p_valor = cantidad / total)
+  numero.permutaciones    <- 1000
+  semillas                <- sample(x = seq(from = 1, to = 1000000), size = 3 * numero.permutaciones)
+  permutaciones.estadios  <- purrr::cross_df(list(permutacion = seq(1, numero.permutaciones), estadio = c('N1', 'N2', 'N3'))) %>%
+    dplyr::mutate(semilla = semillas)
+  
+  input.values            <- iterators::iter(obj = permutaciones.estadios, by = 'row')
+  progressBar             <- utils::txtProgressBar(max = nrow(permutaciones.estadios), style = 3)
+  progressBarFunction     <- function(n) {
+    setTxtProgressBar(progressBar, n)
+  }
+  snowOptions             <- list(progress = progressBarFunction)
+  cluster                 <- snow::makeCluster(type = "SOCK", spec = rep('localhost', length.out = parallel::detectCores()))
+  doSNOW::registerDoSNOW(cluster)
+  indices.rand.permutados <- foreach::foreach(input.value = input.values, .options.snow = snowOptions,
+                                             .packages = list.of.packages,
+                                             .errorhandling = 'pass', .verbose = FALSE) %dopar% {
+    # Obtener permutaciones de sujetos de N con sujetos de W
+    set.seed(input.value$semilla)
+    estadio             <- input.value$estadio
+    permutacion         <- input.value$permutacion
+    sujetos.permutacion <- membresias %>%
+      dplyr::distinct(sujeto) %>%
+      dplyr::mutate(permutar = as.logical(rbinom(n = length(sujetos), size = 1, prob = 0.5)))
+    
+    # Seleccionar los datos de membresia para ese estadio
+    estadios           <- c(estadio, 'W')
+    membresias.estadio <- membresias %>%
+      dplyr::filter(estadio %in% estadios) %>%
+      tidyr::pivot_wider(names_from = "estadio", values_from = "membresias") %>%
+      dplyr::rename(N = !! estadio) %>%
+      dplyr::inner_join(sujetos.permutacion, by = c("sujeto")) %>%
+      dplyr::mutate(nuevo_N := dplyr::if_else(permutar, W, N)) %>%
+      dplyr::select(-N, -W, -permutar) %>%
+      dplyr::rename(membresias = nuevo_N)
+    
+    # Para cada densidad, calcular el indice Rand ajustado para las membresias
+    # de cada combinacion de sujetos
+    indices.rand.estadio <- CalcularRandAjustadoMembresias(membresias.estadio, combinaciones, estadio) %>%
+      dplyr::mutate(permutacion = permutacion) %>%
+      dplyr::select(estadio, permutacion, densidad, sujeto_x, sujeto_y, rand_ajustado)
+    return (indices.rand.estadio)
+  }
+  snow::stopCluster(cluster)
   
   # Guardar los datos calculados
   save(indices.rand, estadisticas.rand.observadas, estadisticas.rand.permutadas, file = "output/IndicesRandMembresias.RData")
