@@ -171,14 +171,15 @@ if (file.exists("output/Metricas.RData")) {
       coeficiente_clustering = purrr::map(grafo, ~igraph::transitivity(.x, type = "average"))
     ) %>% dplyr::select(-grafo)
   
-  # Para cada estadio, metrica y punto de corte, calcular media y desvio de cada metrica
+  # Para cada estadio, metrica y punto de corte, calcular media y SEM de cada metrica
   estadisticas <- metricas %>%
     tidyr::pivot_longer(cols = c(-estadio, -sujeto, -densidad), 
                         names_to = "metrica", values_to = "valor") %>%
     dplyr::mutate(valor = unlist(valor)) %>%
     dplyr::group_by(estadio, metrica, densidad) %>%
-    dplyr::summarise(media = mean(valor, na.rm = TRUE),
-                     desvio = sd(valor, na.rm = TRUE))
+    dplyr::summarise(cantidad = dplyr::n(),
+                     media = mean(valor, na.rm = TRUE),
+                     error_estandar = sd(valor, na.rm = TRUE)/sqrt(cantidad))
   
   # Guardar metricas y estadisticas a archivo RData
   save(metricas, estadisticas, file = "output/Metricas.RData")
@@ -197,11 +198,11 @@ etiquetas_metricas <- c(
 
 # Generar grafico de metricas
 ggplot2::ggplot(data = estadisticas) +
-  ggplot2::geom_errorbar(mapping = ggplot2::aes(x = densidad, ymin = media - desvio, ymax = media + desvio, col = estadio)) +
+  ggplot2::geom_errorbar(mapping = ggplot2::aes(x = densidad, ymin = media - error_estandar, ymax = media + error_estandar, col = estadio)) +
   ggplot2::facet_wrap(~metrica, scales = "free", ncol = 2, labeller = ggplot2::labeller(metrica = etiquetas_metricas)) +
   ggplot2::labs(x = "Densidad de aristas", y = "Valor de la métrica", col = "Estadío de sueño",
                 title = "Métricas de grafos según de densidad de corte",
-                subtitle = "Valores medios y desvíos") +
+                subtitle = "Valores medios y error estándard de la media") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'bottom',
@@ -295,8 +296,9 @@ if (file.exists("output/MetricasLouvain.RData")) {
   # Calcular estadisticas
   estadisticas.louvain <- metricas.louvain %>%
     dplyr::group_by(estadio, densidad, grafo, metrica) %>%
-    dplyr::summarise(media = mean(valor, na.rm = TRUE),
-                     desvio = sd(valor, na.rm = TRUE))
+    dplyr::summarise(cantidad = dplyr::n(),
+                     media = mean(valor, na.rm = TRUE),
+                     error_estandar = sd(valor, na.rm = TRUE)/sqrt(cantidad))
   
   # Guardar metricas y estadisticas a archivo RData
   save(metricas.louvain, estadisticas.louvain, membresias, file = "output/MetricasLouvain.RData")
@@ -310,18 +312,18 @@ etiquetas_metricas_louvain <- c(
  
 # Generar grafico comparativo
 ggplot2::ggplot(data = estadisticas.louvain) +
-  ggplot2::geom_errorbar(mapping = ggplot2::aes(x = densidad, ymin = media - desvio, ymax = media + desvio, col = grafo)) +
+  ggplot2::geom_errorbar(mapping = ggplot2::aes(x = densidad, ymin = media - error_estandar, ymax = media + error_estandar, col = grafo)) +
   ggplot2::facet_grid(metrica~estadio, scales = "free", labeller = ggplot2::labeller(metrica = etiquetas_metricas_louvain)) +
   ggplot2::labs(x = "Densidad de aristas", y = "Valor de la métrica", col = "Tipo de grafo",
                 title = "Métricas de modularidad para grafos según de densidad de corte",
-                subtitle = "Valores medios y desvíos") +
+                subtitle = "Valores medios y error estándard de la media") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5),
     axis.text.x = ggplot2::element_text(angle = 90)
-  )
+  ) + ggplot2::ggsave(filename = "output/MetricasLouvain.png", device = "png", dpi = 300)
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -366,8 +368,9 @@ if (file.exists("output/MetricasClausetNewmanMoore.RData")) {
   # Calcular estadisticas
   estadisticas.clauset.newman.moore <- metricas.clauset.newman.moore %>%
     dplyr::group_by(estadio, densidad, grafo, metrica) %>%
-    dplyr::summarise(media = mean(valor, na.rm = TRUE),
-                     desvio = sd(valor, na.rm = TRUE))
+    dplyr::summarise(cantidad = dplyr::n(),
+                     media = mean(valor, na.rm = TRUE),
+                     error_estandar = sd(valor, na.rm = TRUE)/sqrt(cantidad))
   
   # Guardar metricas y estadisticas a archivo RData
   save(metricas.clauset.newman.moore, estadisticas.clauset.newman.moore, file = "output/MetricasClausetNewmanMoore.RData")
@@ -392,18 +395,18 @@ estadisticas.louvain.clauset <- dplyr::bind_rows(
     dplyr::select(-grafo)
 )
 ggplot2::ggplot(data = estadisticas.louvain.clauset) +
-  ggplot2::geom_errorbar(mapping = ggplot2::aes(x = densidad, ymin = media - desvio, ymax = media + desvio, col = algoritmo)) +
+  ggplot2::geom_errorbar(mapping = ggplot2::aes(x = densidad, ymin = media - error_estandar, ymax = media + error_estandar, col = algoritmo)) +
   ggplot2::facet_grid(metrica~estadio, scales = "free", labeller = ggplot2::labeller(metrica = etiquetas_metricas_louvain)) +
   ggplot2::labs(x = "Densidad de aristas", y = "Valor de la métrica", col = "Algoritmo",
                 title = "Métricas de modularidad para grafos según de densidad de corte",
-                subtitle = "Valores medios y desvíos") +
+                subtitle = "Valores medios y error estándard de la media") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5),
     axis.text.x = ggplot2::element_text(angle = 90)
-  )
+  ) + ggplot2::ggsave(filename = "output/MetricasClausetGirvanMoore.png", device = "png", dpi = 300)
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -447,54 +450,54 @@ datos.grafico.comparacion.estadios <- estadisticas.louvain %>%
 ggplot2::ggplot() +
   ggplot2::geom_errorbar(
     data = dplyr::filter(datos.grafico.comparacion.estadios, estadio %in% c('N1', 'W')),
-    mapping = ggplot2::aes(x = densidad, ymin = media - desvio, ymax = media + desvio, col = estadio)
+    mapping = ggplot2::aes(x = densidad, ymin = media - error_estandar, ymax = media + error_estandar, col = estadio)
   ) +
   ggplot2::facet_wrap(~metrica, scales = "free", ncol = 1,
                       labeller = ggplot2::labeller(metrica = etiquetas_metricas_louvain)) +
   ggplot2::labs(x = "Densidad de aristas", y = "Valor de la métrica", col = "Tipo de grafo",
                 title = "Métricas de modularidad para grafos según de densidad de corte",
-                subtitle = "Valores medios y desvíos") +
+                subtitle = "Valores medios y error estándard de la media") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5),
     axis.text.x = ggplot2::element_text(angle = 90)
-  )
+  ) + ggplot2::ggsave(filename = "output/ComparacionModularidadN1-W.png", device = "png", dpi = 300)
 ggplot2::ggplot() +
   ggplot2::geom_errorbar(
     data = dplyr::filter(datos.grafico.comparacion.estadios, estadio %in% c('N2', 'W')),
-    mapping = ggplot2::aes(x = densidad, ymin = media - desvio, ymax = media + desvio, col = estadio)
+    mapping = ggplot2::aes(x = densidad, ymin = media - error_estandar, ymax = media + error_estandar, col = estadio)
   ) +
   ggplot2::facet_wrap(~metrica, scales = "free", ncol = 1,
                       labeller = ggplot2::labeller(metrica = etiquetas_metricas_louvain)) +
   ggplot2::labs(x = "Densidad de aristas", y = "Valor de la métrica", col = "Tipo de grafo",
                 title = "Métricas de modularidad para grafos según de densidad de corte",
-                subtitle = "Valores medios y desvíos") +
+                subtitle = "Valores medios y error estándard de la media") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5),
     axis.text.x = ggplot2::element_text(angle = 90)
-  )
+  ) + ggplot2::ggsave(filename = "output/ComparacionModularidadN2-W.png", device = "png", dpi = 300)
 ggplot2::ggplot() +
   ggplot2::geom_errorbar(
     data = dplyr::filter(datos.grafico.comparacion.estadios, estadio %in% c('N3', 'W')),
-    mapping = ggplot2::aes(x = densidad, ymin = media - desvio, ymax = media + desvio, col = estadio)
+    mapping = ggplot2::aes(x = densidad, ymin = media - error_estandar, ymax = media + error_estandar, col = estadio)
   ) +
   ggplot2::facet_wrap(~metrica, scales = "free", ncol = 1,
                       labeller = ggplot2::labeller(metrica = etiquetas_metricas_louvain)) +
   ggplot2::labs(x = "Densidad de aristas", y = "Valor de la métrica", col = "Tipo de grafo",
                 title = "Métricas de modularidad para grafos según de densidad de corte",
-                subtitle = "Valores medios y desvíos") +
+                subtitle = "Valores medios y error estándard de la media") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5),
     axis.text.x = ggplot2::element_text(angle = 90)
-  )
+  )  + ggplot2::ggsave(filename = "output/ComparacionModularidadN3-W.png", device = "png", dpi = 300)
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -550,11 +553,12 @@ if (file.exists("output/IndicesRandMembresias.RData")) {
     }
   )
   
-  # 3. Calcular promedio y desvio de los indices Rand para cada estadio y densidad
+  # 3. Calcular promedio y error estandar de los indices Rand para cada estadio y densidad
   estadisticas.rand.observadas <- indices.rand %>%
     dplyr::group_by(estadio, densidad) %>%
-    dplyr::summarise(media = mean(rand_ajustado, na.rm = TRUE),
-                     desvio = sd(rand_ajustado, na.rm = TRUE))
+    dplyr::summarise(cantidad = dplyr::n(),
+                     media = mean(rand_ajustado, na.rm = TRUE),
+                     error_estandar = sd(rand_ajustado, na.rm = TRUE)/sqrt(cantidad))
   
   # 4. Permutaciones: Se realizan N permutaciones entre los estadios Nx-W para calcular nuevamente las medias de
   #    Rand ajustado. Esto se hace paralelizado porque tarda muchisimo.
@@ -607,14 +611,16 @@ if (file.exists("output/IndicesRandMembresias.RData")) {
   # Realizar comparacion
   estadisticas.rand.permutados <- indices.rand.permutados %>%
     dplyr::group_by(estadio, densidad, permutacion) %>%
-    dplyr::summarise(media = mean(rand_ajustado, na.rm = TRUE),
-                     desvio = sd(rand_ajustado, na.rm = TRUE))
+    dplyr::summarise(cantidad = dplyr::n(),
+                     media = mean(rand_ajustado, na.rm = TRUE),
+                     error_estandar = sd(rand_ajustado, na.rm = TRUE)/sqrt(cantidad))
+  
   comparacion.indices.rand     <- estadisticas.rand.permutados %>%
-    dplyr::select(-desvio) %>%
+    dplyr::select(-error_estandar) %>%
     dplyr::rename(RIp = media) %>%
     dplyr::inner_join(estadisticas.rand.observadas, by = c("estadio", "densidad")) %>%
     dplyr::rename(RIo = media) %>%
-    dplyr::select(-desvio) %>%
+    dplyr::select(-error_estandar) %>%
     dplyr::mutate(mayor = dplyr::if_else(RIp > RIo, 1, 0)) %>%
     dplyr::group_by(estadio, densidad) %>%
     dplyr::summarise(cantidad = sum(mayor), total = dplyr::n()) %>%
@@ -643,7 +649,7 @@ ggplot2::ggplot(data = datos.grafico.p.valor) +
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
-  )
+  ) + ggplot2::ggsave(filename = "output/PValoresRandMembresias.png", device = "png", dpi = 300)
 
 # Graficar valores medios de indices Rand para N1, N2 y N3
 # Agregar boxplots con los valores resultantes de las permutaciones
@@ -662,7 +668,7 @@ ggplot2::ggplot(data = estadisticas.rand.permutados) +
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
-  )
+  ) + ggplot2::ggsave(filename = "output/ComparacionRandMembresias.png", device = "png", dpi = 300)
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
@@ -765,4 +771,28 @@ if (file.exists("output/RolesNodos.RData")) {
   save(roles.nodos, file = "output/RolesNodos.RData")
 }
 
+# Calcular cantidad de nodos por estadio, densidad, rol y sujeto
+# Luego calcular media y desvio por estadio, densidad y rol
+estadisticas.roles <- roles.nodos %>%
+  dplyr::group_by(estadio, densidad, rol, sujeto) %>%
+  dplyr::summarise(cantidad = dplyr::n()) %>%
+  dplyr::group_by(estadio, densidad, rol) %>%
+  dplyr::summarise(cantidad = dplyr::n(),
+                   media = mean(cantidad), 
+                   error_estandar = sd(cantidad)/sqrt(cantidad))
+
+# Separar los datos de N* de W y graficar
+datos.roles.N <- estadisticas.roles %>%
+  dplyr::filter(estadio != 'W')
+datos.roles.W <- estadisticas.roles %>%
+  dplyr::filter(estadio == 'W') %>%
+  dplyr::ungroup() %>%
+  dplyr::select(-estadio)
+ggplot2::ggplot() +
+  ggplot2::geom_errorbar(data = datos.roles.N, 
+                         mapping = ggplot2::aes(x = densidad, ymin = media - error_estandar, ymax = media + error_estandar, col = estadio)) +
+  ggplot2::geom_errorbar(data = datos.roles.W, 
+                         mapping = ggplot2::aes(x = densidad, ymin = media - error_estandar, ymax = media + error_estandar, col = "W")) +
+  ggplot2::facet_grid(rol~estadio, scales = "free") +
+  ggplot2::scale_color_manual(name = "Estadío", values = c("W" = "black", "N1" = "green", "N2" = "blue", "N3" = "red"))
 # ----------------------------------------------------------------------------------------
