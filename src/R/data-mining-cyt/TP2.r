@@ -322,7 +322,8 @@ ggplot2::ggplot(data = estadisticas.louvain) +
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5),
-    axis.text.x = ggplot2::element_text(angle = 90)
+    axis.text.x = ggplot2::element_text(angle = 90),
+    text = ggplot2::element_text(size = 8)
   ) + ggplot2::ggsave(filename = "output/MetricasLouvain.png", device = "png", dpi = 300)
 # ----------------------------------------------------------------------------------------
 
@@ -405,7 +406,8 @@ ggplot2::ggplot(data = estadisticas.louvain.clauset) +
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5),
-    axis.text.x = ggplot2::element_text(angle = 90)
+    axis.text.x = ggplot2::element_text(angle = 90),
+    text = ggplot2::element_text(size = 8)
   ) + ggplot2::ggsave(filename = "output/MetricasClausetGirvanMoore.png", device = "png", dpi = 300)
 # ----------------------------------------------------------------------------------------
 
@@ -462,7 +464,8 @@ ggplot2::ggplot() +
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5),
-    axis.text.x = ggplot2::element_text(angle = 90)
+    axis.text.x = ggplot2::element_text(angle = 90),
+    text = ggplot2::element_text(size = 8)
   ) + ggplot2::ggsave(filename = "output/ComparacionModularidadN1-W.png", device = "png", dpi = 300)
 ggplot2::ggplot() +
   ggplot2::geom_errorbar(
@@ -479,7 +482,8 @@ ggplot2::ggplot() +
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5),
-    axis.text.x = ggplot2::element_text(angle = 90)
+    axis.text.x = ggplot2::element_text(angle = 90),
+    text = ggplot2::element_text(size = 8)
   ) + ggplot2::ggsave(filename = "output/ComparacionModularidadN2-W.png", device = "png", dpi = 300)
 ggplot2::ggplot() +
   ggplot2::geom_errorbar(
@@ -496,7 +500,8 @@ ggplot2::ggplot() +
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5),
-    axis.text.x = ggplot2::element_text(angle = 90)
+    axis.text.x = ggplot2::element_text(angle = 90),
+    text = ggplot2::element_text(size = 8)
   )  + ggplot2::ggsave(filename = "output/ComparacionModularidadN3-W.png", device = "png", dpi = 300)
 # ----------------------------------------------------------------------------------------
 
@@ -648,7 +653,8 @@ ggplot2::ggplot(data = datos.grafico.p.valor) +
   ggplot2::theme(
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
-    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    text = ggplot2::element_text(size = 8)
   ) + ggplot2::ggsave(filename = "output/PValoresRandMembresias.png", device = "png", dpi = 300)
 
 # Graficar valores medios de indices Rand para N1, N2 y N3
@@ -667,7 +673,8 @@ ggplot2::ggplot(data = estadisticas.rand.permutados) +
   ggplot2::theme(
     legend.position = 'bottom',
     plot.title = ggplot2::element_text(hjust = 0.5),
-    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    text = ggplot2::element_text(size = 8)
   ) + ggplot2::ggsave(filename = "output/ComparacionRandMembresias.png", device = "png", dpi = 300)
 # ----------------------------------------------------------------------------------------
 
@@ -777,9 +784,9 @@ estadisticas.roles <- roles.nodos %>%
   dplyr::group_by(estadio, densidad, rol, sujeto) %>%
   dplyr::summarise(cantidad = dplyr::n()) %>%
   dplyr::group_by(estadio, densidad, rol) %>%
-  dplyr::summarise(cantidad = dplyr::n(),
+  dplyr::summarise(observaciones = dplyr::n(),
                    media = mean(cantidad), 
-                   error_estandar = sd(cantidad)/sqrt(cantidad))
+                   error_estandar = sd(cantidad)/sqrt(observaciones))
 
 # Separar los datos de N* de W y graficar
 datos.roles.N <- estadisticas.roles %>%
@@ -794,5 +801,15 @@ ggplot2::ggplot() +
   ggplot2::geom_errorbar(data = datos.roles.W, 
                          mapping = ggplot2::aes(x = densidad, ymin = media - error_estandar, ymax = media + error_estandar, col = "W")) +
   ggplot2::facet_grid(rol~estadio, scales = "free") +
-  ggplot2::scale_color_manual(name = "Estadío", values = c("W" = "black", "N1" = "green", "N2" = "blue", "N3" = "red"))
+  ggplot2::scale_color_manual(name = "Estadío", values = c("W" = "black", "N1" = "green", "N2" = "blue", "N3" = "red")) +
+  ggplot2::labs(x = "Densidad de aristas", y = "Media de nodos para cada rol", col = "Estadío",
+                title = "Roles de los nodos para cada estadío y densidad de aristas",
+                subtitle = "Valores medios observados y error estándar de la media") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    legend.position = 'bottom',
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    text = ggplot2::element_text(size = 8)
+  ) + ggplot2::ggsave(filename = "output/RolesNodos.png", device = "png", dpi = 300)
 # ----------------------------------------------------------------------------------------
