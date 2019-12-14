@@ -392,7 +392,7 @@ estadisticas.louvain.clauset <- dplyr::bind_rows(
     dplyr::select(-grafo),
   estadisticas.clauset.newman.moore %>%
     dplyr::ungroup() %>%
-    dplyr::mutate(algoritmo = "Clauset-Girvan-Moore") %>%
+    dplyr::mutate(algoritmo = "Clauset-Newman-Moore") %>%
     dplyr::select(-grafo)
 )
 ggplot2::ggplot(data = estadisticas.louvain.clauset) +
@@ -408,7 +408,7 @@ ggplot2::ggplot(data = estadisticas.louvain.clauset) +
     plot.subtitle = ggplot2::element_text(hjust = 0.5),
     axis.text.x = ggplot2::element_text(angle = 90),
     text = ggplot2::element_text(size = 8)
-  ) + ggplot2::ggsave(filename = "output/MetricasClausetGirvanMoore.png", device = "png", dpi = 300)
+  ) + ggplot2::ggsave(filename = "output/MetricasClausetNewmanMoore.png", device = "png", dpi = 300)
 # ----------------------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------------------#
