@@ -1,0 +1,74 @@
+---
+title: "Visualización de la información: Trabajo Práctico nº 1"
+subtitle: "Superficie afactada por incendios"
+author:
+- Santiago Rovere (srovere@gmail.com), Facultad de Ingeniería, Universidad de Buenos Aires
+date: '`r format(Sys.Date(), "%d de %B de %Y")`'
+pdf_document:
+    number_sections: yes
+lang: es
+---
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, comment=FALSE, results=FALSE }
+# Borrar variables del ambiente
+rm(list = objects())
+
+# Carga de paquetes necesarios para hacer los gráficos
+require(Cairo)
+require(sf)
+require(tidyverse)
+
+# Uso de Cairo para renderizar los gráficos
+options(bitmapType = "cairo")
+
+# Cargar shapes de provincias y departamentos
+provincias    <- base::readRDS("shapes/gadm36_ARG_1_sf.rds")
+departamentos <- sf::st_read(dsn = "shapes", layer = "ign_departamento")
+
+# Cargar conjunto de datos
+datos <- readr::read_delim(file = "dataset_incendios.csv", delim = ";") %>%
+  dplyr::mutate(IN1 = paste0(provincia_id, departamento_id)) %>%
+  dplyr::select(IN1, provincia, departamento, sup_afectada) %>%
+  dplyr::filter(! is.na(sup_afectada))
+
+# Definir categoria y color a cada dato de superficie afectada
+intervalos <- c(-Inf, quantile(datos$sup_afectada, probs = seq(0.2, 0.8, 0.2)), Inf)
+colores    <- c('#ffffb2','#fecc5c','#fd8d3c','#f03b20','#bd0026')
+etiquetas  <- purrr::map(
+    .x = seq(from = 1, to = length(intervalos) - 1, by = 1),
+    .f = function(pos) {
+      desde <- intervalos[pos]
+      hasta <- intervalos[pos+1]
+      if (is.infinite(desde)) {
+        return (sprintf("Menos de %.2f Has (Q%d)", hasta, pos))
+      } else if (is.infinite(hasta)) {
+        return (sprintf("Más de %.2f Has (Q%d)", desde, pos))
+      } else {
+        return (sprintf("De %.2f a %.2f Has (Q%d)", desde, hasta, pos))
+      }
+    }
+  ) %>% unlist()
+
+# Geolocalizar conjunto de datos y asignar categoria y color segun superficie afectada
+datos.geolocalizados <- departamentos %>%
+  dplyr::inner_join(datos, by = c("IN1")) %>%
+  dplyr::select(IN1, provincia, departamento, sup_afectada) %>%
+  dplyr::mutate(categoria = cut(x = sup_afectada, breaks = intervalos, labels = etiquetas))
+```
+
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, fig.width=9, fig.height=12 }
+# Dibujar mapa
+ggplot2::ggplot() +
+  ggplot2::geom_sf(data = provincias, colour = "black", fill = NA) +
+  ggplot2::geom_sf(data = datos.geolocalizados, colour = NA,
+                   mapping = ggplot2::aes(fill = categoria)) +
+  ggplot2::scale_fill_manual(name = "Superficie afectada", values = colores, labels = etiquetas) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    strip.text.x = element_blank(),
+    strip.background = element_rect(colour = "white", fill = "white"),
+    legend.position = c(.75, 0.1),
+    legend.background = element_rect(fill = "grey80", size = 0.5, linetype = "solid", colour = "black")
+  )
+```
+
