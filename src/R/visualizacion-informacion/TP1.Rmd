@@ -1,11 +1,10 @@
 ---
-title: "Visualización de la información: Trabajo Práctico nº 1"
-subtitle: "Superficie afactada por incendios"
-author:
-- Santiago Rovere (srovere@gmail.com), Facultad de Ingeniería, Universidad de Buenos Aires
-date: '`r format(Sys.Date(), "%d de %B de %Y")`'
-pdf_document:
-    number_sections: yes
+date: "`r format(Sys.Date(), '%d de %B de %Y')`"
+output: pdf_document
+title: 'Visualización de la información: Trabajo Práctico nº 1'
+subtitle: Superficie afectada por incendios
+author: 
+  - Santiago Rovere (srovere@gmail.com), Facultad de Ingeniería, Universidad de Buenos Aires
 lang: es
 ---
 
@@ -93,7 +92,7 @@ inset.tibble <- tibble::tibble(x = 0.98, y = 0, plot = list(inset))
 ggplot2::ggplot() +
   ggpmisc::geom_plot_npc(data = inset.tibble, 
                          mapping = ggplot2::aes(npcx = x, npcy = y, label = plot, vp.width = 0.6, vp.height = 0.5)) +
-  ggplot2::geom_sf(data = provincias, colour = "black", fill = NA) +
+  ggplot2::geom_sf(data = provincias, colour = "black", fill = "#dbdbdb", size = 0.5) +
   ggplot2::geom_sf(data = datos.geolocalizados, colour = NA,
                    mapping = ggplot2::aes(fill = categoria)) +
   ggplot2::coord_sf(xlim = c(-75, -25)) +
