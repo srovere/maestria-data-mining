@@ -2,9 +2,9 @@
 date: "`r format(Sys.Date(), '%d de %B de %Y')`"
 output: pdf_document
 title: 'Visualización de la información: Trabajo Práctico nº 1'
-subtitle: Superficie afectada por incendios
+subtitle: Superficie afectada por incendios forestales entre 2011 y 2016
 author: 
-  - Santiago Rovere (srovere@gmail.com), Facultad de Ingeniería, Universidad de Buenos Aires
+  - Santiago Rovere (srovere@gmail.com), Facultad de Ciencias Exactas y Narutales (UBA)
 lang: es
 ---
 
@@ -28,7 +28,8 @@ departamentos <- sf::st_read(dsn = "shapes", layer = "ign_departamento")
 # Cargar conjunto de datos
 datos <- readr::read_delim(file = "dataset_incendios.csv", delim = ";") %>%
   dplyr::mutate(IN1 = paste0(provincia_id, departamento_id)) %>%
-  dplyr::select(IN1, provincia, sup_afectada) %>%
+  dplyr::select(`año_inicial`, `año_final`, IN1, provincia, sup_afectada) %>%
+  dplyr::rename(ano_inicio = `año_inicial`, ano_fin = `año_final`) %>%
   dplyr::filter(! is.na(sup_afectada))
 
 # Definir categoria y color a cada dato de superficie afectada
@@ -40,11 +41,11 @@ etiquetas  <- purrr::map(
       desde <- intervalos[pos]
       hasta <- intervalos[pos+1]
       if (is.infinite(desde)) {
-        return (sprintf("Menos de %.2f Has (Q%d)", hasta, pos))
+        return (sprintf("Menos de %.2f Has", hasta))
       } else if (is.infinite(hasta)) {
-        return (sprintf("Más de %.2f Has (Q%d)", desde, pos))
+        return (sprintf("Más de %.2f Has", desde))
       } else {
-        return (sprintf("De %.2f a %.2f Has (Q%d)", desde, hasta, pos))
+        return (sprintf("De %.2f a %.2f Has", desde, hasta))
       }
     }
   ) %>% unlist()
@@ -67,42 +68,73 @@ otras.provincias <- resumen %>%
 resumen.truncado <- resumen %>%
   dplyr::filter(porcentaje >= 1) %>%
   dplyr::bind_rows(otras.provincias) %>%
-  dplyr::mutate(provincia = factor(provincia, levels = provincia))
+  dplyr::mutate(provincia = factor(provincia, levels = rev(provincia)))
+
+# Generar serie temporal
+serie.temporal <- dplyr::bind_rows(
+  dplyr::distinct(datos, ano_inicio, IN1, sup_afectada) %>%
+    dplyr::rename(ano = ano_inicio),
+  dplyr::distinct(dplyr::filter(datos, ano_fin > ano_inicio), ano_fin, IN1, sup_afectada) %>%
+    dplyr::rename(ano = ano_fin)
+) %>% dplyr::group_by(ano) %>%
+  dplyr::summarise(area_afectada = sum(sup_afectada))
 ```
 
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, fig.width=10, fig.height=10 }
-# Generar inset indicando porcentaje de area que le corresponde a cada provincia y la superficie total
-inset <- ggplot2::ggplot(data = resumen.truncado) +
-  ggplot2::geom_bar(mapping = ggplot2::aes(x = provincia, y = porcentaje, fill = provincia), stat = 'identity') +
-  ggrepel::geom_label_repel(mapping = ggplot2::aes(x = provincia, y = porcentaje, 
-                                                   label = sprintf("%.2f Has", area_afectada)),
-                            nudge_x = 0, nudge_y = 10, size = 3) +
-  ggplot2::labs(x = "", y = "Porcentaje", title = "Distribución de área afectada",
-                subtitle = "Porcentaje de área respecto del total afectado") +
+# Generar inset 1 indicando evolucion temporal de areas incendiadas
+inset1 <- ggplot2::ggplot(data = serie.temporal) +
+  ggplot2::geom_area(mapping = ggplot2::aes(x = ano, y = area_afectada),
+                     color = "red", fill = alpha("orange", 0.3), alpha = 0.7) +
+  ggrepel::geom_label_repel(mapping = ggplot2::aes(x = ano, y = area_afectada, 
+                                                   label = sprintf("%.0f Has", area_afectada)),
+                            nudge_x = 0, nudge_y = 10, size = 3, segment.size = 0) +
+  ggplot2::labs(x = "", y = "Superficie afectada (Has)", title = "Evolución temporal de área afectada") +
   ggplot2::theme_light() + 
   ggplot2::theme(
-    plot.title = ggplot2::element_text(hjust = 0.5),
-    plot.subtitle = ggplot2::element_text(hjust = 0.5),
-    axis.text.x = ggplot2::element_text(angle = 45, margin = margin(15,0,0,0)),
+    plot.title = ggplot2::element_text(hjust = 0.5, size = 12)
+  ) 
+inset.tibble.1 <- tibble::tibble(x = 0.98, y = 0.90, plot = list(inset1))
+
+# Generar inset 2 indicando porcentaje de area que le corresponde a cada provincia y la superficie total
+inset2 <- ggplot2::ggplot(data = resumen.truncado) +
+  ggplot2::geom_segment(mapping = ggplot2::aes(x = provincia, xend = provincia, y = 0, yend = porcentaje)) +
+  ggplot2::geom_point(mapping = ggplot2::aes(x = provincia, y = porcentaje),
+                      size = 3, color = "red", fill = alpha("orange", 0.3), alpha = 0.7, shape = 21, stroke = 2) +
+  ggrepel::geom_label_repel(mapping = ggplot2::aes(x = provincia, y = porcentaje, 
+                                                   label = sprintf("%.0f Has", area_afectada)),
+                            nudge_x = 0, nudge_y = 10, size = 3, segment.size = 0) +
+  ggplot2::labs(x = "", y = "Porcentaje", title = "Distribución provincial de área afectada",
+                subtitle = "Porcentaje de área respecto del total afectado") +
+  ggplot2::scale_y_continuous(limits = c(0, 50)) +
+  ggplot2::theme_light() + 
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5, size = 12),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 10),
     legend.position = 'none'
-  )
-inset.tibble <- tibble::tibble(x = 0.98, y = 0, plot = list(inset))
+  ) + ggplot2::coord_flip()
+
+# Generar tibble con insets
+inset.tibble <- tibble::tibble(
+  x = c(0.98, 0.98), y = c(0.98, 0.0), 
+  vp.width = c(0.4, 0.6), vp.height = c(0.5, 0.5),
+  plot = list(inset1, inset2)
+)
 
 # Dibujar mapa
 ggplot2::ggplot() +
   ggpmisc::geom_plot_npc(data = inset.tibble, 
-                         mapping = ggplot2::aes(npcx = x, npcy = y, label = plot, vp.width = 0.6, vp.height = 0.5)) +
-  ggplot2::geom_sf(data = provincias, colour = "black", fill = "#dbdbdb", size = 0.5) +
+                         mapping = ggplot2::aes(npcx = x, npcy = y, label = plot, vp.width = vp.width, vp.height = vp.height)) +
+  ggplot2::geom_sf(data = provincias, colour = "black", fill = "#dbdbdb", size = 0.1) +
   ggplot2::geom_sf(data = datos.geolocalizados, colour = NA,
                    mapping = ggplot2::aes(fill = categoria)) +
-  ggplot2::coord_sf(xlim = c(-75, -25)) +
+  ggplot2::coord_sf(xlim = c(-80, -25)) +
   ggplot2::scale_fill_manual(name = "Superficie afectada", values = colores, labels = etiquetas) +
   ggplot2::theme_bw() +
   ggplot2::theme(
     strip.text.x = element_blank(),
     strip.background = element_rect(colour = "white", fill = "white"),
-    legend.position = c(0.85, 0.85),
-    legend.background = element_rect(fill = "grey80", size = 0.5, linetype = "solid", colour = "black")
+    legend.position = c(0.11, 0.88),
+    legend.background = element_rect(fill = "grey90", size = 0.1, linetype = "solid", colour = "black")
   )
 ```
 
