@@ -102,7 +102,7 @@ inset2 <- ggplot2::ggplot(data = resumen.truncado) +
                       size = 3, color = "red", fill = alpha("orange", 0.3), alpha = 0.7, shape = 21, stroke = 2) +
   ggrepel::geom_label_repel(mapping = ggplot2::aes(x = provincia, y = porcentaje, 
                                                    label = sprintf("%.0f Has", area_afectada)),
-                            nudge_x = 0, nudge_y = 10, size = 3, segment.size = 0) +
+                            nudge_x = 0, nudge_y = 10, size = 3, segment.alpha = 0) +
   ggplot2::labs(x = "", y = "Porcentaje", title = "Distribución provincial de área afectada",
                 subtitle = "Porcentaje de área respecto del total afectado") +
   ggplot2::scale_y_continuous(limits = c(0, 50)) +
@@ -115,8 +115,8 @@ inset2 <- ggplot2::ggplot(data = resumen.truncado) +
 
 # Generar tibble con insets
 inset.tibble <- tibble::tibble(
-  x = c(0.98, 0.98), y = c(0.98, 0.0), 
-  vp.width = c(0.4, 0.6), vp.height = c(0.5, 0.5),
+  x = c(0.98, 0.98), y = c(0.98, 0.07), 
+  vp.width = c(0.4, 0.6), vp.height = c(0.45, 0.45),
   plot = list(inset1, inset2)
 )
 
@@ -127,14 +127,22 @@ ggplot2::ggplot() +
   ggplot2::geom_sf(data = provincias, colour = "black", fill = "#dbdbdb", size = 0.1) +
   ggplot2::geom_sf(data = datos.geolocalizados, colour = NA,
                    mapping = ggplot2::aes(fill = categoria)) +
-  ggplot2::coord_sf(xlim = c(-80, -25)) +
+  ggplot2::annotate(geom = "text", x = -65, y = -60, parse = TRUE,
+                    label = "paste(bold(\"Fuente:\"), \" https://datos.gob.ar/dataset/ambiente-incendios-forestales\")") +
+  ggplot2::coord_sf(xlim = c(-80, -25), ylim = c(-60, -20)) +
+  ggplot2::labs(x = "", y = "") +
   ggplot2::scale_fill_manual(name = "Superficie afectada", values = colores, labels = etiquetas) +
   ggplot2::theme_bw() +
   ggplot2::theme(
-    strip.text.x = element_blank(),
-    strip.background = element_rect(colour = "white", fill = "white"),
+    panel.grid.major = ggplot2::element_blank(),
+    axis.text.x = ggplot2::element_blank(),
+    axis.ticks.x = ggplot2::element_blank(),
+    axis.text.y = ggplot2::element_blank(),
+    axis.ticks.y = ggplot2::element_blank(),
+    strip.text.x = ggplot2::element_blank(),
+    strip.background = ggplot2::element_rect(colour = "white", fill = "white"),
     legend.position = c(0.11, 0.88),
-    legend.background = element_rect(fill = "grey90", size = 0.1, linetype = "solid", colour = "black")
+    legend.background = ggplot2::element_rect(fill = "grey90", size = 0.1, linetype = "solid", colour = "black")
   )
 ```
 
