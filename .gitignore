@@ -26,3 +26,5 @@ src/R/data-mining-cyt/input/*
 src/R/data-mining-cyt/output/*
 src/R/enfoque-estadistico-aprendizaje/*.csv
 src/R/enfoque-estadistico-aprendizaje/*.html
+src/R/visualizacion-informacion/TP*.html
+src/R/visualizacion-informacion/TP*.pdf
