@@ -15,6 +15,7 @@ rm(list = objects())
 
 # Carga de paquetes necesarios para hacer los gráficos
 require(Cairo)
+require(ggrepel)
 require(sf)
 require(tidyverse)
 
@@ -28,7 +29,7 @@ departamentos <- sf::st_read(dsn = "shapes", layer = "ign_departamento")
 # Cargar conjunto de datos
 datos <- readr::read_delim(file = "dataset_incendios.csv", delim = ";") %>%
   dplyr::mutate(IN1 = paste0(provincia_id, departamento_id)) %>%
-  dplyr::select(IN1, provincia, departamento, sup_afectada) %>%
+  dplyr::select(IN1, provincia, sup_afectada) %>%
   dplyr::filter(! is.na(sup_afectada))
 
 # Definir categoria y color a cada dato de superficie afectada
@@ -52,22 +53,56 @@ etiquetas  <- purrr::map(
 # Geolocalizar conjunto de datos y asignar categoria y color segun superficie afectada
 datos.geolocalizados <- departamentos %>%
   dplyr::inner_join(datos, by = c("IN1")) %>%
-  dplyr::select(IN1, provincia, departamento, sup_afectada) %>%
+  dplyr::select(IN1, provincia, sup_afectada) %>%
   dplyr::mutate(categoria = cut(x = sup_afectada, breaks = intervalos, labels = etiquetas))
+
+# Generar resumen por provincia
+resumen <- sf::st_set_geometry(datos.geolocalizados, NULL) %>%
+  dplyr::group_by(provincia) %>%
+  dplyr::summarise(area_afectada = sum(sup_afectada)) %>%
+  dplyr::mutate(total = sum(area_afectada), porcentaje = 100*area_afectada/total) %>%
+  dplyr::arrange(dplyr::desc(porcentaje)) 
+otras.provincias <- resumen %>%
+  dplyr::filter(porcentaje < 1) %>%
+  dplyr::summarise(provincia = "Otras", porcentaje = sum(porcentaje), area_afectada = sum(area_afectada))
+resumen.truncado <- resumen %>%
+  dplyr::filter(porcentaje >= 1) %>%
+  dplyr::bind_rows(otras.provincias) %>%
+  dplyr::mutate(provincia = factor(provincia, levels = provincia))
 ```
 
-```{r, echo=FALSE, warnings=FALSE, message=FALSE, fig.width=9, fig.height=12 }
+```{r, echo=FALSE, warnings=FALSE, message=FALSE, fig.width=10, fig.height=10 }
+# Generar inset indicando porcentaje de area que le corresponde a cada provincia y la superficie total
+inset <- ggplot2::ggplot(data = resumen.truncado) +
+  ggplot2::geom_bar(mapping = ggplot2::aes(x = provincia, y = porcentaje, fill = provincia), stat = 'identity') +
+  ggrepel::geom_label_repel(mapping = ggplot2::aes(x = provincia, y = porcentaje, 
+                                                   label = sprintf("%.2f Has", area_afectada)),
+                            nudge_x = 0, nudge_y = 10, size = 3) +
+  ggplot2::labs(x = "", y = "Porcentaje", title = "Distribución de área afectada",
+                subtitle = "Porcentaje de área respecto del total afectado") +
+  ggplot2::theme_light() + 
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    axis.text.x = ggplot2::element_text(angle = 45, margin = margin(15,0,0,0)),
+    legend.position = 'none'
+  )
+inset.tibble <- tibble::tibble(x = 0.98, y = 0, plot = list(inset))
+
 # Dibujar mapa
 ggplot2::ggplot() +
+  ggpmisc::geom_plot_npc(data = inset.tibble, 
+                         mapping = ggplot2::aes(npcx = x, npcy = y, label = plot, vp.width = 0.6, vp.height = 0.5)) +
   ggplot2::geom_sf(data = provincias, colour = "black", fill = NA) +
   ggplot2::geom_sf(data = datos.geolocalizados, colour = NA,
                    mapping = ggplot2::aes(fill = categoria)) +
+  ggplot2::coord_sf(xlim = c(-75, -25)) +
   ggplot2::scale_fill_manual(name = "Superficie afectada", values = colores, labels = etiquetas) +
   ggplot2::theme_bw() +
   ggplot2::theme(
     strip.text.x = element_blank(),
     strip.background = element_rect(colour = "white", fill = "white"),
-    legend.position = c(.75, 0.1),
+    legend.position = c(0.85, 0.85),
     legend.background = element_rect(fill = "grey80", size = 0.5, linetype = "solid", colour = "black")
   )
 ```
