@@ -101,10 +101,10 @@ inset2 <- ggplot2::ggplot(data = resumen.truncado) +
   ggplot2::geom_point(mapping = ggplot2::aes(x = provincia, y = porcentaje),
                       size = 3, color = "red", fill = alpha("orange", 0.3), alpha = 0.7, shape = 21, stroke = 2) +
   ggrepel::geom_label_repel(mapping = ggplot2::aes(x = provincia, y = porcentaje, 
-                                                   label = sprintf("%.0f Has", area_afectada)),
+                                                   label = sprintf("%.0f Has (%.1f%%)", area_afectada, porcentaje)),
                             nudge_x = 0, nudge_y = 10, size = 3, segment.alpha = 0) +
   ggplot2::labs(x = "", y = "Porcentaje", title = "Distribución provincial de área afectada",
-                subtitle = "Porcentaje de área respecto del total afectado") +
+                subtitle = "Porcentaje de área respecto del total afectado entre 2011 y 2016") +
   ggplot2::scale_y_continuous(limits = c(0, 50)) +
   ggplot2::theme_light() + 
   ggplot2::theme(
@@ -127,13 +127,16 @@ ggplot2::ggplot() +
   ggplot2::geom_sf(data = provincias, colour = "black", fill = "#dbdbdb", size = 0.1) +
   ggplot2::geom_sf(data = datos.geolocalizados, colour = NA,
                    mapping = ggplot2::aes(fill = categoria)) +
-  ggplot2::annotate(geom = "text", x = -65, y = -60, parse = TRUE,
+  ggplot2::annotate(geom = "text", x = -40, y = -60, parse = TRUE,
                     label = "paste(bold(\"Fuente:\"), \" https://datos.gob.ar/dataset/ambiente-incendios-forestales\")") +
   ggplot2::coord_sf(xlim = c(-80, -25), ylim = c(-60, -20)) +
-  ggplot2::labs(x = "", y = "") +
+  ggplot2::labs(x = "", y = "", title = "Distribución espacial de incendios forestales",
+                subtitle = "Superficie afectada por incendios entre 2011 y 2016") +
   ggplot2::scale_fill_manual(name = "Superficie afectada", values = colores, labels = etiquetas) +
   ggplot2::theme_bw() +
   ggplot2::theme(
+    plot.title = ggplot2::element_text(vjust = -12, hjust = 0.2),
+    plot.subtitle = ggplot2::element_text(vjust = -15, hjust = 0.22),
     panel.grid.major = ggplot2::element_blank(),
     axis.text.x = ggplot2::element_blank(),
     axis.ticks.x = ggplot2::element_blank(),
@@ -141,7 +144,7 @@ ggplot2::ggplot() +
     axis.ticks.y = ggplot2::element_blank(),
     strip.text.x = ggplot2::element_blank(),
     strip.background = ggplot2::element_rect(colour = "white", fill = "white"),
-    legend.position = c(0.11, 0.88),
+    legend.position = c(0.11, 0.12),
     legend.background = ggplot2::element_rect(fill = "grey90", size = 0.1, linetype = "solid", colour = "black")
   )
 ```
