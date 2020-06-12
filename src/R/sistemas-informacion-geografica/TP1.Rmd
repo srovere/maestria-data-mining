@@ -39,17 +39,24 @@ establecimientos <- sf::st_read(dsn = "data", layer = "establecimientos-educativ
 # Dado que los radios censales estan incluidos dentro de un barrio, entonces para evitar problemas de proyeccion
 # se determinarar el barrio en base a la ubicacion del centroide. Se utiliza st_nearest_feature porque para
 # 4 casos en particular, el centroide cae fuera del poligono de barrios (por los "huecos" que tiene)
-censo <- sf::st_read(dsn = "data", layer = "censo_2010_caba") %>%
-  sf::st_transform(crs = sf::st_crs(barrios))
+# Como el archivo de censos tiene mal 2 poligonos, los extraigo del geojson y luego hago join con los datos censales.
+radios.censales <- geojsonsf::geojson_sf("data/caba_radios_censales.geojson") %>%
+  sf::st_transform(crs = sf::st_crs(barrios)) %>%
+  dplyr::select(-BARRIO)
+datos.censales <- sf::st_read(dsn = "data", layer = "censo_2010_caba") %>%
+  sf::st_transform(crs = sf::st_crs(barrios)) %>%
+  dplyr::select(CO_FRAC_RA, T_VARON, T_MUJER, T_VIVIENDA, V_PARTICUL, V_COLECTIV) %>%
+  dplyr::rename(RADIO_ID = CO_FRAC_RA) %>%
+  sf::st_set_geometry(NULL)
+censo <- dplyr::inner_join(radios.censales, datos.censales, by = c("RADIO_ID"))
 centroides.radios.censales <- sf::st_centroid(censo) %>%
   dplyr::mutate(barrio_id = as.integer(sf::st_nearest_feature(., barrios))) %>%
   sf::st_set_geometry(NULL) %>%
-  dplyr::select(ID, barrio_id) %>%
+  dplyr::select(RADIO_ID, barrio_id) %>%
   dplyr::filter(! is.na(barrio_id))
 censo <- censo %>%
-  dplyr::inner_join(centroides.radios.censales, by = "ID") %>%
-  dplyr::select(ID, TOTAL_POB, T_VARON, T_MUJER, T_VIVIENDA, V_PARTICUL, V_COLECTIV, T_HOGAR, H_CON_NBI, H_SIN_NBI, barrio_id)
-rm(centroides.radios.censales)
+  dplyr::inner_join(centroides.radios.censales, by = "RADIO_ID")
+rm(radios.censales, datos.censales, centroides.radios.censales)
 ```
 
 
@@ -96,7 +103,7 @@ establecimientos.por.barrio <- establecimientos %>%
 poblacion.por.barrio <- censo %>%
   sf::st_set_geometry(NULL) %>%
   dplyr::group_by(barrio_id) %>%
-  dplyr::summarise(habitantes = sum(TOTAL_POB))
+  dplyr::summarise(habitantes = sum(POBLACION))
 habitantes.por.establecimiento.barrio <- barrios %>%
   dplyr::inner_join(establecimientos.por.barrio, by = c("barrio_id")) %>%
   dplyr::inner_join(poblacion.por.barrio, by = c("barrio_id")) %>%
@@ -156,4 +163,12 @@ ggplot2::ggplot() +
     legend.position = "bottom",
     legend.background = ggplot2::element_rect(fill = "grey90", size = 0.1, linetype = "solid", colour = "black")
   )
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, comment=FALSE, results=TRUE }
+# Distancia mínima de un radio censal a un establecimiento educativo
+distancias.radios.establecimientos <- sf::st_distance(censo, establecimientos)
+distancias.minimas                 <- censo %>%
+  dplyr::mutate(distancia_minima = apply(distancias.radios.establecimientos, MARGIN = 1, FUN = min),
+                porcentaje_nbi = 100 * H_CON_NBI / T_HOGAR)
 ```
