@@ -75,7 +75,7 @@ ggplot2::ggplot() +
   ggplot2::labs(x = "", y = "", title = "Porcentaje de hogares con NBI",
                 subtitle = "",
                 fill = "Porcentaje") +
-  ggplot2::scale_fill_distiller(type = "seq", palette = "YlOrRd") +
+  ggplot2::scale_fill_distiller(type = "seq", palette = "YlOrRd", direction = 1) +
   ggplot2::theme_bw() +
   ggplot2::theme(
     plot.title = ggplot2::element_text(hjust = 0.5),
@@ -108,7 +108,7 @@ ggplot2::ggplot() +
   ggplot2::labs(x = "", y = "", title = "Establecimientos educativos por barrio",
                 subtitle = "Densidad por km²",
                 fill = "Densidad") +
-  ggplot2::scale_fill_distiller(type = "seq", palette = "YlOrRd") +
+  ggplot2::scale_fill_distiller(type = "seq", palette = "YlOrRd", direction = 1) +
   ggplot2::theme_bw() +
   ggplot2::theme(
     plot.title = ggplot2::element_text(hjust = 0.5),
@@ -146,7 +146,7 @@ ggplot2::ggplot() +
   ggplot2::labs(x = "", y = "", title = "Hogares NBI por establecimientos educativos",
                 subtitle = "",
                 fill = "Hogares") +
-  ggplot2::scale_fill_distiller(type = "seq", palette = "YlOrRd") +
+  ggplot2::scale_fill_distiller(type = "seq", palette = "YlOrRd", direction = 1) +
   ggplot2::theme_bw() +
   ggplot2::theme(
     plot.title = ggplot2::element_text(hjust = 0.5),
