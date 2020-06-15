@@ -29,17 +29,34 @@ barrios <- sf::st_read(dsn = "data", layer = "barrios_badata") %>%
   dplyr::rename(comuna = COMUNA, nombre = BARRIO) %>%
   dplyr::select(barrio_id, comuna, nombre, area)
 
+# Cargar contorno de CABA, obtener geometria
+contorno <- geojsonsf::geojson_sf("data/contorno_caba.geojson") %>%
+  sf::st_transform(crs = sf::st_crs(barrios)) %>%
+  sf::st_geometry()
+
 # Cargar datos de establecimientos y determinar a que barrio pertenece cada uno de ellos
 # Me quedo con las escuelas estatales de nivel primario
 establecimientos <- sf::st_read(dsn = "data", layer = "establecimientos-educativos") %>%
   dplyr::mutate(barrio_id = as.integer(unlist(sf::st_intersects(., barrios)))) %>%
-  dplyr::filter(SECTOR == 1 & stringr::str_detect(string = NIVMOD, pattern = "PriCom")) 
+  dplyr::filter(SECTOR == 1 & stringr::str_detect(string = NIVMOD, pattern = "PriCom")) %>%
+  dplyr::rename(establecimiento_id = OBJECTID)
+
+# Determinar poligonos de influencia para los establecimientos
+influencia.establecimientos <- sf::st_intersection(sf::st_cast(sf::st_voronoi(sf::st_union(establecimientos), contorno)), contorno) %>%
+  sf::st_as_sf() %>%
+  dplyr::rename(geometry = x) %>%
+  dplyr::mutate(poligono_influencia_id = dplyr::row_number())
+
+# Determinar pertenencia de establecimientos a poligonos
+establecimientos <- establecimientos %>%
+  dplyr::mutate(poligono_influencia_id = as.integer(sf::st_intersects(establecimientos, influencia.establecimientos)))
 
 # Cargar datos censales, pasar a proyeccion planar y determinar a que barrio pertenece cada uno de ellos
 # Dado que los radios censales estan incluidos dentro de un barrio, entonces para evitar problemas de proyeccion
 # se determinarar el barrio en base a la ubicacion del centroide. Se utiliza st_nearest_feature porque para
 # 4 casos en particular, el centroide cae fuera del poligono de barrios (por los "huecos" que tiene)
 # Como el archivo de censos tiene mal 2 poligonos, los extraigo del geojson y luego hago join con los datos censales.
+# Utilizando los centroides de los radios censales, determinar la pertenencia a los poligonos de influencia.
 radios.censales <- geojsonsf::geojson_sf("data/caba_radios_censales.geojson") %>%
   sf::st_transform(crs = sf::st_crs(barrios)) %>%
   dplyr::select(-BARRIO)
@@ -50,32 +67,37 @@ datos.censales <- sf::st_read(dsn = "data", layer = "censo_2010_caba") %>%
   sf::st_set_geometry(NULL)
 censo <- dplyr::inner_join(radios.censales, datos.censales, by = c("RADIO_ID"))
 centroides.radios.censales <- sf::st_centroid(censo) %>%
-  dplyr::mutate(barrio_id = as.integer(sf::st_nearest_feature(., barrios))) %>%
+  dplyr::mutate(barrio_id = as.integer(sf::st_nearest_feature(., barrios)),
+                poligono_influencia_id = as.integer(sf::st_intersects(., influencia.establecimientos))) %>%
   sf::st_set_geometry(NULL) %>%
-  dplyr::select(RADIO_ID, barrio_id) %>%
-  dplyr::filter(! is.na(barrio_id))
+  dplyr::select(RADIO_ID, barrio_id, poligono_influencia_id) %>%
+  dplyr::filter(! is.na(barrio_id) & ! is.null(poligono_influencia_id))
 censo <- censo %>%
   dplyr::inner_join(centroides.radios.censales, by = "RADIO_ID")
 rm(radios.censales, datos.censales, centroides.radios.censales)
 ```
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, comment=FALSE, results=TRUE }
-# Porcentaje de hogares con NBI
-resumen.barrio <- censo %>%
+# Porcentaje de hogares NBI por barrio
+escala.limites         <- c(-Inf, 1, 2, 5, 10, 15, 20, Inf)
+escala.colores         <- c('#ffffb2','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#b10026')
+escala.etiquetas       <- c('Hasta 1%','De 1% a 2%','De 2% a 5%','De 5% a 10%', 'De 10% a 15%', 'De 15% a 20%', 'Más de 20%')
+hogares.nbi.por.barrio <- censo %>%
   sf::st_set_geometry(NULL) %>%
   dplyr::group_by(barrio_id) %>%
-  dplyr::summarise(total_hogares = sum(HOGARES), total_hogares_nbi = sum(HOGARES_NBI)) %>%
-  dplyr::mutate(porcentaje_nbi = 100 * total_hogares_nbi / total_hogares)
-porcentaje.nbi.barrio <- barrios %>%
-  dplyr::inner_join(resumen.barrio, by = c("barrio_id"))
+  dplyr::summarise(hogares_nbi = sum(HOGARES_NBI), hogares = sum(HOGARES)) %>%
+  dplyr::mutate(porcentaje = 100 * hogares_nbi / hogares,
+                escala = cut(x = porcentaje, breaks = escala.limites))
+hogares.nbi.por.barrio <- barrios %>%
+  dplyr::inner_join(hogares.nbi.por.barrio, by = c("barrio_id"))
 
 ggplot2::ggplot() +
-  ggplot2::geom_sf(data = porcentaje.nbi.barrio, colour = "black",
-                   mapping = ggplot2::aes(fill = porcentaje_nbi)) +
-  ggplot2::labs(x = "", y = "", title = "Porcentaje de hogares con NBI",
+  ggplot2::geom_sf(data = hogares.nbi.por.barrio, colour = "black",
+                   mapping = ggplot2::aes(fill = escala)) +
+  ggplot2::labs(x = "", y = "", title = "Porcentaje de hogares NBI por barrio",
                 subtitle = "",
                 fill = "Porcentaje") +
-  ggplot2::scale_fill_distiller(type = "seq", palette = "YlOrRd", direction = 1) +
+  ggplot2::scale_fill_manual(values = escala.colores, labels = escala.etiquetas) +
   ggplot2::theme_bw() +
   ggplot2::theme(
     plot.title = ggplot2::element_text(hjust = 0.5),
@@ -89,7 +111,7 @@ ggplot2::ggplot() +
     strip.background = ggplot2::element_rect(colour = "white", fill = "white"),
     legend.position = "right",
     legend.background = ggplot2::element_rect(fill = "grey90", size = 0.1, linetype = "solid", colour = "black")
-  ) + ggplot2::guides(fill = ggplot2::guide_colourbar(barheight = 10))
+  )
 ```
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, comment=FALSE, results=TRUE }
@@ -126,27 +148,31 @@ ggplot2::ggplot() +
 ```
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, comment=FALSE, results=TRUE }
-# Mapas de poblacion por establecimientos de cada barrio
-establecimientos.por.barrio <- establecimientos %>%
-  sf::st_set_geometry(NULL) %>%
-  dplyr::group_by(barrio_id) %>%
-  dplyr::summarise(cantidad = dplyr::n())
-hogares.nbi.por.barrio <- censo %>%
-  sf::st_set_geometry(NULL) %>%
-  dplyr::group_by(barrio_id) %>%
-  dplyr::summarise(hogares = sum(HOGARES_NBI))
-hogares.nbi.por.establecimiento.barrio <- barrios %>%
-  dplyr::inner_join(establecimientos.por.barrio, by = c("barrio_id")) %>%
-  dplyr::inner_join(hogares.nbi.por.barrio, by = c("barrio_id")) %>%
-  dplyr::mutate(hogares_establecimiento = hogares / cantidad)
+# Para cada poligono de influencia, calcular la cantidad de hogares NBI por establecimiento
+escala.limites           <- c(-Inf, 50, 100, 250, 500, Inf)
+escala.colores           <- c('#ffffb2','#fecc5c','#fd8d3c','#f03b20','#bd0026')
+escala.etiquetas         <- c('Hasta 50','De 51 a 100','De 101 a 250','De 250 a 500', 'Más de 500')
+hogares.nbi.por.poligono <- sf::st_set_geometry(censo, NULL) %>%
+  dplyr::select(poligono_influencia_id, HOGARES, HOGARES_NBI) %>%
+  dplyr::group_by(poligono_influencia_id) %>%
+  dplyr::summarise(hogares = sum(HOGARES), hogares_nbi = sum(HOGARES_NBI))
+establecimientos.por.poligono <- sf::st_set_geometry(establecimientos, NULL) %>%
+  dplyr::group_by(poligono_influencia_id) %>%
+  dplyr::summarise(establecimientos = dplyr::n())
+hogares.establecimientos.poligonos <- influencia.establecimientos %>%
+  dplyr::left_join(hogares.nbi.por.poligono, by = c("poligono_influencia_id")) %>%
+  dplyr::left_join(establecimientos.por.poligono, by = c("poligono_influencia_id")) %>%
+  dplyr::mutate(hogares_nbi_establecimiento = hogares_nbi / establecimientos,
+                escala = cut(x = hogares_nbi_establecimiento, breaks = escala.limites))
 
 ggplot2::ggplot() +
-  ggplot2::geom_sf(data = hogares.nbi.por.establecimiento.barrio, colour = "black",
-                   mapping = ggplot2::aes(fill = hogares_establecimiento)) +
+  ggplot2::geom_sf(data = hogares.establecimientos.poligonos, colour = "black",
+                   mapping = ggplot2::aes(fill = escala)) +
   ggplot2::labs(x = "", y = "", title = "Hogares NBI por establecimientos educativos",
                 subtitle = "",
-                fill = "Hogares") +
-  ggplot2::scale_fill_distiller(type = "seq", palette = "YlOrRd", direction = 1) +
+                fill = "Hogares NBI") +
+  ggplot2::scale_fill_manual(values = c(escala.colores, "#7f7f7f"), 
+                             labels = c(escala.etiquetas, "Sin datos")) +
   ggplot2::theme_bw() +
   ggplot2::theme(
     plot.title = ggplot2::element_text(hjust = 0.5),
@@ -160,7 +186,7 @@ ggplot2::ggplot() +
     strip.background = ggplot2::element_rect(colour = "white", fill = "white"),
     legend.position = "right",
     legend.background = ggplot2::element_rect(fill = "grey90", size = 0.1, linetype = "solid", colour = "black")
-  ) + ggplot2::guides(fill = ggplot2::guide_colourbar(barheight = 10))
+  )
 ```
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, comment=FALSE, results=TRUE }
