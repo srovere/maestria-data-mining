@@ -28,3 +28,4 @@ src/R/enfoque-estadistico-aprendizaje/*.csv
 src/R/enfoque-estadistico-aprendizaje/*.html
 src/R/visualizacion-informacion/TP*.html
 src/R/visualizacion-informacion/TP*.pdf
+src/R/visualizacion-informacion/vast/*
