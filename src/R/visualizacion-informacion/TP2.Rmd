@@ -2,11 +2,15 @@
 date: "`r format(Sys.Date(), '%d de %B de %Y')`"
 output: pdf_document
 title: 'Visualización de la información: Trabajo Práctico nº 1'
-subtitle: Superficie afectada por incendios forestales entre 2011 y 2016
+subtitle: Integridad visual
 author: 
   - Santiago Rovere (srovere@gmail.com), Facultad de Ciencias Exactas y Naturales (UBA)
 lang: es
 ---
+
+# 1. Análisis de gráficos de medios locales.
+
+# 2. La peor visualización del mundo
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, comment=FALSE, results=FALSE }
 # Borrar variables del ambiente
@@ -34,7 +38,7 @@ datos <- readr::read_delim(file = "dataset_incendios.csv", delim = ";") %>%
 
 # Definir categoria y color a cada dato de superficie afectada
 intervalos <- c(-Inf, quantile(datos$sup_afectada, probs = seq(0.2, 0.8, 0.2)), Inf)
-colores    <- c('#ffffb2','#fecc5c','#fd8d3c','#f03b20','#bd0026')
+colores    <- c('#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00')
 etiquetas  <- purrr::map(
     .x = seq(from = 1, to = length(intervalos) - 1, by = 1),
     .f = function(pos) {
@@ -67,8 +71,7 @@ otras.provincias <- resumen %>%
   dplyr::summarise(provincia = "Otras", porcentaje = sum(porcentaje), area_afectada = sum(area_afectada))
 resumen.truncado <- resumen %>%
   dplyr::filter(porcentaje >= 1) %>%
-  dplyr::bind_rows(otras.provincias) %>%
-  dplyr::mutate(provincia = factor(provincia, levels = rev(provincia)))
+  dplyr::bind_rows(otras.provincias)
 
 # Generar serie temporal
 serie.temporal <- dplyr::bind_rows(
@@ -83,35 +86,34 @@ serie.temporal <- dplyr::bind_rows(
 ```{r, echo=FALSE, warnings=FALSE, message=FALSE, fig.width=10, fig.height=10 }
 # Generar inset 1 indicando evolucion temporal de areas incendiadas
 inset1 <- ggplot2::ggplot(data = serie.temporal) +
-  ggplot2::geom_area(mapping = ggplot2::aes(x = ano, y = area_afectada),
-                     color = "red", fill = alpha("orange", 0.3), alpha = 0.7) +
-  ggrepel::geom_label_repel(mapping = ggplot2::aes(x = ano, y = area_afectada, 
-                                                   label = sprintf("%.0f Has", area_afectada)),
-                            nudge_x = 0, nudge_y = 10, size = 3, segment.size = 0) +
-  ggplot2::labs(x = "", y = "Superficie afectada (Has)", title = "Evolución temporal de área afectada") +
+  ggplot2::geom_point(mapping = ggplot2::aes(x = ano, y = area_afectada, size = area_afectada),
+                      color = "red", fill = alpha("orange", 0.3), alpha = 0.7) +
+  ggplot2::labs(x = "", y = "", title = "Evolución temporal de área afectada", size = "Área afectada") +
   ggplot2::theme_light() + 
   ggplot2::theme(
-    plot.title = ggplot2::element_text(hjust = 0.5, size = 12)
-  ) 
+    plot.title = ggplot2::element_text(hjust = 0.5, size = 12),
+    legend.position = "bottom"
+  )
 inset.tibble.1 <- tibble::tibble(x = 0.98, y = 0.90, plot = list(inset1))
 
 # Generar inset 2 indicando porcentaje de area que le corresponde a cada provincia y la superficie total
+min.porcentaje <- min(resumen.truncado$porcentaje)
+max.porcentaje <- max(resumen.truncado$porcentaje)
 inset2 <- ggplot2::ggplot(data = resumen.truncado) +
-  ggplot2::geom_segment(mapping = ggplot2::aes(x = provincia, xend = provincia, y = 0, yend = porcentaje)) +
+  ggplot2::geom_segment(mapping = ggplot2::aes(x = provincia, xend = provincia, y = min(porcentaje), yend = porcentaje)) +
   ggplot2::geom_point(mapping = ggplot2::aes(x = provincia, y = porcentaje),
                       size = 3, color = "red", fill = alpha("orange", 0.3), alpha = 0.7, shape = 21, stroke = 2) +
-  ggrepel::geom_label_repel(mapping = ggplot2::aes(x = provincia, y = porcentaje, 
-                                                   label = sprintf("%.0f Has (%.1f%%)", area_afectada, porcentaje)),
-                            nudge_x = 0, nudge_y = 10, size = 3, segment.alpha = 0) +
-  ggplot2::labs(x = "", y = "Porcentaje", title = "Distribución provincial de área afectada",
-                subtitle = "Porcentaje de área respecto del total afectado entre 2011 y 2016") +
-  ggplot2::scale_y_continuous(limits = c(0, 50)) +
+  ggplot2::labs(x = "", y = "", title = "Distribución provincial de área afectada") +
+  ggplot2::scale_y_continuous(limits = c(min.porcentaje, max.porcentaje),
+                              breaks = seq(from = min.porcentaje, to = max.porcentaje, 
+                                           by = (max.porcentaje - min.porcentaje) / 10)) +
   ggplot2::theme_light() + 
   ggplot2::theme(
     plot.title = ggplot2::element_text(hjust = 0.5, size = 12),
     plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 10),
-    legend.position = 'none'
-  ) + ggplot2::coord_flip()
+    legend.position = 'none',
+    axis.text.x = ggplot2::element_text(angle = 90)
+  )
 
 # Generar tibble con insets
 inset.tibble <- tibble::tibble(
@@ -135,8 +137,8 @@ ggplot2::ggplot() +
   ggplot2::scale_fill_manual(name = "Superficie afectada", values = colores, labels = etiquetas) +
   ggplot2::theme_bw() +
   ggplot2::theme(
-    plot.title = ggplot2::element_text(vjust = -17, hjust = 0.2),
-    plot.subtitle = ggplot2::element_text(vjust = -22, hjust = 0.2),
+    plot.title = ggplot2::element_text(vjust = -15, hjust = 0.2),
+    plot.subtitle = ggplot2::element_text(vjust = -20, hjust = 0.2),
     panel.grid.major = ggplot2::element_blank(),
     axis.text.x = ggplot2::element_blank(),
     axis.ticks.x = ggplot2::element_blank(),
@@ -149,13 +151,10 @@ ggplot2::ggplot() +
   )
 ```
 
-\newpage
-La presente visualización pretende presentar distintas dimensiones correspondientes a la problemática de los *incendios forestales* dentro de la República Argentina. Los datos analizados corresponden al período 2011-2016 y fueron extraídos de https://datos.gob.ar/dataset/ambiente-incendios-forestales. Para complementar el conjunto de datos provisto, y poder generar una visualización geolocalizada, se realizó una integración con datos de provincias y departamentos de Argentina descargados de https://datos.gob.ar/dataset/ign-unidades-territoriales. Finalmente, a fin de delimitar el mapa a la zona continental, se descargó el contorno de Argentina de https://gadm.org/maps/ARG_1.html. La visualización elaborada comprende un mapa y dos *insets* o recuadros con información más específica.
+En gráfico anterior está basada en el mismo conjunto de datos que el TP nº1. Pretende presentar distintas dimensiones correspondientes a la problemática de los *incendios forestales* dentro de la República Argentina. Los datos analizados corresponden al período 2011-2016 y fueron extraídos de https://datos.gob.ar/dataset/ambiente-incendios-forestales. Sin embargo, a diferencia del trabajo práctico anterior se introdujeron algunos cambios para *empobrecer* la visualización en distintos aspectos de acuerdo a lo solicitado en el enunciado.
 
-El propósito del mapa es brindar un panorama general de la ubicación de los incendios forestales durante el período 2011-2016 incluyendo la magnitud de los mismos. Para representar la magnitud, se calculó el total de área afectada por departamento para todo el período de análisis. A partir de estos datos agregados, se creó una escala de 5 categorías, cada una de las cuales representa un *quintil* de la distribución de dichos valores. Los colores de la escala fueron seleccionados de una paleta secuencial (https://colorbrewer2.org/#type=sequential&scheme=YlOrRd&n=5) que va desde un amarillo muy claro (para representar áreas incendiadas más pequeñas - Q1) a un rojo intenso (para representar áreas incendiadas más grandes - Q5). De este modo, el usuario puede fácilmente detectar las zonas más afectadas por incendios y su localización dentro de Argentina. Este mapa muestra la dimensión espacial de los incendios y podría, entonces, responder a la pregunta *"¿cuáles son las zonas afectadas por los incendios forestales?"*.
+En el caso del mapa, se ha modificado la escala de colores que anteriormente era secuencial y representaba mayores áreas afectadas con colores rojos oscuros y menores áreas con con amarillos claros. Al introducir una escala secuencial, resulta difícil establecer una comparación rápida de las áreas afectadas sin tener que recurrir constantemente a las referencias. Más aún, el color rojo que resulta natural asociarlo a situaciones de alarma, se corresponde con la categoría de menor área afectada.
 
-El gráfico superior derecho muestra, por otro lado, la dimensión *temporal* de la problemática. En este caso, se ha agregado a nivel anual la superficie afectada por los incendios independientemente de la zona de ocurrencia. La línea del gráfico representa la evolución de la superficie afectada para cada año. Podría responder la pregunta *"¿cuál ha sido la evolución temporal de los incendios forestales?"*. Además, podría servir para analizar políticas futuras de mitigación y evaluar su eficacia.
+Siguiendo con el *inset superior derecho*, se muestra un gráfico de evolución de área afectada. El primer problema del gráfico es que no indica las unidades en que se expresa el área afectada. Además, presenta un sobredimensionamiento en la representación del área afectada. Esto se debe a que el valor del área afectada se muestra como una distancia de un punto en el eje Y, pero también mediante el tamaño del punto. Evaluar la distancia sin un segmento de recta también resulta una complicación adicional.
 
-En el gráfico inferior derecho se vuelve nuevamente sobre la dimensión espacial, pero haciendo mayor hincapié en aspectos cuantitativos no visibles en el mapa. En este caso, se presentan líneas horizontales (para mejorar la percepción de la diferencia) que representan el total de héctareas afectadas para cada provincia, considerando las provincias más afectadas ordenadas de mayor (más afectada) a menor (menos afectada). Este gráfico podría responder a la pregunta *"¿cuál es la superficie afectada en las provincias más damnificadas?"* y servir como base para la toma de decisiones en caso de tener que decidir la forma de asignar recursos para ejecutar una política de mitigación.
-
-Por último, debe mencionarse que en ninguna parte de la visualización pueden observarse datos relacionados con la *cantidad de focos* de incendios. Este atributo ha sido ignorado deliberadamente para poder enfocar la atención en la superficie afectada y su variación tanto espacial como temporal. Esto no significa que la cantidad de focos no sea un dato relevante, sino que las preguntas a responder han sido direccionadas en hacia otros atributos. Además de la cantidad de focos, es posible analizar otros datos relacionados integrando información descargable de https://datos.gob.ar/dataset/ambiente-incendios-forestales tales como *causas de los incendios* o *tipo de vegetación afectada*.  
+Finalmente, en el *inset inferior derecho* se observa la distribución de área afectada por provincia para todo el período. En primer lugar, no se indica en ningún lado que los valores son para todo el período ni las unidades de representación del área (que son porcentajes respecto del área total). Además, se observa que el punto mínimo (Otras) no tiene longitud a pesar de tener asociado un porcentaje de 1,27%. Esto introduce un pequeño factor de mentira cuando se intenta comparar las diferencias entre datos y diferencias entre longitudes. Por último, se podría agregar que la escala del eje Y resulta totalmente inapropiada y difícil de interpretar.
