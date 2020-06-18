@@ -1,7 +1,7 @@
 ---
 date: "`r format(Sys.Date(), '%d de %B de %Y')`"
 output: pdf_document
-title: 'Visualización de la información: Trabajo Práctico nº 1'
+title: 'Visualización de la información: Trabajo Práctico nº 2'
 subtitle: Integridad visual
 author: 
   - Santiago Rovere (srovere@gmail.com), Facultad de Ciencias Exactas y Naturales (UBA)
@@ -10,26 +10,26 @@ lang: es
 
 # 1. Análisis de gráficos de medios locales.
 
-En este primer inciso del trabajo práctico se solicita buscar ejemplos de gráficos publicados en medios locales que nos respeten los principios que propone Edward Tufte en *The visual display of quantitative information*. A continuación, se presentarán tres ejemplos los cuales serán analizados bajo los criterios propuestos por Tufte.
+En este primer inciso del trabajo práctico se solicita buscar ejemplos de gráficos publicados en medios locales que no respeten los principios que propone Edward Tufte en *The visual display of quantitative information*. A continuación, se presentarán tres ejemplos los cuales serán analizados bajo los criterios propuestos por Tufte.
 
-En la Fig. 1 observamos un gráfico publicado en el medio *Página 12* ([https://www.pagina12.com.ar/266119-por-que-el-aumento-de-la-emision-monetaria-redujo-la-inflaci]), el cual muestra la evolución de la base monetaria de Argentina entre el 10 de diciembre de 2015 y el 10 de diciembre de 2019. Este gráfico expresa los valores de base monetaria en valores nominales. A priori, se podría argumentar que esto viola uno de los principios de Tufte el cual indica que *en las series de tiempo monetarias, casi siempre es mejor usar unidades estandariazadas en lugar de nominales*. Sin embargo, dado que el artículo intenta correlacionar la emisión monetaria con la inflación, resultaría aceptable utilizar unidades nominales, aunque de todos modos los valores de inflación no aparecen en ningún lado, motivo por el cual el gráfico carece de dicha información.
+En la Fig. 1 observamos un gráfico publicado en el medio *Página 12* ([https://www.pagina12.com.ar/266119-por-que-el-aumento-de-la-emision-monetaria-redujo-la-inflaci]), el cual muestra la evolución de la base monetaria de Argentina entre el 10 de diciembre de 2015 y el 10 de diciembre de 2019. Este gráfico expresa los valores de base monetaria en unidades nominales. A priori, se podría argumentar que esto viola uno de los principios de Tufte el cual indica que *en las series de tiempo monetarias, casi siempre es mejor usar unidades estandariazadas en lugar de nominales*. Sin embargo, dado que el artículo intenta correlacionar la emisión monetaria con la inflación, resultaría aceptable utilizar unidades nominales, aunque de todos modos los valores de inflación no aparecen en ningún lado, motivo por el cual el gráfico carece de dicha información.
 
 ![Evolución de la base monetaria de Argentina entre el Diciembre de 2015 y Diciembre de 2019](imagen1.png)
 
-Pero el mayor problema que tiene el gráfico de la Fig. 1 es la escala del eje Y. Puede observarse que los valores de base monetaria se representan como distancia entre los puntos azules y el origen del eje Y. Sin embargo, el eje Y comienza con el valor 500.000, motivo por el cual las distancias comparativas entre valores del eje no guardan relación con los datos. Aplicando le metodología de Tufte, se comparará las distancias que representan los valores Y1 = 1.000.000 e Y2 = 3.000.000. Si analizamos los datos, la variación porcentual entre ambos puntos (considerando el mayor respecto del menor) es:
+Pero el mayor problema que tiene el gráfico de la Fig. 1 es la escala del eje Y. Puede observarse que los valores de base monetaria se representan como distancia entre los puntos azules y el origen del eje Y. Sin embargo, el eje Y comienza con el valor 500.000, motivo por el cual las distancias comparativas entre valores del eje no guardan relación con los datos. Aplicando la metodología de Tufte, se comparará las distancias que representan los valores Y1 = 1.000.000 e Y2 = 3.000.000. Si analizamos los datos, la variación porcentual entre ambos puntos (considerando el mayor respecto del menor) es:
 
 $$ PropDatos = 100\frac{Y2-Y1}{Y1}\% = 100\frac{3.000.000 - 1.000.000}{1.000.000}\% = 200\%$$
 
-Realizando el mismo cálculo utilizando las distancias del gráfico medida en *ticks* del eje Y, el resultado es el siguiente:
+Realizando el mismo cálculo utilizando las distancias del gráfico, medida en *ticks* del eje Y, el resultado es el siguiente:
 
 $$ PropGrafico = 100\frac{ticks(Y2)-ticks(Y1)}{ticks(Y1)}\% = 100\frac{5 - 1}{1}\% = 400\%$$
 $$ FactorMentira = \frac{PropGrafico}{PropDatos} = \frac{400}{200} = 2$$
 \newpage
-A continuación, vemos otro gráfico que presenta el mismo problema de escala en el eje Y. En la Fig. 2 se muestra la evolución del endeudamiento diario en pesos considerando los primeros siete meses del año para el período 2010 a 2015. El gráfico fue publicado en el medio *Comercio y Justicia* ([https://comercioyjusticia.info/blog/economia/el-gobierno-tomo-1-millon-de-deuda-por-minuto-en-julio/]). En este caso, no existe ninguna razón para utilizar los valores de moneda en terminos nominales. El uso de valores nominales introduce una distorsión a causa de la inflación. Se debiera haber considerado utilizar una medida estándar como por ejemplo puntos del PBI o al menos pasar todo a dólares constantes de algún año en particular.
+A continuación, vemos otro gráfico que presenta el mismo problema de escala en el eje Y. En la Fig. 2 se muestra la evolución del endeudamiento diario en pesos considerando los primeros siete meses del año para el período 2010 a 2015. El gráfico fue publicado en el medio *Comercio y Justicia* ([https://comercioyjusticia.info/blog/economia/el-gobierno-tomo-1-millon-de-deuda-por-minuto-en-julio/]). En este caso, no existe ninguna razón para utilizar los valores de moneda en terminos nominales. El uso de valores nominales introduce una distorsión a causa de la inflación. Se debería haber considerado utilizar una medida estándar como por ejemplo puntos del PBI o al menos pasar todo a dólares constantes de algún año en particular.
 
 ![Endeudamiento total en moneda local y extranjera](imagen2.jpg)
 
-También este gráfico tiene un problema con la escala del eje Y, la cual comienza en 200. Haciendo el mismo análisos que para la Fig. 1 considerando los puntos Y1 = 400 e Y2 = 1600, se obtienen los siguientes resultados:
+También este gráfico tiene otro problema con la escala del eje Y, la cual comienza en 200. Haciendo el mismo análisis que para la Fig. 1 considerando los puntos Y1 = 400 e Y2 = 1600, se obtienen los siguientes resultados:
 
 $$ PropDatos = 100\frac{Y2-Y1}{Y1}\% = 100\frac{1600 - 400}{400}\% = 300\%$$
 $$ PropGrafico = 100\frac{ticks(Y2)-ticks(Y1)}{ticks(Y1)}\% = 100\frac{7 - 1}{1}\% = 600\%$$
@@ -185,7 +185,7 @@ ggplot2::ggplot() +
   )
 ```
 
-En gráfico anterior está basada en el mismo conjunto de datos que el TP nº1. Pretende presentar distintas dimensiones correspondientes a la problemática de los *incendios forestales* dentro de la República Argentina. Los datos analizados corresponden al período 2011-2016 y fueron extraídos de https://datos.gob.ar/dataset/ambiente-incendios-forestales. Sin embargo, a diferencia del trabajo práctico anterior se introdujeron algunos cambios para *empobrecer* la visualización en distintos aspectos de acuerdo a lo solicitado en el enunciado.
+El gráfico anterior está basado en el mismo conjunto de datos que el TP nº1. Pretende presentar distintas dimensiones correspondientes a la problemática de los *incendios forestales* dentro de la República Argentina. Los datos analizados corresponden al período 2011-2016 y fueron extraídos de https://datos.gob.ar/dataset/ambiente-incendios-forestales. Sin embargo, a diferencia del trabajo práctico anterior se introdujeron algunos cambios para *empobrecer* la visualización en distintos aspectos de acuerdo a lo solicitado en el enunciado.
 
 En el caso del mapa, se ha modificado la escala de colores que anteriormente era secuencial y representaba mayores áreas afectadas con colores rojos oscuros y menores áreas con con amarillos claros. Al introducir una escala secuencial, resulta difícil establecer una comparación rápida de las áreas afectadas sin tener que recurrir constantemente a las referencias. Más aún, el color rojo que resulta natural asociarlo a situaciones de alarma, se corresponde con la categoría de menor área afectada.
 
