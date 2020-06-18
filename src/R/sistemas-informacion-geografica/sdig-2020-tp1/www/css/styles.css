@@ -1,0 +1,122 @@
+body, h1, h2, h3, h4, h5,h6, p, div {
+  font-family: 'Roboto Condensed', 'sans-serif';
+}
+
+.main-header .logo {
+	height: 120px;
+	line-height: 120px;
+	background-image: url("../img/logo-crea-nuevo.png");
+	background-repeat: no-repeat;
+	background-color: white;
+	background-position: 50% 10px;
+}
+
+nav.navbar-static-top {
+	height: 120px;
+  background-image: url("../img/logo_censo.png");
+	content: "Censo CREA - Informe para asesores";
+  background-repeat: no-repeat;
+  background-position: 20px 15px;
+  background-color: #00ac66;
+}
+
+/* Colores personalizados para barra de menu */
+.sidebar {
+  color: #212121;
+}
+
+.skin-green .main-header .logo {
+  background-color: #00ac66;
+}
+
+.skin-green .main-header .navbar {
+  background-color: #00ac66;
+}
+
+.skin-green .sidebar-menu > li > .treeview-menu {
+  background-color: #f8f8f8;
+}
+
+/* main sidebar */
+.skin-green .main-sidebar {
+  background-color: #f8f8f8;
+}
+
+/* active selected tab in the sidebarmenu */
+.skin-green .main-sidebar .sidebar .sidebar-menu .active a{
+  background-color: #f8f8f8;
+  color: #212121;
+  font-weight: bold;
+}
+
+/* other links in the sidebarmenu */
+.skin-green .main-sidebar .sidebar .sidebar-menu a{
+  background-color: #f8f8f8;
+  color: #212121;
+}
+
+/* other links in the sidebarmenu when hovered */
+.skin-green .main-sidebar .sidebar .sidebar-menu a:hover{
+  background-color: #dbdbdb;
+  color: #212121;
+  font-weight: bold;
+}
+
+.skin-green .wrapper {
+  background-color: #ffffff;
+}
+
+/* Fin de colores personalizados para barra de menu */
+
+aside.main-sidebar {
+  padding-top: 120px;
+}
+
+div.content-wrapper {
+  background-color: #ffffff;
+}
+
+.sidebar-toggle {
+	display: none;
+}
+
+section.content {
+  margin-top: 20px;
+}
+
+section.sidebar {
+	font-size: 16px;
+}
+
+.sidebar-menu .treeview-menu > li > a {
+	font-size: 16px;
+}
+
+.titulo {
+  font-size: 18px;
+  color: #004276;
+  padding-bottom: 20px;
+}
+
+#totalCarne div.inner {
+  background-color: #fda023;
+}
+
+#aclaraciones {
+  margin-left: 20px;
+  width: 260px;
+  color: #3f3f3f;
+  font-size: 16px;
+  font-weight: normal;
+  line-height: 20px;
+  white-space: normal;
+}
+
+ul.notas_aclaratorias {
+  padding-left: 15px;
+}
+
+ul.notas_aclaratorias li {
+  list-style-type: disc;
+  color: #3f3f3f;
+}
