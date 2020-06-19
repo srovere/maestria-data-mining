@@ -53,8 +53,11 @@ shiny::shinyUI(
         ), # Cobertura educativa / Según prioridad de inscripción
         tabItem(tabName = "cobertura_educativa_influencia",
           fluidRow(
-            column(6, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaCoberturaInfluencia", height = 800), type = 5, color = "#008d4c")),
-            column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("graficoCoberturaInfluencia", height = 800), type = 5, color = "#008d4c"))
+            column(5, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaCoberturaInfluencia", height = 800), type = 5, color = "#008d4c")),
+            column(7, 
+              fluidRow(shinycssloaders::withSpinner(highcharter::highchartOutput("cdfCoberturaInfluencia", height = 400), type = 5, color = "#008d4c")),
+              fluidRow(shinycssloaders::withSpinner(highcharter::highchartOutput("barriosCoberturaInfluencia", height = 400), type = 5, color = "#008d4c"))
+            )
           )
         ) # Cobertura educativa / Según zona de influencia
       ) # tabItems

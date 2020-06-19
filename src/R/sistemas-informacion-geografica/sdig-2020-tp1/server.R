@@ -33,8 +33,9 @@ shiny::shinyServer(function(input, output, session) {
       dplyr::group_by(poligono_influencia_id) %>%
       dplyr::summarise(hogares = sum(HOGARES), hogares_nbi = sum(HOGARES_NBI))
     establecimientos.por.poligono <- sf::st_set_geometry(establecimientos, NULL) %>%
-      dplyr::group_by(poligono_influencia_id) %>%
-      dplyr::summarise(establecimientos = dplyr::n())
+      dplyr::group_by(poligono_influencia_id, barrio_id) %>%
+      dplyr::summarise(establecimientos = dplyr::n(),
+                       nombres = paste0(NOMBRE_EST, collapse = "<br>"))
     hogares.establecimientos.poligonos <- influencia.establecimientos %>%
       dplyr::left_join(hogares.nbi.por.poligono, by = c("poligono_influencia_id")) %>%
       dplyr::left_join(establecimientos.por.poligono, by = c("poligono_influencia_id")) %>%
@@ -129,7 +130,7 @@ shiny::shinyServer(function(input, output, session) {
           leaflet::clearShapes(map = .) %>%
           leaflet::addPolygons(map = ., stroke = TRUE, opacity = 0.75, weight = 1, fillOpacity = 0.75, color = "#000000",
                                smoothFactor = 0.5, fillColor = ~escala, 
-                               popup = ~sprintf("Establecimientos: %d<br/>Hogares NBI: %d<br/>Hogares NBI/establecimiento: %.2f", establecimientos, hogares_nbi, hogares_nbi_establecimiento)) %>%
+                               popup = ~sprintf("<b>%s</b><br/>Hogares NBI: %d<br/>Hogares NBI/establecimiento: %.2f", nombres, hogares_nbi, hogares_nbi_establecimiento)) %>%
           leaflet::fitBounds(map = ., lng1 = extent.zona["x", "min"], lng2 = extent.zona["x", "max"],
                              lat1 = extent.zona["y", "min"], lat2 = extent.zona["y", "max"]) %>%
           leaflet::addLegend(map = ., colors = escala.colores, labels = escala.etiquetas, position = "bottomright",
@@ -137,7 +138,7 @@ shiny::shinyServer(function(input, output, session) {
       }
     }
   })
-  output$graficoCoberturaInfluencia <- highcharter::renderHighchart({
+  output$cdfCoberturaInfluencia <- highcharter::renderHighchart({
     hogares.establecimientos.poligonos <- obtenerHogaresPorZonaInfluencia()
     if (! is.null(hogares.establecimientos.poligonos)) {
       # Elaborar CDF
@@ -190,6 +191,62 @@ shiny::shinyServer(function(input, output, session) {
             line = list(
               lineWidth = "2px"
             )
+          )
+        )
+      return (grafico)
+    }
+  })
+  output$barriosCoberturaInfluencia <- highcharter::renderHighchart({
+    hogares.establecimientos.poligonos <- obtenerHogaresPorZonaInfluencia()
+    if (! is.null(hogares.establecimientos.poligonos)) {
+      hogares.nbi.por.barrio <- censo %>%
+        sf::st_set_geometry(NULL) %>%
+        dplyr::group_by(barrio_id) %>%
+        dplyr::summarise(demanda = sum(HOGARES_NBI))
+      hogares.nbi.por.barrio.establecimiento <- hogares.establecimientos.poligonos %>%
+        sf::st_set_geometry(NULL) %>%
+        dplyr::group_by(barrio_id) %>%
+        dplyr::summarise(oferta = sum(hogares_nbi))
+      hogares.nbi.oferta.demanda <- barrios %>%
+        sf::st_set_geometry(NULL) %>%
+        dplyr::select(barrio_id, nombre) %>%
+        dplyr::left_join(hogares.nbi.por.barrio, by = c("barrio_id")) %>%
+        dplyr::left_join(hogares.nbi.por.barrio.establecimiento, by = c("barrio_id")) %>%
+        dplyr::mutate(oferta = dplyr::if_else(! is.na(oferta), oferta, as.double(0)),
+                      demanda = dplyr::if_else(! is.na(demanda), demanda, as.double(0)),
+                      diferencia = oferta - demanda) %>%
+        dplyr::arrange(dplyr::desc(diferencia)) %>%
+        dplyr::mutate(nombre = forcats::fct_reorder(nombre, dplyr::desc(diferencia)))
+      
+      # Grafico
+      grafico <- highcharter::highchart() %>%
+        highcharter::hc_xAxis(categories = levels(hogares.nbi.oferta.demanda$nombre), style = list(color = "#212121"),
+                              labels = list(rotation = -90)) %>%
+        highcharter::hc_yAxis(title = list(text = "Diferencia oferta/demanda", style = list(color = "#212121")),
+                              allowDecimals = FALSE) %>%
+        highcharter::hc_chart(options3d = list(enabled = FALSE, beta = 15, alpha = 15),
+                              style = list(backgroundColor = "#d8d8d8")) %>%
+        highcharter::hc_add_series(type = "column", data = hogares.nbi.oferta.demanda, name = "Diferencia entre hogares NBI y cantidad atendida por establecimientos del barrio",
+                                   mapping = highcharter::hcaes(x = nombre, y = diferencia),
+                                   tooltip = list(
+                                     pointFormat = 'Oferta: <b>{point.oferta}</b><br/>Demanda: <b>{point.demanda}</b>'
+                                   )) %>%
+        highcharter::hc_tooltip(useHTML = TRUE) %>%
+        highcharter::hc_legend(enabled = FALSE) %>%
+        highcharter::hc_title(text = "Diferencia entre hogares NBI y cantidad atendida por establecimientos del barrio", style = list(color = "#212121")) %>%
+        highcharter::hc_subtitle(text = "Ciudad Autónoma de Buenos Aires, Censo 2010", style = list(color = "#212121")) %>%
+        highcharter::hc_exporting(enabled = TRUE, showTable = FALSE, buttons = list(
+          contextButton = list(menuItems = ObtenerOpcionesExportacion(exportar.a.texto = FALSE))
+        )) %>%
+        highcharter::hc_plotOptions(
+          bar = list(
+            borderWidth = 1,
+            borderColor = "#7f7f7f",
+            dataLabels = list(enabled = TRUE, color = "#212121", style = list(fontSize = "14px"))
+          ),
+          series = list(
+            negativeColor = "#d73027",
+            color = "#4575b4"
           )
         )
       return (grafico)
