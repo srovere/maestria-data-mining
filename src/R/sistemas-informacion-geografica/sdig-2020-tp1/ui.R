@@ -13,7 +13,16 @@ shiny::shinyUI(
     dashboardSidebar(width="300",
       sidebarMenu(id = "menu",
         # Menus
-        menuItem("Porcentaje de hogares NBI por barrio", tabName = "porcentaje_nbi_barrio", selected = TRUE)
+        menuItem("Hogares NBI por barrio", tabName = "hogares_nbi_barrio", selected = TRUE)
+      ),
+      hr(),
+      shiny::conditionalPanel(
+        condition = 'input.menu == "hogares_nbi_barrio',
+        shiny::radioButtons(inputId = "opciones_hogares_nbi_barrio",
+                            choices = c("Porcentaje hogares NBI" = "porcentaje", "Cantidad hogares NBI" = "cantidad", 
+                                        "Densidad hogares NBI/km²" = "densidad"),
+                            label = "Indique la métrica a mostrar",
+                            selected = "porcentaje", inline = FALSE),
       )
     ), # dashboardSidebar
       
@@ -26,8 +35,11 @@ shiny::shinyUI(
       ),
       
       tabItems(
-        tabItem(tabName = "porcentaje_nbi_barrio",
-          shinycssloaders::withSpinner(leaflet::leafletOutput("mapaNBIBarrio", height = 700), type = 5, color = "#008d4c")
+        tabItem(tabName = "hogares_nbi_barrio",
+          fluidRow(
+            column(6, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaNBIBarrio", height = 800), type = 5, color = "#008d4c")),
+            column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("graficoNBIBarrio", height = 800), type = 5, color = "#008d4c"))
+          )
         ) # Porcentaje de hogares NBI por barrio
       ) # tabItems
     ) # dashboardBody

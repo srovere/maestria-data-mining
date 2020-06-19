@@ -5,15 +5,15 @@ body, h1, h2, h3, h4, h5,h6, p, div {
 .main-header .logo {
 	height: 120px;
 	line-height: 120px;
-	background-image: url("../img/logo-crea-nuevo.png");
+	background-image: url("../img/logo.png");
 	background-repeat: no-repeat;
 	background-color: white;
-	background-position: 50% 10px;
+	background-position: 50% 25px;
 }
 
 nav.navbar-static-top {
 	height: 120px;
-  background-image: url("../img/logo_censo.png");
+  /*background-image: url("img/logo_censo.png");*/
 	content: "Censo CREA - Informe para asesores";
   background-repeat: no-repeat;
   background-position: 20px 15px;
