@@ -13,7 +13,11 @@ shiny::shinyUI(
     dashboardSidebar(width="300",
       sidebarMenu(id = "menu",
         # Menus
-        menuItem("Hogares NBI por barrio", tabName = "hogares_nbi_barrio", selected = TRUE)
+        menuItem("Hogares NBI por barrio", tabName = "hogares_nbi_barrio", selected = TRUE),
+        menuItem("Cobertura educativa", tabName = "cobertura_educativa",
+          #menuSubItem("Según prioridad de inscripción", tabName = "cobertura_educativa_prioridad"),
+          menuSubItem("Según zona de influencia", tabName = "cobertura_educativa_influencia")
+        )
       ),
       hr(),
       shiny::conditionalPanel(
@@ -40,7 +44,19 @@ shiny::shinyUI(
             column(6, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaNBIBarrio", height = 800), type = 5, color = "#008d4c")),
             column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("graficoNBIBarrio", height = 800), type = 5, color = "#008d4c"))
           )
-        ) # Porcentaje de hogares NBI por barrio
+        ), # Porcentaje de hogares NBI por barrio
+        tabItem(tabName = "cobertura_educativa_prioridad",
+          fluidRow(
+            column(6, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaCoberturaPrioridad", height = 800), type = 5, color = "#008d4c")),
+            column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("graficoCoberturaPrioridad", height = 800), type = 5, color = "#008d4c"))
+          )
+        ), # Cobertura educativa / Según prioridad de inscripción
+        tabItem(tabName = "cobertura_educativa_influencia",
+          fluidRow(
+            column(6, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaCoberturaInfluencia", height = 800), type = 5, color = "#008d4c")),
+            column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("graficoCoberturaInfluencia", height = 800), type = 5, color = "#008d4c"))
+          )
+        ) # Cobertura educativa / Según zona de influencia
       ) # tabItems
     ) # dashboardBody
   ) # shiny::dashboardPage
