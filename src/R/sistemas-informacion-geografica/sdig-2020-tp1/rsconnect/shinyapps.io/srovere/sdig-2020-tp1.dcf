@@ -5,8 +5,8 @@ account: srovere
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2475233
-bundleId: 3289713
+bundleId: 3291495
 url: https://srovere.shinyapps.io/sdig-2020-tp1/
-when: 1592523163.56597
+when: 1592567509.64995
 asMultiple: FALSE
 asStatic: FALSE

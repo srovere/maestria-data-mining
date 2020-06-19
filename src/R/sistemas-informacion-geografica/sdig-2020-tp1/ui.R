@@ -17,7 +17,7 @@ shiny::shinyUI(
       ),
       hr(),
       shiny::conditionalPanel(
-        condition = 'input.menu == "hogares_nbi_barrio',
+        condition = 'input.menu == "hogares_nbi_barrio"',
         shiny::radioButtons(inputId = "opciones_hogares_nbi_barrio",
                             choices = c("Porcentaje hogares NBI" = "porcentaje", "Cantidad hogares NBI" = "cantidad", 
                                         "Densidad hogares NBI/km²" = "densidad"),
