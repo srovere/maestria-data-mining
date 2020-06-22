@@ -27,6 +27,11 @@ shiny::shinyUI(
                                         "Densidad hogares NBI/km²" = "densidad"),
                             label = "Indique la métrica a mostrar",
                             selected = "porcentaje", inline = FALSE),
+      ),
+      shiny::conditionalPanel(
+        condition = 'input.menu == "cobertura_educativa_influencia"',
+        shiny::checkboxInput(inputId = "agregar_establecimientos_privados", value = FALSE,
+                             label = "Agregar establecimientos privados")
       )
     ), # dashboardSidebar
       

@@ -51,6 +51,14 @@ influencia.establecimientos <- sf::st_intersection(sf::st_cast(sf::st_voronoi(sf
 establecimientos <- establecimientos %>%
   dplyr::mutate(poligono_influencia_id = as.integer(sf::st_intersects(establecimientos, influencia.establecimientos)))
 
+# Aplicamos lo mismo para los privados por si son necesarios
+# Les asociamos los poligonos de influencia de los establecimientos publicos
+establecimientos.privados <- sf::st_read(dsn = "data", layer = "establecimientos-educativos") %>%
+  dplyr::mutate(barrio_id = as.integer(unlist(sf::st_intersects(., barrios)))) %>%
+  dplyr::filter(SECTOR == 2 & stringr::str_detect(string = NIVMOD, pattern = "PriCom")) %>%
+  dplyr::rename(establecimiento_id = OBJECTID) %>%
+  dplyr::mutate(poligono_influencia_id = as.integer(sf::st_intersects(., influencia.establecimientos)))
+
 # Cargar datos censales, pasar a proyeccion planar y determinar a que barrio pertenece cada uno de ellos
 # Dado que los radios censales estan incluidos dentro de un barrio, entonces para evitar problemas de proyeccion
 # se determinarar el barrio en base a la ubicacion del centroide. Se utiliza st_nearest_feature porque para
@@ -74,6 +82,10 @@ centroides.radios.censales <- sf::st_centroid(censo) %>%
   dplyr::filter(! is.na(barrio_id) & ! is.null(poligono_influencia_id))
 censo <- censo %>%
   dplyr::inner_join(centroides.radios.censales, by = "RADIO_ID")
+
+# Guardar datos para aplicacion Shiny y eliminar variables innecesarias
+save(barrios, censo, contorno, establecimientos, establecimientos.privados,
+     influencia.establecimientos, file = "sdig-2020-tp1/Dataset.RData")
 rm(radios.censales, datos.censales, centroides.radios.censales)
 ```
 

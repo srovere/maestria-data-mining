@@ -43,6 +43,61 @@ ObtenerOpcionesExportacion <- function(exportar.a.imagen = TRUE, exportar.a.text
   return (export.items)
 }
 
+# Obtencion de hogares NBI por zonas de influencia
+ObtenerHogaresPorZonaInfluencia <- function(solo.escuelas.publicas = TRUE) {
+  # Para cada poligono de influencia, calcular la cantidad de hogares NBI por establecimiento
+  escala.limites           <- c(-Inf, 50, 100, 250, 500, Inf)
+  escala.colores           <- c('#ffffb2','#fecc5c','#fd8d3c','#f03b20','#bd0026')
+  escala.etiquetas         <- c('Hasta 50','De 51 a 100','De 101 a 250','De 250 a 500', 'Más de 500')
+  hogares.nbi.por.poligono <- sf::st_set_geometry(censo, NULL) %>%
+    dplyr::select(poligono_influencia_id, HOGARES, HOGARES_NBI) %>%
+    dplyr::group_by(poligono_influencia_id) %>%
+    dplyr::summarise(hogares = sum(HOGARES), hogares_nbi = sum(HOGARES_NBI))
+  
+  if (! solo.escuelas.publicas) {
+    establecimientos.base <- rbind(establecimientos, establecimientos.privados)
+  } else {
+    establecimientos.base <- establecimientos  
+  }
+  establecimientos.por.poligono <- sf::st_set_geometry(establecimientos.base, NULL) %>%
+    dplyr::group_by(poligono_influencia_id, barrio_id) %>%
+    dplyr::summarise(establecimientos = dplyr::n(),
+                     nombres = paste0(NOMBRE_EST, collapse = "<br>"))
+  
+  hogares.establecimientos.poligonos <- influencia.establecimientos %>%
+    dplyr::left_join(hogares.nbi.por.poligono, by = c("poligono_influencia_id")) %>%
+    dplyr::left_join(establecimientos.por.poligono, by = c("poligono_influencia_id")) %>%
+    dplyr::mutate(hogares = dplyr::if_else(! is.na(hogares), hogares, as.double(0)),
+                  hogares_nbi = dplyr::if_else(! is.na(hogares_nbi), hogares_nbi, as.double(0)),
+                  hogares_nbi_establecimiento = hogares_nbi / establecimientos,
+                  escala = cut(x = hogares_nbi_establecimiento, breaks = escala.limites, labels = escala.colores)) %>%
+    sf::st_transform(crs = proj4string.latlon)
+  return (hogares.establecimientos.poligonos)
+}
+
+# Calcular oferta/demanda de hogares NBI por barrios
+CalcularOfertaDemandaHogaresNBI <- function(hogares.establecimientos.poligonos) {
+  hogares.nbi.por.barrio <- censo %>%
+    sf::st_set_geometry(NULL) %>%
+    dplyr::group_by(barrio_id) %>%
+    dplyr::summarise(demanda = sum(HOGARES_NBI))
+  hogares.nbi.por.barrio.establecimiento <- hogares.establecimientos.poligonos %>%
+    sf::st_set_geometry(NULL) %>%
+    dplyr::group_by(barrio_id) %>%
+    dplyr::summarise(oferta = sum(hogares_nbi))
+  hogares.nbi.oferta.demanda <- barrios %>%
+    sf::st_set_geometry(NULL) %>%
+    dplyr::select(barrio_id, nombre) %>%
+    dplyr::left_join(hogares.nbi.por.barrio, by = c("barrio_id")) %>%
+    dplyr::left_join(hogares.nbi.por.barrio.establecimiento, by = c("barrio_id")) %>%
+    dplyr::mutate(oferta = dplyr::if_else(! is.na(oferta), oferta, as.double(0)),
+                  demanda = dplyr::if_else(! is.na(demanda), demanda, as.double(0)),
+                  diferencia = oferta - demanda) %>%
+    dplyr::arrange(dplyr::desc(diferencia)) %>%
+    dplyr::mutate(nombre = forcats::fct_reorder(nombre, dplyr::desc(diferencia)))
+  return (hogares.nbi.oferta.demanda)
+}
+
 # Definicion de escalas para hogares NBI
 escalas.hogares.nbi <- list(
   "porcentaje" = list(
