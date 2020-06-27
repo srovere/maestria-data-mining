@@ -285,7 +285,7 @@ shiny::shinyServer(function(input, output, session) {
           leaflet::fitBounds(map = ., lng1 = extent.zona["x", "min"], lng2 = extent.zona["x", "max"],
                              lat1 = extent.zona["y", "min"], lat2 = extent.zona["y", "max"]) %>%
           leaflet::addLegend(map = ., colors = escala.colores, labels = escala.etiquetas, position = "bottomright",
-                             opacity = 1, title = "Hogares NBI por establecimiento")
+                             opacity = 1, title = "Paradas dentro del radio")
       }
     }
   })
