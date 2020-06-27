@@ -13,11 +13,9 @@ shiny::shinyUI(
     dashboardSidebar(width="300",
       sidebarMenu(id = "menu",
         # Menus
-        menuItem("Hogares NBI por barrio", tabName = "hogares_nbi_barrio", selected = TRUE),
-        menuItem("Cobertura educativa", tabName = "cobertura_educativa",
-          #menuSubItem("Según prioridad de inscripción", tabName = "cobertura_educativa_prioridad"),
-          menuSubItem("Según zona de influencia", tabName = "cobertura_educativa_influencia")
-        )
+        menuItem("Hogares NBI por barrio", tabName = "hogares_nbi_barrio"),
+        menuItem("Cobertura educativa", tabName = "cobertura_educativa"),
+        menuItem("Conectividad", tabName = "conectividad", selected = TRUE)
       ),
       hr(),
       shiny::conditionalPanel(
@@ -32,6 +30,12 @@ shiny::shinyUI(
         condition = 'input.menu == "cobertura_educativa_influencia"',
         shiny::checkboxInput(inputId = "agregar_establecimientos_privados", value = FALSE,
                              label = "Agregar establecimientos privados")
+      ),
+      shiny::conditionalPanel(
+        condition = 'input.menu == "conectividad"',
+        shiny::sliderInput(inputId = "distancia_maxima_conectividad",
+                           min = 100, max = 2000, value = 300, step = 50,
+                           label = "Distancia máxima tolerable para buscar paradas de transporte publico")
       )
     ), # dashboardSidebar
       
@@ -55,16 +59,13 @@ shiny::shinyUI(
             column(6, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaCoberturaPrioridad", height = 800), type = 5, color = "#008d4c")),
             column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("graficoCoberturaPrioridad", height = 800), type = 5, color = "#008d4c"))
           )
-        ), # Cobertura educativa / Según prioridad de inscripción
-        tabItem(tabName = "cobertura_educativa_influencia",
+        ), # Cobertura educativa
+        tabItem(tabName = "conectividad",
           fluidRow(
-            column(5, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaCoberturaInfluencia", height = 800), type = 5, color = "#008d4c")),
-            column(7, 
-              fluidRow(shinycssloaders::withSpinner(highcharter::highchartOutput("cdfCoberturaInfluencia", height = 400), type = 5, color = "#008d4c")),
-              fluidRow(shinycssloaders::withSpinner(highcharter::highchartOutput("barriosCoberturaInfluencia", height = 400), type = 5, color = "#008d4c"))
-            )
+            column(6, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaConectividad", height = 800), type = 5, color = "#008d4c")),
+            column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("boxplotsConectividad", height = 800), type = 5, color = "#008d4c"))
           )
-        ) # Cobertura educativa / Según zona de influencia
+        ) # Conectividad
       ) # tabItems
     ) # dashboardBody
   ) # shiny::dashboardPage

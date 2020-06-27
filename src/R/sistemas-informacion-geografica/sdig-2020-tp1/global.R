@@ -116,4 +116,12 @@ escalas.hogares.nbi <- list(
     "etiquetas" = c('Hasta 75/km²', 'De 75/km² a 150/km²', 'De 150/km² a 250/km²', 'De 250/km² a 600/km²', 'Más de 600/km²')
   )
 )
-  
+
+# Definicion de escalas para conectividad
+escalas.conectividad <- list(
+  "cantidad" = list(
+    "limites"   = c(-Inf, 0, 1, 2, 3, 4, 5, Inf),
+    "colores"   = rev(c('#ffffb2','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#b10026')),
+    "etiquetas" = c('Sin paradas','1 parada','2 paradas','3 paradas', '4 paradas', '5 paradas', 'Más de 5 paradas')
+  )
+)

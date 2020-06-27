@@ -31,6 +31,36 @@ shiny::shinyServer(function(input, output, session) {
       ObtenerHogaresPorZonaInfluencia(! input$agregar_establecimientos_privados)
     }
   })
+  obtenerConectividadEscuelas <- shiny::reactive({
+    if (! is.null(input$distancia_maxima_conectividad)) {
+      withProgress({
+        establecimientos.buffer <- establecimientos %>%
+          sf::st_buffer(x = ., dist = input$distancia_maxima_conectividad)
+        conectividad.paradas    <- sf::st_contains(x = establecimientos.buffer, y = paradas.transporte.publico) %>%
+          purrr::imap_dfr(
+            .x = .,
+            .f = function(ids.paradas, i) {
+              data.frame(parada_id = ids.paradas) %>%
+                dplyr::mutate(establecimiento_id = as.integer(establecimientos.buffer[i, ]$establecimiento_id))
+            }
+          )
+        conectividad.cantidad    <- establecimientos.buffer %>%
+          dplyr::left_join(conectividad.paradas, by = c("establecimiento_id")) %>%
+          dplyr::group_by(establecimiento_id) %>%
+          dplyr::summarise(cantidad = sum(! is.na(parada_id))) %>%
+          sf::st_set_geometry(NULL)
+        
+        escala.limites           <- escalas.conectividad$cantidad$limites
+        escala.colores           <- escalas.conectividad$cantidad$colores
+        conectividad             <- establecimientos %>%
+          dplyr::inner_join(conectividad.cantidad, by = c("establecimiento_id")) %>%
+          dplyr::mutate(escala = cut(x = cantidad, breaks = escala.limites, labels = escala.colores)) %>%
+          sf::st_transform(crs = proj4string.latlon) %>%
+          dplyr::mutate(center_x = sf::st_coordinates(geometry)[,1], center_y = sf::st_coordinates(geometry)[,2])
+        return (conectividad)
+      }, message = sprintf("Calculando conectividad por escuela para un radio de %dm...", input$distancia_maxima_conectividad), value = NULL)
+    }
+  })
   
   ## Porcentaje de hogares NBI
   output$mapaNBIBarrio <- leaflet::renderLeaflet({
@@ -104,7 +134,7 @@ shiny::shinyServer(function(input, output, session) {
                         attribution = "SDIG-2020 TP1")
   })
   observe({
-    if (input$menu == "cobertura_educativa_influencia") {
+    if (input$menu == "cobertura_educativa") {
     hogares.establecimientos.poligonos <- obtenerHogaresPorZonaInfluencia()
       if (! is.null(hogares.establecimientos.poligonos)) {
         escala.colores   <- c('#ffffb2','#fecc5c','#fd8d3c','#f03b20','#bd0026')
@@ -228,6 +258,82 @@ shiny::shinyServer(function(input, output, session) {
             color = "#4575b4"
           )
         )
+      return (grafico)
+    }
+  })
+  
+  # Conectividad
+  output$mapaConectividad <- leaflet::renderLeaflet({
+    leaflet::leaflet() %>%
+      leaflet::addTiles(map = ., urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png",
+                        attribution = "SDIG-2020 TP1")
+  })
+  observe({
+    if (input$menu == "conectividad") {
+      conectividad <- obtenerConectividadEscuelas()
+      if (! is.null(conectividad)) {
+        escala.colores        <- escalas.conectividad$cantidad$colores
+        escala.etiquetas      <- escalas.conectividad$cantidad$etiquetas
+        extent.zona           <- sp::bbox(sf::as_Spatial(conectividad))
+        rownames(extent.zona) <- c("x", "y")
+        proxy                 <- leaflet::leafletProxy(mapId = "mapaConectividad", data = conectividad) %>%
+        leaflet::clearShapes(map = .) %>%
+          leaflet::clearControls(map = .) %>%
+          leaflet::addCircleMarkers(map = ., stroke = TRUE, opacity = 1, weight = 1, fillOpacity = 1, color = "#000000",
+                                    fillColor = ~escala, lng = ~center_x, lat = ~center_y,
+                                    popup = ~sprintf("<b>%s</b><br/>Cantidad de paradas cercanas: %d", NOMBRE_EST, cantidad)) %>%
+          leaflet::fitBounds(map = ., lng1 = extent.zona["x", "min"], lng2 = extent.zona["x", "max"],
+                             lat1 = extent.zona["y", "min"], lat2 = extent.zona["y", "max"]) %>%
+          leaflet::addLegend(map = ., colors = escala.colores, labels = escala.etiquetas, position = "bottomright",
+                             opacity = 1, title = "Hogares NBI por establecimiento")
+      }
+    }
+  })
+  output$boxplotsConectividad <- highcharter::renderHighchart({
+    conectividad <- obtenerConectividadEscuelas()
+    if (! is.null(conectividad)) {
+      conectividad.barrios <- sf::st_set_geometry(barrios, NULL) %>%
+        dplyr::inner_join(dplyr::select(sf::st_set_geometry(conectividad, NULL), barrio_id, cantidad), by = c("barrio_id"))
+      medianas             <- conectividad.barrios %>%
+        dplyr::group_by(nombre) %>%
+        dplyr::summarise(mediana = median(cantidad)) %>%
+        dplyr::arrange(dplyr::desc(mediana)) %>%
+        dplyr::mutate(nombre = factor(nombre, levels = nombre))
+      conectividad.barrios <- conectividad.barrios %>%
+        dplyr::mutate(nombre = factor(nombre, levels = levels(medianas$nombre)))
+
+      # Grafico
+      grafico <- highcharter::hcboxplot(x = conectividad.barrios$cantidad, var = conectividad.barrios$nombre, outliers = FALSE,
+                                        name = "Distribución de paradas por establecimiento educativo") %>%
+        highcharter::hc_xAxis(categories = levels(conectividad.barrios$nombre), style = list(color = "#212121"),
+                              offset = 10) %>%
+        highcharter::hc_yAxis(title = list(text = "Cantidad de paradas", style = list(color = "#212121")),
+                              allowDecimals = FALSE, floor = 0) %>%
+        highcharter::hc_plotOptions(
+          boxplot = list(
+            color = '#3aaf9d',
+            fillColor = 'rgba(58,175,157,0.5)',
+            lineWidth = 1,
+            medianColor = '#3aaf9d',
+            medianWidth = 1,
+            stemColor = '#3aaf9d',
+            stemDashStyle = 'dash',
+            stemWidth = 1,
+            whiskerColor = '#3aaf9d',
+            whiskerLength = '40%',
+            whiskerWidth = 1,
+            tooltip = list(
+              headerFormat = '<span style="font-size: 12px; font-weight: bold;">{point.key}</span><br/>',
+              pointFormat = 'Máximo: {point.high:.2f}<br/>Tercer cuartil: {point.q3:.2f}<br/>Mediana: {point.median:.2f}<br/>Primer cuartil: {point.q1:.2f}<br/>Mínimo: {point.low:.2f}<br/>'
+            )
+          )
+        ) %>%
+        highcharter::hc_tooltip(useHTML = TRUE) %>%
+        highcharter::hc_legend(enabled = FALSE) %>%
+        highcharter::hc_title(text = "Distribución de paradas por establecimiento educativo", style = list(color = "#212121")) %>%
+        highcharter::hc_exporting(enabled = TRUE, showTable = FALSE, buttons = list(
+          contextButton = list(menuItems = ObtenerOpcionesExportacion(exportar.a.texto = FALSE))
+        ))
       return (grafico)
     }
   })
