@@ -13,9 +13,9 @@ shiny::shinyUI(
     dashboardSidebar(width="300",
       sidebarMenu(id = "menu",
         # Menus
-        menuItem("Hogares NBI por barrio", tabName = "hogares_nbi_barrio"),
+        menuItem("Hogares NBI por barrio", tabName = "hogares_nbi_barrio", selected = TRUE),
         menuItem("Cobertura educativa", tabName = "cobertura_educativa"),
-        menuItem("Conectividad", tabName = "conectividad", selected = TRUE)
+        menuItem("Conectividad", tabName = "conectividad")
       ),
       hr(),
       shiny::conditionalPanel(
