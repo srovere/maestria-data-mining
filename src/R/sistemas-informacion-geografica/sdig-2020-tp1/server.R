@@ -202,7 +202,7 @@ shiny::shinyServer(function(input, output, session) {
                                    mapping = highcharter::hcaes(x = x, y = y, hogares = hogares, group = serie),
                                    tooltip = list(
                                      headerFormat = '<span style="font-size: 12px; font-weight: bold;">Hogares NBI por establecimiento</span><br/>',
-                                     pointFormat = 'Hogares NBI: <b>{point.hogares:.2f}</b><br/>Probabilidad acumulada: <b>{point.y:.3f}</b>'
+                                     pointFormat = '<b>{series.name}</b>. Hogares NBI: <b>{point.hogares:.2f}</b>. Probabilidad acumulada: <b>{point.y:.3f}</b><br/>'
                                    )) %>%
         highcharter::hc_colors(c("#1b9e77", "#7570b3")) %>%
         highcharter::hc_tooltip(useHTML = TRUE, shared = TRUE) %>%
