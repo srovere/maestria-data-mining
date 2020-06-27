@@ -54,10 +54,13 @@ shiny::shinyUI(
             column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("graficoNBIBarrio", height = 800), type = 5, color = "#008d4c"))
           )
         ), # Porcentaje de hogares NBI por barrio
-        tabItem(tabName = "cobertura_educativa_prioridad",
+        tabItem(tabName = "cobertura_educativa",
           fluidRow(
-            column(6, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaCoberturaPrioridad", height = 800), type = 5, color = "#008d4c")),
-            column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("graficoCoberturaPrioridad", height = 800), type = 5, color = "#008d4c"))
+            column(5, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaCoberturaInfluencia", height = 800), type = 5, color = "#008d4c")),
+            column(7,
+                   fluidRow(shinycssloaders::withSpinner(highcharter::highchartOutput("cdfCoberturaInfluencia", height = 400), type = 5, color = "#008d4c")),
+                   fluidRow(shinycssloaders::withSpinner(highcharter::highchartOutput("barriosCoberturaInfluencia", height = 400), type = 5, color = "#008d4c"))
+            )
           )
         ), # Cobertura educativa
         tabItem(tabName = "conectividad",
