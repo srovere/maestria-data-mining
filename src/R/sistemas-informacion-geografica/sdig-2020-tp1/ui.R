@@ -27,7 +27,7 @@ shiny::shinyUI(
                             selected = "porcentaje", inline = FALSE),
       ),
       shiny::conditionalPanel(
-        condition = 'input.menu == "cobertura_educativa_influencia"',
+        condition = 'input.menu == "cobertura_educativa"',
         shiny::checkboxInput(inputId = "agregar_establecimientos_privados", value = FALSE,
                              label = "Agregar establecimientos privados")
       ),
