@@ -15,6 +15,7 @@ shiny::shinyUI(
         # Menus
         menuItem("Hogares NBI por barrio", tabName = "hogares_nbi_barrio", selected = TRUE),
         menuItem("Cobertura educativa", tabName = "cobertura_educativa"),
+        menuItem("Oferta/demanda educativa", tabName = "oferta_demanda_educativa"),
         menuItem("Conectividad", tabName = "conectividad")
       ),
       hr(),
@@ -56,13 +57,16 @@ shiny::shinyUI(
         ), # Porcentaje de hogares NBI por barrio
         tabItem(tabName = "cobertura_educativa",
           fluidRow(
-            column(5, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaCoberturaInfluencia", height = 800), type = 5, color = "#008d4c")),
-            column(7,
-                   fluidRow(shinycssloaders::withSpinner(highcharter::highchartOutput("cdfCoberturaInfluencia", height = 400), type = 5, color = "#008d4c")),
-                   fluidRow(shinycssloaders::withSpinner(highcharter::highchartOutput("barriosCoberturaInfluencia", height = 400), type = 5, color = "#008d4c"))
-            )
+            column(6, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaCoberturaInfluencia", height = 700), type = 5, color = "#008d4c")),
+            column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("cdfCoberturaInfluencia", height = 700), type = 5, color = "#008d4c"))
           )
         ), # Cobertura educativa
+        tabItem(tabName = "oferta_demanda_educativa",
+          fluidRow(
+            column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("barriosOfertaDemanda", height = 700), type = 5, color = "#008d4c"), type = 5, color = "#008d4c"),
+            column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("comunasOfertaDemanda", height = 700), type = 5, color = "#008d4c"), type = 5, color = "#008d4c")
+          )
+        ), # Oferta/demanda educativa
         tabItem(tabName = "conectividad",
           fluidRow(
             column(6, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaConectividad", height = 800), type = 5, color = "#008d4c")),

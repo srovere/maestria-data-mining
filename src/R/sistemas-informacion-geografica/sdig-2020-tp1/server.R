@@ -135,7 +135,7 @@ shiny::shinyServer(function(input, output, session) {
   })
   observe({
     if (input$menu == "cobertura_educativa") {
-    hogares.establecimientos.poligonos <- obtenerHogaresPorZonaInfluencia()
+      hogares.establecimientos.poligonos <- obtenerHogaresPorZonaInfluencia()
       if (! is.null(hogares.establecimientos.poligonos)) {
         escala.colores   <- c('#ffffb2','#fecc5c','#fd8d3c','#f03b20','#bd0026')
         escala.etiquetas <- c('Hasta 50','De 51 a 100','De 101 a 250','De 250 a 500', 'Más de 500')
@@ -222,18 +222,20 @@ shiny::shinyServer(function(input, output, session) {
       return (grafico)
     }
   })
-  output$barriosCoberturaInfluencia <- highcharter::renderHighchart({
-    hogares.establecimientos.poligonos <- obtenerHogaresPorZonaInfluencia()
+  
+  # Oferta/demanda educativa
+  output$barriosOfertaDemanda <- highcharter::renderHighchart({
+    hogares.establecimientos.poligonos <- obtenerHogaresPorZonaInfluenciaSoloPublicos()
     if (! is.null(hogares.establecimientos.poligonos)) {
       hogares.nbi.oferta.demanda <- CalcularOfertaDemandaHogaresNBI(hogares.establecimientos.poligonos)
       
       # Grafico
       grafico <- highcharter::highchart() %>%
         highcharter::hc_xAxis(categories = levels(hogares.nbi.oferta.demanda$nombre), style = list(color = "#212121"),
-                              labels = list(rotation = -90)) %>%
+                              labels = list(rotation = 0)) %>%
         highcharter::hc_yAxis(title = list(text = "Diferencia oferta/demanda", style = list(color = "#212121")),
                               allowDecimals = FALSE) %>%
-        highcharter::hc_chart(options3d = list(enabled = FALSE, beta = 15, alpha = 15),
+        highcharter::hc_chart(options3d = list(enabled = FALSE, beta = 15, alpha = 15), inverted = TRUE,
                               style = list(backgroundColor = "#d8d8d8")) %>%
         highcharter::hc_add_series(type = "column", data = hogares.nbi.oferta.demanda, name = "Diferencia entre hogares NBI y cantidad atendida por establecimientos del barrio",
                                    mapping = highcharter::hcaes(x = nombre, y = diferencia),
@@ -243,6 +245,45 @@ shiny::shinyServer(function(input, output, session) {
         highcharter::hc_tooltip(useHTML = TRUE) %>%
         highcharter::hc_legend(enabled = FALSE) %>%
         highcharter::hc_title(text = "Diferencia entre hogares NBI y cantidad atendida por establecimientos del barrio", style = list(color = "#212121")) %>%
+        highcharter::hc_subtitle(text = "Ciudad Autónoma de Buenos Aires, Censo 2010", style = list(color = "#212121")) %>%
+        highcharter::hc_exporting(enabled = TRUE, showTable = FALSE, buttons = list(
+          contextButton = list(menuItems = ObtenerOpcionesExportacion(exportar.a.texto = FALSE))
+        )) %>%
+        highcharter::hc_plotOptions(
+          bar = list(
+            borderWidth = 1,
+            borderColor = "#7f7f7f",
+            dataLabels = list(enabled = TRUE, color = "#212121", style = list(fontSize = "14px"))
+          ),
+          series = list(
+            negativeColor = "#d73027",
+            color = "#4575b4"
+          )
+        )
+      return (grafico)
+    }
+  })
+  output$comunasOfertaDemanda <- highcharter::renderHighchart({
+    hogares.establecimientos.poligonos <- obtenerHogaresPorZonaInfluenciaSoloPublicos()
+    if (! is.null(hogares.establecimientos.poligonos)) {
+      hogares.nbi.oferta.demanda <- CalcularOfertaDemandaHogaresNBI(hogares.establecimientos.poligonos, por.comuna = TRUE)
+      
+      # Grafico
+      grafico <- highcharter::highchart() %>%
+        highcharter::hc_xAxis(categories = levels(hogares.nbi.oferta.demanda$nombre), style = list(color = "#212121"),
+                              labels = list(rotation = 0)) %>%
+        highcharter::hc_yAxis(title = list(text = "Diferencia oferta/demanda", style = list(color = "#212121")),
+                              allowDecimals = FALSE) %>%
+        highcharter::hc_chart(options3d = list(enabled = FALSE, beta = 15, alpha = 15), inverted = TRUE,
+                              style = list(backgroundColor = "#d8d8d8")) %>%
+        highcharter::hc_add_series(type = "column", data = hogares.nbi.oferta.demanda, name = "Diferencia entre hogares NBI y cantidad atendida por establecimientos del barrio",
+                                   mapping = highcharter::hcaes(x = nombre, y = diferencia),
+                                   tooltip = list(
+                                     pointFormat = 'Oferta: <b>{point.oferta}</b><br/>Demanda: <b>{point.demanda}</b>'
+                                   )) %>%
+        highcharter::hc_tooltip(useHTML = TRUE) %>%
+        highcharter::hc_legend(enabled = FALSE) %>%
+        highcharter::hc_title(text = "Diferencia entre hogares NBI y cantidad atendida por establecimientos del comuna", style = list(color = "#212121")) %>%
         highcharter::hc_subtitle(text = "Ciudad Autónoma de Buenos Aires, Censo 2010", style = list(color = "#212121")) %>%
         highcharter::hc_exporting(enabled = TRUE, showTable = FALSE, buttons = list(
           contextButton = list(menuItems = ObtenerOpcionesExportacion(exportar.a.texto = FALSE))

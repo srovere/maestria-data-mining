@@ -83,9 +83,27 @@ centroides.radios.censales <- sf::st_centroid(censo) %>%
 censo <- censo %>%
   dplyr::inner_join(centroides.radios.censales, by = "RADIO_ID")
 
+# Cargar paradas de transportes publicos
+count.true <- function(...) {
+  purrr::pmap(
+    .l = list(...),
+    .f = function(...) {
+      p <- list(...)
+      length(which(as.logical(p)))
+    }
+  ) %>% unlist()
+}
+paradas.transporte.publico <- sf::st_read(dsn = "data", layer = "public_transport_stops_caba") %>%
+  dplyr::select(full_id, name, railway, public_tra, bus, railway, train, tram) %>%
+  dplyr::mutate(is_bus = (bus == "yes"), is_railway = ! is.na(railway), is_train = (train == "yes"), is_tram = (tram == "yes"),
+                type_count = count.true(is_bus, is_railway, is_train, is_tram),
+                parada_id = dplyr::n()) %>%
+  dplyr::filter(! (is.na(bus) & is.na(railway) & is.na(train) & is.na(tram))) %>%
+  sf::st_transform(sf::st_crs(establecimientos))
+
 # Guardar datos para aplicacion Shiny y eliminar variables innecesarias
 save(barrios, censo, contorno, establecimientos, establecimientos.privados,
-     influencia.establecimientos, file = "sdig-2020-tp1/Dataset.RData")
+     influencia.establecimientos, paradas.transporte.publico, file = "sdig-2020-tp1/Dataset.RData")
 rm(radios.censales, datos.censales, centroides.radios.censales)
 ```
 

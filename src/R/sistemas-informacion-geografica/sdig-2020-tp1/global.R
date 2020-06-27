@@ -76,25 +76,47 @@ ObtenerHogaresPorZonaInfluencia <- function(solo.escuelas.publicas = TRUE) {
 }
 
 # Calcular oferta/demanda de hogares NBI por barrios
-CalcularOfertaDemandaHogaresNBI <- function(hogares.establecimientos.poligonos) {
+CalcularOfertaDemandaHogaresNBI <- function(hogares.establecimientos.poligonos, por.comuna = FALSE) {
+  # Hogares NBI por barrio (demanda)
   hogares.nbi.por.barrio <- censo %>%
     sf::st_set_geometry(NULL) %>%
     dplyr::group_by(barrio_id) %>%
     dplyr::summarise(demanda = sum(HOGARES_NBI))
+  
+  # Hogares NBI por poligono (oferta)
   hogares.nbi.por.barrio.establecimiento <- hogares.establecimientos.poligonos %>%
     sf::st_set_geometry(NULL) %>%
     dplyr::group_by(barrio_id) %>%
     dplyr::summarise(oferta = sum(hogares_nbi))
-  hogares.nbi.oferta.demanda <- barrios %>%
-    sf::st_set_geometry(NULL) %>%
-    dplyr::select(barrio_id, nombre) %>%
-    dplyr::left_join(hogares.nbi.por.barrio, by = c("barrio_id")) %>%
-    dplyr::left_join(hogares.nbi.por.barrio.establecimiento, by = c("barrio_id")) %>%
-    dplyr::mutate(oferta = dplyr::if_else(! is.na(oferta), oferta, as.double(0)),
-                  demanda = dplyr::if_else(! is.na(demanda), demanda, as.double(0)),
-                  diferencia = oferta - demanda) %>%
-    dplyr::arrange(dplyr::desc(diferencia)) %>%
-    dplyr::mutate(nombre = forcats::fct_reorder(nombre, dplyr::desc(diferencia)))
+  
+  # Agrupar por barrio o comuna
+  hogares.nbi.oferta.demanda <- NULL
+  if (por.comuna) {
+    hogares.nbi.oferta.demanda <- barrios %>%
+      sf::st_set_geometry(NULL) %>%
+      dplyr::select(barrio_id, comuna) %>%
+      dplyr::mutate(comuna = paste0("Comuna ", comuna)) %>%
+      dplyr::left_join(hogares.nbi.por.barrio, by = c("barrio_id")) %>%
+      dplyr::left_join(hogares.nbi.por.barrio.establecimiento, by = c("barrio_id")) %>%
+      dplyr::mutate(oferta = dplyr::if_else(! is.na(oferta), oferta, as.double(0)),
+                    demanda = dplyr::if_else(! is.na(demanda), demanda, as.double(0))) %>%
+      dplyr::group_by(comuna) %>%
+      dplyr::summarise(oferta = sum(oferta), demanda = sum(demanda)) %>%
+      dplyr::mutate(diferencia = oferta - demanda) %>%
+      dplyr::arrange(dplyr::desc(diferencia)) %>%
+      dplyr::mutate(nombre = factor(comuna, levels = comuna))
+  } else {
+    hogares.nbi.oferta.demanda <- barrios %>%
+      sf::st_set_geometry(NULL) %>%
+      dplyr::select(barrio_id, nombre) %>%
+      dplyr::left_join(hogares.nbi.por.barrio, by = c("barrio_id")) %>%
+      dplyr::left_join(hogares.nbi.por.barrio.establecimiento, by = c("barrio_id")) %>%
+      dplyr::mutate(oferta = dplyr::if_else(! is.na(oferta), oferta, as.double(0)),
+                    demanda = dplyr::if_else(! is.na(demanda), demanda, as.double(0)),
+                    diferencia = oferta - demanda) %>%
+      dplyr::arrange(dplyr::desc(diferencia)) %>%
+      dplyr::mutate(nombre = forcats::fct_reorder(nombre, dplyr::desc(diferencia)))
+  }
   return (hogares.nbi.oferta.demanda)
 }
 
