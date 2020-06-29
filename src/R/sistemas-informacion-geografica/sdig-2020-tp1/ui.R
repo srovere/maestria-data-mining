@@ -38,6 +38,20 @@ shiny::shinyUI(
         shiny::sliderInput(inputId = "distancia_maxima_conectividad",
                            min = 100, max = 2000, value = 300, step = 50,
                            label = "Distancia máxima tolerable para buscar paradas de transporte publico")
+      ),
+      shiny::conditionalPanel(
+        condition = 'input.menu == "senderos_escolares"',
+        shiny::radioButtons(inputId = "opcion_mapa_sendero",
+                            label = "Indicar el tipo de mapa a mostrar", 
+                            choices = c("Longitud de senderos por barrio" = "longitud_senderos_barrio", 
+                                        "Distancia de escuelas a senderos" = "distancia_escuelas_senderos"),
+                            selected = "longitud_senderos_barrio"),
+        shiny::conditionalPanel(
+          condition = '((input.menu == "senderos_escolares") && (input.opcion_mapa_sendero == "distancia_escuelas_senderos"))',
+          shiny::sliderInput(inputId = "distancia_minima_senderos",
+                             min = 100, max = 1800, value = 10, step = 100,
+                             label = "Distancia mínima a un sendero escolar")
+        )
       )
     ), # dashboardSidebar
       
@@ -76,13 +90,10 @@ shiny::shinyUI(
         ), # Conectividad
         tabItem(tabName = "senderos_escolares",
           fluidRow(
-            column(6, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaSenderosEscolares", height = 800), type = 5, color = "#008d4c"))
-          ),
-          fluidRow(
-            column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("hogaresNBILongitudSenderos", height = 400), type = 5, color = "#008d4c")),
-            column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("boxplotsDistanciaEscuelasSenderos", height = 400), type = 5, color = "#008d4c"))
+            column(6, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaSenderosEscolares", height = 800), type = 5, color = "#008d4c")),
+            column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("hogaresNBILongitudSenderos", height = 800), type = 5, color = "#008d4c"))
           )
-        ) # Conectividad
+        ) # Senderos escolares
       ) # tabItems
     ) # dashboardBody
   ) # shiny::dashboardPage

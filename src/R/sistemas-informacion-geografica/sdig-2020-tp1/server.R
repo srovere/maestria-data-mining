@@ -23,6 +23,26 @@ shiny::shinyServer(function(input, output, session) {
       return (hogares.nbi.por.barrio)
     }
   })
+  obtenerHogaresNBIPorBarrioLongitudSendero <- shiny::reactive({
+    # a. Hogares NBI por barrio
+    hogares.nbi.por.barrio <- censo %>%
+      sf::st_set_geometry(NULL) %>%
+      dplyr::group_by(barrio_id) %>%
+      dplyr::summarise(cantidad = sum(HOGARES_NBI))
+    
+    # b. Longitud de senderos por barrio
+    longitud.senderos <- senderos.escolares %>%
+      sf::st_set_geometry(NULL) %>%
+      dplyr::group_by(barrio_id) %>%
+      dplyr::summarise(longitud_total = sum(longitud))
+    
+    # c. Consolidacion de datos
+    hogares.senderos.barrios <- barrios %>%
+      dplyr::inner_join(longitud.senderos, by = c("barrio_id")) %>%
+      dplyr::inner_join(hogares.nbi.por.barrio, by = c("barrio_id")) %>%
+      sf::st_transform(crs = proj4string.latlon)
+    return (hogares.senderos.barrios)
+  })
   obtenerHogaresPorZonaInfluenciaSoloPublicos <- shiny::reactive({
     ObtenerHogaresPorZonaInfluencia()
   })
@@ -73,6 +93,16 @@ shiny::shinyServer(function(input, output, session) {
       dplyr::inner_join(longitud.senderos, by = c("barrio_id")) %>%
       sf::st_transform(crs = proj4string.latlon)
     return (longitud.senderos.barrios)
+  })
+  obtenerDistanciasSenderosEscuelas <- shiny::reactive({
+    if (! is.null(input$distancia_minima_senderos)) {
+      distancias.senderos.escuelas <- establecimientos %>%
+        dplyr::mutate(distancia_minima = apply(X = sf::st_distance(x = establecimientos, y = senderos.escolares), MARGIN = 1, FUN = min)) %>%
+        dplyr::filter(as.double(distancia_minima) >= input$distancia_minima_senderos) %>%
+        sf::st_transform(crs = proj4string.latlon) %>%
+        dplyr::mutate(center_x = sf::st_coordinates(geometry)[,1], center_y = sf::st_coordinates(geometry)[,2])
+      return (distancias.senderos.escuelas)
+    }
   })
   
   ## Porcentaje de hogares NBI
@@ -399,23 +429,77 @@ shiny::shinyServer(function(input, output, session) {
                         attribution = "SDIG-2020 TP1")
   })
   observe({
-    if (input$menu == "senderos_escolares") {
+    if ((input$menu == "senderos_escolares") && (input$opcion_mapa_sendero == "longitud_senderos_barrio")) {
       longitudSenderosPorBarrios <- obtenerLongitudSenderoPorBarrio()
-      if (! is.null(longitudSenderosPorBarrios)) {
-        escala.colores   <- escalas.senderos$longitud.barrio$colores
-        escala.etiquetas <- escalas.senderos$longitud.barrio$etiquetas
-        extent.zona      <- sp::bbox(sf::as_Spatial(longitudSenderosPorBarrios))
-        proxy            <- leaflet::leafletProxy(mapId = "mapaSenderosEscolares", data = longitudSenderosPorBarrios) %>%
+      if ( ! is.null(longitudSenderosPorBarrios)) {
+      escala.colores   <- escalas.senderos$longitud.barrio$colores
+      escala.etiquetas <- escalas.senderos$longitud.barrio$etiquetas
+      extent.zona      <- sp::bbox(sf::as_Spatial(longitudSenderosPorBarrios))
+      proxy            <- leaflet::leafletProxy(mapId = "mapaSenderosEscolares", data = longitudSenderosPorBarrios) %>%
+        leaflet::clearShapes(map = .) %>%
+        leaflet::clearControls(map = .) %>%
+        leaflet::clearMarkers(map = .) %>%
+        leaflet::addPolygons(map = ., stroke = TRUE, opacity = 1, weight = 1, fillOpacity = 1, color = "#000000",
+                             smoothFactor = 0.5, fillColor = ~escala,
+                             popup = ~sprintf("<b>%s</b><br/>Longitud de senderos escolares: %.2f km", nombre, longitud_total/1000)) %>%
+        leaflet::fitBounds(map = ., lng1 = extent.zona["x", "min"], lng2 = extent.zona["x", "max"],
+                           lat1 = extent.zona["y", "min"], lat2 = extent.zona["y", "max"]) %>%
+        leaflet::addLegend(map = ., colors = escala.colores, labels = escala.etiquetas, position = "bottomright",
+                           opacity = 1, title = "Longitud de senderos escolares")
+      }
+    } else if ((input$menu == "senderos_escolares") && (input$opcion_mapa_sendero == "distancia_escuelas_senderos")) {
+      distancias.escuelas.senderos <- obtenerDistanciasSenderosEscuelas()
+      if (! is.null(distancias.escuelas.senderos)) {
+        extent.zona <- sp::bbox(sf::as_Spatial(sf::st_transform(barrios, crs = proj4string.latlon)))
+        proxy       <- leaflet::leafletProxy(mapId = "mapaSenderosEscolares", data = distancias.escuelas.senderos) %>%
           leaflet::clearShapes(map = .) %>%
           leaflet::clearControls(map = .) %>%
-          leaflet::addPolygons(map = ., stroke = TRUE, opacity = 1, weight = 1, fillOpacity = 1, color = "#000000",
-                               smoothFactor = 0.5, fillColor = ~escala,
-                               popup = ~sprintf("<b>%s</b><br/>Longitud de senderos escolares: %.2f km", nombre, longitud_total/1000)) %>%
+          leaflet::clearMarkers(map = .) %>%
+          leaflet::addCircleMarkers(map = ., stroke = TRUE, opacity = 1, weight = 1, fillOpacity = 1, color = "#000000",
+                                    fillColor = "#3aaf9d", lng = ~center_x, lat = ~center_y,
+                                    popup = ~sprintf("<b>%s</b><br/>Distancia mímima a un sendero: %.2f", NOMBRE_EST, distancia_minima)) %>%
           leaflet::fitBounds(map = ., lng1 = extent.zona["x", "min"], lng2 = extent.zona["x", "max"],
-                             lat1 = extent.zona["y", "min"], lat2 = extent.zona["y", "max"]) %>%
-          leaflet::addLegend(map = ., colors = escala.colores, labels = escala.etiquetas, position = "bottomright",
-                             opacity = 1, title = "Longitud de senderos escolares")
+                             lat1 = extent.zona["y", "min"], lat2 = extent.zona["y", "max"])
       }
+    }
+  })
+  output$hogaresNBILongitudSenderos <- highcharter::renderHighchart({
+    hogares.senderos.barrios <- obtenerHogaresNBIPorBarrioLongitudSendero()
+    if (! is.null(hogares.senderos.barrios)) {
+      hogares.senderos.barrios <- hogares.senderos.barrios %>%
+        dplyr::arrange(dplyr::desc(cantidad)) %>%
+        dplyr::mutate(nombre = forcats::fct_reorder(nombre, dplyr::desc(cantidad)))
+      grafico <- highcharter::highchart() %>%
+        highcharter::hc_xAxis(categories = levels(hogares.senderos.barrios$nombre),
+                              style = list(color = "#212121")) %>%
+        highcharter::hc_yAxis_multiples(
+          list(title = list(text = "Hogares NBI", style = list(color = "#212121")), allowDecimals = FALSE),
+          list(title = list(text = "Longitud (km)", style = list(color = "#212121")), allowDecimals = FALSE, opposite = TRUE)
+        ) %>%
+        highcharter::hc_chart(options3d = list(enabled = FALSE, beta = 15, alpha = 15),
+                              style = list(backgroundColor = "#d8d8d8")) %>%
+        highcharter::hc_add_series(type = "bar", data = hogares.senderos.barrios,
+                                   mapping = highcharter::hcaes(x = nombre, y = cantidad),
+                                   tooltip = list(pointFormat = 'Hogares NBI: <b>{point.y}</b><br/>')) %>%
+        highcharter::hc_add_series(type = "line", data = hogares.senderos.barrios, yAxis = 1,
+                                   mapping = highcharter::hcaes(x = nombre, y = longitud_total/1000),
+                                   tooltip = list(pointFormat = 'Longitud de senderos: <b>{point.y:.2f} km</b><br/>')) %>%
+        highcharter::hc_colors(c("#4575b4", "#d73027")) %>%
+        highcharter::hc_tooltip(useHTML = TRUE, shared = TRUE) %>%
+        highcharter::hc_legend(enabled = FALSE) %>%
+        highcharter::hc_title(text = "Hogares NBI / Longitud de senderos escolares", style = list(color = "#212121")) %>%
+        highcharter::hc_subtitle(text = "Ciudad Autónoma de Buenos Aires, Censo 2010", style = list(color = "#212121")) %>%
+        highcharter::hc_exporting(enabled = TRUE, showTable = FALSE, buttons = list(
+          contextButton = list(menuItems = ObtenerOpcionesExportacion(exportar.a.texto = FALSE))
+        )) %>%
+        highcharter::hc_plotOptions(
+          bar = list(
+            borderWidth = 1,
+            borderColor = "#7f7f7f",
+            dataLabels = list(enabled = TRUE, color = "#212121", style = list(fontSize = "14px"))
+          )
+        )
+      return (grafico)
     }
   })
 })
