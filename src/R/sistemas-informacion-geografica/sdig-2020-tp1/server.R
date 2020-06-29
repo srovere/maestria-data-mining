@@ -61,6 +61,19 @@ shiny::shinyServer(function(input, output, session) {
       }, message = sprintf("Calculando conectividad por escuela para un radio de %dm...", input$distancia_maxima_conectividad), value = NULL)
     }
   })
+  obtenerLongitudSenderoPorBarrio <- shiny::reactive({
+    escala.limites            <- escalas.senderos$longitud.barrio$limites
+    escala.colores            <- escalas.senderos$longitud.barrio$colores
+    longitud.senderos         <- senderos.escolares %>%
+      sf::st_set_geometry(NULL) %>%
+      dplyr::group_by(barrio_id) %>%
+      dplyr::summarise(longitud_total = sum(longitud),
+                       escala = cut(x = longitud_total/1000, breaks = escala.limites, labels = escala.colores))
+    longitud.senderos.barrios <- barrios %>%
+      dplyr::inner_join(longitud.senderos, by = c("barrio_id")) %>%
+      sf::st_transform(crs = proj4string.latlon)
+    return (longitud.senderos.barrios)
+  })
   
   ## Porcentaje de hogares NBI
   output$mapaNBIBarrio <- leaflet::renderLeaflet({
@@ -376,6 +389,33 @@ shiny::shinyServer(function(input, output, session) {
           contextButton = list(menuItems = ObtenerOpcionesExportacion(exportar.a.texto = FALSE))
         ))
       return (grafico)
+    }
+  })
+  
+  # Senderos escolares
+  output$mapaSenderosEscolares <- leaflet::renderLeaflet({
+    leaflet::leaflet() %>%
+      leaflet::addTiles(map = ., urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png",
+                        attribution = "SDIG-2020 TP1")
+  })
+  observe({
+    if (input$menu == "senderos_escolares") {
+      longitudSenderosPorBarrios <- obtenerLongitudSenderoPorBarrio()
+      if (! is.null(longitudSenderosPorBarrios)) {
+        escala.colores   <- escalas.senderos$longitud.barrio$colores
+        escala.etiquetas <- escalas.senderos$longitud.barrio$etiquetas
+        extent.zona      <- sp::bbox(sf::as_Spatial(longitudSenderosPorBarrios))
+        proxy            <- leaflet::leafletProxy(mapId = "mapaSenderosEscolares", data = longitudSenderosPorBarrios) %>%
+          leaflet::clearShapes(map = .) %>%
+          leaflet::clearControls(map = .) %>%
+          leaflet::addPolygons(map = ., stroke = TRUE, opacity = 1, weight = 1, fillOpacity = 1, color = "#000000",
+                               smoothFactor = 0.5, fillColor = ~escala,
+                               popup = ~sprintf("<b>%s</b><br/>Longitud de senderos escolares: %.2f km", nombre, longitud_total/1000)) %>%
+          leaflet::fitBounds(map = ., lng1 = extent.zona["x", "min"], lng2 = extent.zona["x", "max"],
+                             lat1 = extent.zona["y", "min"], lat2 = extent.zona["y", "max"]) %>%
+          leaflet::addLegend(map = ., colors = escala.colores, labels = escala.etiquetas, position = "bottomright",
+                             opacity = 1, title = "Longitud de senderos escolares")
+      }
     }
   })
 })

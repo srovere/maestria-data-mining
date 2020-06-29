@@ -16,7 +16,8 @@ shiny::shinyUI(
         menuItem("Hogares NBI por barrio", tabName = "hogares_nbi_barrio", selected = TRUE),
         menuItem("Cobertura educativa", tabName = "cobertura_educativa"),
         menuItem("Oferta/demanda educativa", tabName = "oferta_demanda_educativa"),
-        menuItem("Conectividad", tabName = "conectividad")
+        menuItem("Conectividad", tabName = "conectividad"),
+        menuItem("Senderos escolares", tabName = "senderos_escolares")
       ),
       hr(),
       shiny::conditionalPanel(
@@ -71,6 +72,15 @@ shiny::shinyUI(
           fluidRow(
             column(6, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaConectividad", height = 800), type = 5, color = "#008d4c")),
             column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("boxplotsConectividad", height = 800), type = 5, color = "#008d4c"))
+          )
+        ), # Conectividad
+        tabItem(tabName = "senderos_escolares",
+          fluidRow(
+            column(6, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaSenderosEscolares", height = 800), type = 5, color = "#008d4c"))
+          ),
+          fluidRow(
+            column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("hogaresNBILongitudSenderos", height = 400), type = 5, color = "#008d4c")),
+            column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("boxplotsDistanciaEscuelasSenderos", height = 400), type = 5, color = "#008d4c"))
           )
         ) # Conectividad
       ) # tabItems

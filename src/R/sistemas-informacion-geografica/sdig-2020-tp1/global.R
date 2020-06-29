@@ -147,3 +147,12 @@ escalas.conectividad <- list(
     "etiquetas" = c('Sin paradas','1 parada','2 paradas','3 paradas', '4 paradas', '5 paradas', 'Más de 5 paradas')
   )
 )
+
+# Escalas para senderos escolares
+escalas.senderos <- list(
+  "longitud.barrio" = list(
+    "limites"   = c(0, 5, 10, 15, 20, Inf),
+    "colores"   = rev(c('#ffffb2','#fecc5c','#fd8d3c','#f03b20','#bd0026')),
+    "etiquetas" = c('Hasta 5 km', 'De 5 km a 10 km', 'De 10 km a 15 km', 'De 15 km a 20km', 'Más de 20 km')
+  )
+)

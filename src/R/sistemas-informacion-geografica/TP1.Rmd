@@ -101,8 +101,15 @@ paradas.transporte.publico <- sf::st_read(dsn = "data", layer = "public_transpor
   dplyr::filter(! (is.na(bus) & is.na(railway) & is.na(train) & is.na(tram))) %>%
   sf::st_transform(sf::st_crs(establecimientos))
 
+# Buscar senderos escolares
+senderos.escolares <- sf::st_read(dsn = "data", layer = "senderos-escolares") %>%
+  dplyr::rename(longitud_total_km = Longitud) %>%
+  sf::st_transform(sf::st_crs(barrios)) %>%
+  sf::st_intersection(x = ., y = dplyr::select(barrios, barrio_id)) %>%
+  dplyr::mutate(longitud = sf::st_length(geometry))
+
 # Guardar datos para aplicacion Shiny y eliminar variables innecesarias
-save(barrios, censo, contorno, establecimientos, establecimientos.privados,
+save(barrios, censo, contorno, establecimientos, establecimientos.privados, senderos.escolares,
      influencia.establecimientos, paradas.transporte.publico, file = "sdig-2020-tp1/Dataset.RData")
 rm(radios.censales, datos.censales, centroides.radios.censales)
 ```
