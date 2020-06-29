@@ -92,11 +92,11 @@ objetos  <- dplyr::distinct(datos, Label)
 
 
 # Heatmap (por maximo score)
-colores      <- c('#cccccc','#ffffb2','#fecc5c','#fd8d3c','#f03b20','#bd0026')
-limites      <- c(0.5, 0.6, 0.7, 0.8, 0.9, 1)
+colores      <- c('#cccccc','#ffffff','#ffffb2','#fecc5c','#fd8d3c','#f03b20','#bd0026')
+limites      <- c(0.25, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
 maximo.score <- datos %>%
   dplyr::group_by(Label, person_id) %>%
-  dplyr::summarise(MaxScore = max(Score)) %>%
+  dplyr::summarise(MaxScore = max(Score, na.rm = TRUE)) %>%
   dplyr::mutate(Etiqueta = cut(x = MaxScore, breaks = limites))
 etiquetas    <- c("Sin asociación", levels(maximo.score$Etiqueta))
 heatmap.maximo.score <- tidyr::crossing(personas, objetos) %>%
