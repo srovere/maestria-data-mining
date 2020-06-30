@@ -117,3 +117,60 @@ ggplot2::ggplot(data = heatmap.maximo.score) +
     plot.subtitle = ggplot2::element_text(hjust = 0.5),
     panel.grid.major = ggplot2::element_line(colour = "white")
   )
+
+### Datos corregidos
+datos.corregidos <- readr::read_delim(file = "PersonaObjeto.csv", delim = ";", col_names = c("person_id", "Label")) %>%
+  dplyr::group_by(person_id, Label) %>%
+  dplyr::summarise(N = dplyr::n()) %>%
+  dplyr::ungroup()
+
+umbral <- 5
+nodes  <- rbind(
+  datos.corregidos %>%
+    dplyr::filter(N >= umbral) %>%
+    dplyr::distinct(person_id) %>%
+    dplyr::mutate(Name = paste0("Person_", person_id), Group = 'P', Size = 5, Grado = 1) %>%
+    dplyr::select(Name, Group, Size, Grado),
+  datos.corregidos %>%
+    dplyr::filter(N >= umbral) %>%
+    dplyr::rename(Name = Label) %>%
+    dplyr::group_by(Name) %>%
+    dplyr::summarise(Grado = dplyr::n_distinct(person_id)) %>%
+    dplyr::mutate(Group = dplyr::if_else(Grado >= 8, 'C', 'O'), Size = 5) %>%
+    dplyr::select(Name, Group, Size, Grado)
+) %>% dplyr::mutate(ID = dplyr::row_number() - 1) %>%
+  as.data.frame()
+
+# Generar Links
+links <- datos.corregidos %>%
+  dplyr::filter(N >= umbral) %>%
+  dplyr::mutate(Source = paste0("Person_", person_id), Target = Label) %>%
+  dplyr::select(Source, Target) %>%
+  dplyr::inner_join(nodes, by = c("Source" = "Name")) %>%
+  dplyr::select(-Group, -Size) %>%
+  dplyr::rename(SourceID = ID) %>%
+  dplyr::inner_join(nodes, by = c("Target" = "Name")) %>%
+  dplyr::select(-Group, -Size) %>%
+  dplyr::rename(TargetID = ID) %>%
+  dplyr::mutate(Value = 1) %>%
+  as.data.frame()
+
+# Eliminar nombres de nodos con grado < 8
+nodes <- nodes %>%
+  dplyr::mutate(Name = dplyr::if_else(Grado >= 8, paste0(Name, " (", Grado, ")"), ""),
+                Size = dplyr::if_else(Grado >= 8, 10, 5))
+
+# Colores
+colourScale <- JS('d3.scaleOrdinal()
+            .domain(["C", "O", "P"])
+           .range(["#e41a1c", "#377eb8", "#4daf4a"]);')
+
+# Generar grafo
+grafo <- networkD3::forceNetwork(Links = links, Nodes = nodes, colourScale = colourScale,
+                                 Source = "SourceID", Target = "TargetID", fontSize = 18,
+                                 Value = "Value", NodeID = "Name", opacityNoHover = 1,
+                                 linkColour = "#dbdbdb",
+                                 Group = "Group", Nodesize = "Size", charge = -300,
+                                 radiusCalculation = htmlwidgets::JS("d.nodesize"),
+                                 opacity = 1, width = 800, height = 800, bounded = TRUE)
+grafo
