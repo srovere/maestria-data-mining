@@ -124,7 +124,7 @@ datos.corregidos <- readr::read_delim(file = "PersonaObjeto.csv", delim = ";", c
   dplyr::summarise(N = dplyr::n()) %>%
   dplyr::ungroup()
 
-umbral <- 5
+umbral <- 2
 nodes  <- rbind(
   datos.corregidos %>%
     dplyr::filter(N >= umbral) %>%
