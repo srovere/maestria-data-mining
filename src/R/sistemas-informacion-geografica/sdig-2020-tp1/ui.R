@@ -13,11 +13,15 @@ shiny::shinyUI(
     dashboardSidebar(width="300",
       sidebarMenu(id = "menu",
         # Menus
-        menuItem("Hogares NBI por barrio", tabName = "hogares_nbi_barrio", selected = TRUE),
-        menuItem("Cobertura educativa", tabName = "cobertura_educativa"),
-        menuItem("Oferta/demanda educativa", tabName = "oferta_demanda_educativa"),
-        menuItem("Conectividad", tabName = "conectividad"),
-        menuItem("Senderos escolares", tabName = "senderos_escolares")
+        menuItem("Nivel socio-económico", tabName = "hogares_nbi_barrio", selected = TRUE),
+        menuItem("Cobertura educativa", 
+          menuSubItem('Zonas de influencia', tabName = "cobertura_educativa"),
+          menuSubItem("Atención de hogares NBI", tabName = "oferta_demanda_educativa")
+        ),
+        menuItem("Conectividad",
+          menuSubItem("Transporte público", tabName = "conectividad"),
+          menuSubItem("Senderos escolares", tabName = "senderos_escolares")
+        )
       ),
       hr(),
       shiny::conditionalPanel(

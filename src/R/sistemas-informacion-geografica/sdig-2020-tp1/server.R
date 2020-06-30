@@ -276,14 +276,14 @@ shiny::shinyServer(function(input, output, session) {
       grafico <- highcharter::highchart() %>%
         highcharter::hc_xAxis(categories = levels(hogares.nbi.oferta.demanda$nombre), style = list(color = "#212121"),
                               labels = list(rotation = 0)) %>%
-        highcharter::hc_yAxis(title = list(text = "Diferencia oferta/demanda", style = list(color = "#212121")),
+        highcharter::hc_yAxis(title = list(text = "Diferencia hogares NBI zona de influencia/barrio", style = list(color = "#212121")),
                               allowDecimals = FALSE) %>%
         highcharter::hc_chart(options3d = list(enabled = FALSE, beta = 15, alpha = 15), inverted = TRUE,
                               style = list(backgroundColor = "#d8d8d8")) %>%
         highcharter::hc_add_series(type = "column", data = hogares.nbi.oferta.demanda, name = "Diferencia entre hogares NBI y cantidad atendida por establecimientos del barrio",
                                    mapping = highcharter::hcaes(x = nombre, y = diferencia),
                                    tooltip = list(
-                                     pointFormat = 'Oferta: <b>{point.oferta}</b><br/>Demanda: <b>{point.demanda}</b>'
+                                     pointFormat = 'Hogares NBI en zona de influencia: <b>{point.oferta}</b><br/>Hogares NBI en barrio: <b>{point.demanda}</b>'
                                    )) %>%
         highcharter::hc_tooltip(useHTML = TRUE) %>%
         highcharter::hc_legend(enabled = FALSE) %>%
@@ -315,14 +315,14 @@ shiny::shinyServer(function(input, output, session) {
       grafico <- highcharter::highchart() %>%
         highcharter::hc_xAxis(categories = levels(hogares.nbi.oferta.demanda$nombre), style = list(color = "#212121"),
                               labels = list(rotation = 0)) %>%
-        highcharter::hc_yAxis(title = list(text = "Diferencia oferta/demanda", style = list(color = "#212121")),
+        highcharter::hc_yAxis(title = list(text = "Diferencia hogares NBI zona de influencia/barrio", style = list(color = "#212121")),
                               allowDecimals = FALSE) %>%
         highcharter::hc_chart(options3d = list(enabled = FALSE, beta = 15, alpha = 15), inverted = TRUE,
                               style = list(backgroundColor = "#d8d8d8")) %>%
         highcharter::hc_add_series(type = "column", data = hogares.nbi.oferta.demanda, name = "Diferencia entre hogares NBI y cantidad atendida por establecimientos del barrio",
                                    mapping = highcharter::hcaes(x = nombre, y = diferencia),
                                    tooltip = list(
-                                     pointFormat = 'Oferta: <b>{point.oferta}</b><br/>Demanda: <b>{point.demanda}</b>'
+                                     pointFormat = 'Hogares NBI en zona de influencia: <b>{point.oferta}</b><br/>Hogares NBI en barrio: <b>{point.demanda}</b>'
                                    )) %>%
         highcharter::hc_tooltip(useHTML = TRUE) %>%
         highcharter::hc_legend(enabled = FALSE) %>%
