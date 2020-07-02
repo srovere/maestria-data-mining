@@ -119,7 +119,11 @@ ggplot2::ggplot(data = heatmap.maximo.score) +
   )
 
 ### Datos corregidos
-datos.corregidos <- readr::read_delim(file = "PersonaObjeto.csv", delim = ";", col_names = c("person_id", "Label")) %>%
+datos.corregidos <- readr::read_delim(file = "LabelsComoColumnas.csv", delim = ";", col_names = TRUE) %>%
+  dplyr::select(-Imagen) %>%
+  dplyr::rename(person_id = `Persona ID`) %>%
+  tidyr::pivot_longer(names_to = "Label", values_to = "Value", cols = c(-person_id)) %>%
+  dplyr::filter(! is.na(Value)) %>%
   dplyr::group_by(person_id, Label) %>%
   dplyr::summarise(N = dplyr::n()) %>%
   dplyr::ungroup()
