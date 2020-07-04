@@ -119,24 +119,21 @@ ggplot2::ggplot(data = heatmap.maximo.score) +
   )
 
 ### Datos corregidos
-datos.corregidos <- readr::read_delim(file = "LabelsComoColumnas.csv", delim = ";", col_names = TRUE) %>%
-  dplyr::select(-Imagen) %>%
-  dplyr::rename(person_id = `Persona ID`) %>%
-  tidyr::pivot_longer(names_to = "Label", values_to = "Value", cols = c(-person_id)) %>%
-  dplyr::filter(! is.na(Value)) %>%
-  dplyr::group_by(person_id, Label) %>%
-  dplyr::summarise(N = dplyr::n()) %>%
-  dplyr::ungroup()
+datos.corregidos <- readr::read_delim(file = "Ocurrencias.csv", delim = ",", col_names = TRUE) %>%
+  dplyr::rename(person_id = id, frecuencia_absoluta = imgs) %>%
+  tidyr::pivot_longer(names_to = "Label", values_to = "ocurrencias", cols = c(-person_id, -frecuencia_absoluta)) %>%
+  dplyr::filter(! is.na(ocurrencias) & (ocurrencias > 0)) %>%
+  dplyr::mutate(Score = ocurrencias / frecuencia_absoluta)
 
-umbral <- 2
+umbral <- 0.161
 nodes  <- rbind(
   datos.corregidos %>%
-    dplyr::filter(N >= umbral) %>%
+    dplyr::filter(Score >= umbral) %>%
     dplyr::distinct(person_id) %>%
     dplyr::mutate(Name = paste0("Person_", person_id), Group = 'P', Size = 5, Grado = 1) %>%
     dplyr::select(Name, Group, Size, Grado),
   datos.corregidos %>%
-    dplyr::filter(N >= umbral) %>%
+    dplyr::filter(Score >= umbral) %>%
     dplyr::rename(Name = Label) %>%
     dplyr::group_by(Name) %>%
     dplyr::summarise(Grado = dplyr::n_distinct(person_id)) %>%
@@ -147,7 +144,7 @@ nodes  <- rbind(
 
 # Generar Links
 links <- datos.corregidos %>%
-  dplyr::filter(N >= umbral) %>%
+  dplyr::filter(Score >= umbral) %>%
   dplyr::mutate(Source = paste0("Person_", person_id), Target = Label) %>%
   dplyr::select(Source, Target) %>%
   dplyr::inner_join(nodes, by = c("Source" = "Name")) %>%
