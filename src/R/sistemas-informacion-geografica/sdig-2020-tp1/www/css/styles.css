@@ -13,10 +13,9 @@ body, h1, h2, h3, h4, h5,h6, p, div {
 
 nav.navbar-static-top {
 	height: 120px;
-  /*background-image: url("img/logo_censo.png");*/
-	content: "Censo CREA - Informe para asesores";
+  background-image: url("../img/titulo.png");
   background-repeat: no-repeat;
-  background-position: 20px 15px;
+  background-position: 50% 10px;
   background-color: #00ac66;
 }
 
