@@ -64,10 +64,27 @@ shiny::shinyServer(function(input, output, session) {
                 dplyr::mutate(establecimiento_id = as.integer(establecimientos.buffer[i, ]$establecimiento_id))
             }
           )
+        
+        # Calcular poblacion dentro del radio
+        conectividad.poblacion   <- sf::st_contains(x = establecimientos.buffer, y = censo) %>%
+          purrr::imap_dfr(
+            .x = .,
+            .f = function(filas.radios.censales, i) {
+              poblacion <- 0
+              if (length(filas.radios.censales) > 0) {
+                poblacion <- sum(censo[filas.radios.censales, ]$POBLACION)  
+              }
+              return (data.frame(establecimiento_id = as.integer(establecimientos.buffer[i, ]$establecimiento_id), 
+                                 poblacion = poblacion))
+            }
+          )
+        
+        # Integrar datos
         conectividad.cantidad    <- establecimientos.buffer %>%
           dplyr::left_join(conectividad.paradas, by = c("establecimiento_id")) %>%
           dplyr::group_by(establecimiento_id) %>%
           dplyr::summarise(cantidad = sum(! is.na(parada_id))) %>%
+          dplyr::inner_join(conectividad.poblacion, by = c("establecimiento_id")) %>%
           sf::st_set_geometry(NULL)
         
         escala.limites           <- escalas.conectividad$cantidad$limites
@@ -114,13 +131,17 @@ shiny::shinyServer(function(input, output, session) {
   observe({
     hogares.nbi.por.barrio <- obtenerHogaresNBIPorBarrio()
     if (! is.null(hogares.nbi.por.barrio)) {
-      opcion           <- input$opciones_hogares_nbi_barrio
-      escala.colores   <- escalas.hogares.nbi[[opcion]]$colores
-      escala.etiquetas <- escalas.hogares.nbi[[opcion]]$etiquetas
-      extent.zona      <- sp::bbox(sf::as_Spatial(hogares.nbi.por.barrio))
-      proxy            <- leaflet::leafletProxy(mapId = "mapaNBIBarrio", data = hogares.nbi.por.barrio) %>%
+      opcion            <- input$opciones_hogares_nbi_barrio
+      escala.colores    <- escalas.hogares.nbi[[opcion]]$colores
+      escala.etiquetas  <- escalas.hogares.nbi[[opcion]]$etiquetas
+      escuelas.publicas <- establecimientos %>%
+        sf::st_transform(crs = proj4string.latlon) %>%
+        dplyr::mutate(center_x = sf::st_coordinates(geometry)[,1], center_y = sf::st_coordinates(geometry)[,2])
+      extent.zona       <- sp::bbox(sf::as_Spatial(hogares.nbi.por.barrio))
+      proxy             <- leaflet::leafletProxy(mapId = "mapaNBIBarrio", data = hogares.nbi.por.barrio) %>%
         leaflet::clearControls(map = .) %>%
         leaflet::clearShapes(map = .) %>%
+        leaflet::clearMarkers(map = .) %>%
         leaflet::addPolygons(map = ., stroke = TRUE, opacity = 0.75, weight = 1, fillOpacity = 0.75, color = "#000000",
                              smoothFactor = 0.5, fillColor = ~escala, 
                              popup = ~sprintf("<b>%s</b><br/>Cantidad: %d<br/>Porcentaje: %.2f%%<br/>Densidad: %.2f/km²", nombre, cantidad, porcentaje, densidad)) %>%
@@ -128,6 +149,11 @@ shiny::shinyServer(function(input, output, session) {
                            lat1 = extent.zona["y", "min"], lat2 = extent.zona["y", "max"]) %>%
         leaflet::addLegend(map = ., colors = escala.colores, labels = escala.etiquetas, position = "bottomright",
                            opacity = 1, title = Hmisc::capitalize(opcion))
+      if (input$mostrar_establecimientos) {
+        leaflet::addCircleMarkers(map = proxy, data = escuelas.publicas, stroke = TRUE, opacity = 0.5, weight = 1, radius = 5,
+                                  fillOpacity = 0.5, color = "#000000", fillColor = "#000000", lng = ~center_x, lat = ~center_y,
+                                  popup = ~sprintf("<b>%s</b>", NOMBRE_EST))
+      }
     }
   })
   output$graficoNBIBarrio <- highcharter::renderHighchart({
@@ -412,9 +438,42 @@ shiny::shinyServer(function(input, output, session) {
             )
           )
         ) %>%
+        highcharter::hc_chart(zoomType = 'y', panning = TRUE, panKey = 'shift', type = "column") %>%
         highcharter::hc_tooltip(useHTML = TRUE) %>%
         highcharter::hc_legend(enabled = FALSE) %>%
         highcharter::hc_title(text = "Distribución de paradas por establecimiento educativo", style = list(color = "#212121")) %>%
+        highcharter::hc_exporting(enabled = TRUE, showTable = FALSE, buttons = list(
+          contextButton = list(menuItems = ObtenerOpcionesExportacion(exportar.a.texto = FALSE))
+        ))
+      return (grafico)
+    }
+  })
+  output$scatterplotConectividad <- highcharter::renderHighchart({
+    conectividad <- obtenerConectividadEscuelas()
+    if (! is.null(conectividad)) {
+      # Ajustar los datos para el grafico
+      conectividad.escuelas <- sf::st_set_geometry(conectividad, NULL) %>%
+        dplyr::inner_join(barrios, by = c("barrio_id")) %>%
+        dplyr::rename(nombre_escuela = NOMBRE_EST, nombre_barrio = nombre) %>%
+        dplyr::select(nombre_barrio, nombre_escuela, cantidad, poblacion, escala)
+      
+      # Grafico
+      grafico <- highcharter::highchart() %>%
+        highcharter::hc_xAxis(title = list(text = "Cantidad de paradas", style = list(color = "#212121")), 
+                              style = list(color = "#212121")) %>%
+        highcharter::hc_yAxis(title = list(text = "Población dentro del radio", style = list(color = "#212121")),
+                              allowDecimals = FALSE, floor = 0) %>%
+        highcharter::hc_add_series(type = "scatter", data = conectividad.escuelas,
+                                   mapping = highcharter::hcaes(x = cantidad, y = poblacion, color = escala, name = paste0(nombre_escuela, ' (', nombre_barrio, ')')),
+                                   tooltip = list(
+                                     headerFormat = '<span style="color: {point.color}">●</span> <span style="font-size: 12px; font-weight: bold;">{point.key}</span><br/>',
+                                     pointFormat = 'Cantidad de paradas: <b>{point.x}</b><br/>Población: <b>{point.y}</b>'
+                                   )) %>%
+        highcharter::hc_chart(zoomType = 'x', panning = TRUE, panKey = 'shift') %>%
+        highcharter::hc_tooltip(useHTML = TRUE) %>%
+        highcharter::hc_legend(enabled = FALSE) %>%
+        highcharter::hc_title(text = "Cantidad de paradas y población en cercanías de escuelas públicas primarias", style = list(color = "#212121")) %>%
+        highcharter::hc_subtitle(text = sprintf("Zona de cercanía definida por un radio de %dm", input$distancia_maxima_conectividad), style = list(color = "#212121")) %>%
         highcharter::hc_exporting(enabled = TRUE, showTable = FALSE, buttons = list(
           contextButton = list(menuItems = ObtenerOpcionesExportacion(exportar.a.texto = FALSE))
         ))
@@ -474,19 +533,19 @@ shiny::shinyServer(function(input, output, session) {
                               style = list(color = "#212121")) %>%
         highcharter::hc_yAxis_multiples(
           list(title = list(text = "Hogares NBI", style = list(color = "#212121")), allowDecimals = FALSE),
-          list(title = list(text = "Longitud (km)", style = list(color = "#212121")), allowDecimals = FALSE, opposite = TRUE)
+          list(title = list(text = "Longitud de senderos (km)", style = list(color = "#212121")), allowDecimals = FALSE, opposite = TRUE)
         ) %>%
         highcharter::hc_chart(options3d = list(enabled = FALSE, beta = 15, alpha = 15),
                               style = list(backgroundColor = "#d8d8d8")) %>%
-        highcharter::hc_add_series(type = "bar", data = hogares.senderos.barrios,
+        highcharter::hc_add_series(type = "bar", data = hogares.senderos.barrios, name = "Hogares NBI",
                                    mapping = highcharter::hcaes(x = nombre, y = cantidad),
                                    tooltip = list(pointFormat = 'Hogares NBI: <b>{point.y}</b><br/>')) %>%
-        highcharter::hc_add_series(type = "line", data = hogares.senderos.barrios, yAxis = 1,
+        highcharter::hc_add_series(type = "line", data = hogares.senderos.barrios, yAxis = 1, name = "Longitud de senderos",
                                    mapping = highcharter::hcaes(x = nombre, y = longitud_total/1000),
                                    tooltip = list(pointFormat = 'Longitud de senderos: <b>{point.y:.2f} km</b><br/>')) %>%
         highcharter::hc_colors(c("#4575b4", "#d73027")) %>%
         highcharter::hc_tooltip(useHTML = TRUE, shared = TRUE) %>%
-        highcharter::hc_legend(enabled = FALSE) %>%
+        highcharter::hc_legend(enabled = TRUE) %>%
         highcharter::hc_title(text = "Hogares NBI / Longitud de senderos escolares", style = list(color = "#212121")) %>%
         highcharter::hc_subtitle(text = "Ciudad Autónoma de Buenos Aires, Censo 2010", style = list(color = "#212121")) %>%
         highcharter::hc_exporting(enabled = TRUE, showTable = FALSE, buttons = list(

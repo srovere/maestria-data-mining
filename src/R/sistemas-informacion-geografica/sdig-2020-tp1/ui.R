@@ -27,10 +27,12 @@ shiny::shinyUI(
       shiny::conditionalPanel(
         condition = 'input.menu == "hogares_nbi_barrio"',
         shiny::radioButtons(inputId = "opciones_hogares_nbi_barrio",
-                            choices = c("Porcentaje hogares NBI" = "porcentaje", "Cantidad hogares NBI" = "cantidad", 
+                            choices = c("Cantidad hogares NBI" = "cantidad", "Porcentaje hogares NBI" = "porcentaje", 
                                         "Densidad hogares NBI/km²" = "densidad"),
                             label = "Indique la métrica a mostrar",
-                            selected = "porcentaje", inline = FALSE),
+                            selected = "cantidad", inline = FALSE),
+        shiny::checkboxInput(inputId = "mostrar_establecimientos", value = TRUE,
+                             label = "Mostrar establecimientos educativos en el mapa")
       ),
       shiny::conditionalPanel(
         condition = 'input.menu == "cobertura_educativa"',
@@ -89,7 +91,14 @@ shiny::shinyUI(
         tabItem(tabName = "conectividad",
           fluidRow(
             column(6, shinycssloaders::withSpinner(leaflet::leafletOutput("mapaConectividad", height = 800), type = 5, color = "#008d4c")),
-            column(6, shinycssloaders::withSpinner(highcharter::highchartOutput("boxplotsConectividad", height = 800), type = 5, color = "#008d4c"))
+            column(6,
+              fluidRow(
+                column(12, shinycssloaders::withSpinner(highcharter::highchartOutput("boxplotsConectividad", height = 400), type = 5, color = "#008d4c"))
+              ),
+              fluidRow(
+                column(12, shinycssloaders::withSpinner(highcharter::highchartOutput("scatterplotConectividad", height = 400), type = 5, color = "#008d4c"))
+              )
+            )
           )
         ), # Conectividad
         tabItem(tabName = "senderos_escolares",
