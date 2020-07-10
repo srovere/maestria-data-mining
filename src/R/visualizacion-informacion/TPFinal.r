@@ -212,4 +212,5 @@ json.data <- list(
   nodes = nodes,
   links = links
 )
-write_lines(x = json.string, path = "VAST.json")
+json.string <- jsonlite::toJSON(x = json.data, auto_unbox = TRUE)
+write_file(x = json.string, path = "VAST.json")
