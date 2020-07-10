@@ -175,3 +175,41 @@ grafo <- networkD3::forceNetwork(Links = links, Nodes = nodes, colourScale = col
                                  radiusCalculation = htmlwidgets::JS("d.nodesize"),
                                  opacity = 1, width = 800, height = 800, bounded = TRUE)
 grafo
+
+# ------ Para la visualizacion de D3
+# a. Leer datos
+datos.corregidos <- readr::read_delim(file = "Ocurrencias.csv", delim = ",", col_names = TRUE) %>%
+  dplyr::rename(person_id = id, frecuencia_absoluta = imgs) %>%
+  tidyr::pivot_longer(names_to = "Label", values_to = "ocurrencias", cols = c(-person_id, -frecuencia_absoluta)) %>%
+  dplyr::filter(! is.na(ocurrencias) & (ocurrencias > 0)) %>%
+  dplyr::mutate(Score = ocurrencias / frecuencia_absoluta)
+
+# b. Nodos
+nodes <- rbind(
+  datos.corregidos %>%
+    dplyr::distinct(person_id) %>%
+    dplyr::mutate(id = paste0("Person_", person_id), group = 'P') %>%
+    dplyr::select(id, group),
+  datos.corregidos %>%
+    dplyr::rename(id = Label) %>%
+    dplyr::distinct(id) %>%
+    dplyr::mutate(group = 'O') %>%
+    dplyr::select(id, group)
+) %>% as.data.frame()
+
+# c. Links
+links <- datos.corregidos %>%
+  dplyr::mutate(source = paste0("Person_", person_id), target = Label) %>%
+  dplyr::rename(value = Score) %>%
+  dplyr::select(source, target, value) %>%
+  as.data.frame()
+
+# d. guardar datos como JSON
+json.data <- list(
+  directed = FALSE,
+  multigraph = FALSE,
+  graph = list(),
+  nodes = nodes,
+  links = links
+)
+write_lines(x = json.string, path = "VAST.json")
