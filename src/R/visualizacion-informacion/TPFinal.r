@@ -188,7 +188,7 @@ datos.corregidos <- readr::read_delim(file = "Ocurrencias.csv", delim = ",", col
 nodes <- rbind(
   datos.corregidos %>%
     dplyr::distinct(person_id) %>%
-    dplyr::mutate(id = paste0("Person_", person_id), group = 'P') %>%
+    dplyr::mutate(id = paste0("P", person_id), group = 'P') %>%
     dplyr::select(id, group),
   datos.corregidos %>%
     dplyr::rename(id = Label) %>%
@@ -199,7 +199,7 @@ nodes <- rbind(
 
 # c. Links
 links <- datos.corregidos %>%
-  dplyr::mutate(source = paste0("Person_", person_id), target = Label) %>%
+  dplyr::mutate(source = paste0("P", person_id), target = Label) %>%
   dplyr::rename(value = Score) %>%
   dplyr::select(source, target, value) %>%
   as.data.frame()
