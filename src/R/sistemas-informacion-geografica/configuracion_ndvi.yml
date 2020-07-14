@@ -1,0 +1,36 @@
+# -----------------------------------------------------------------------------------
+# Credenciales de acceso
+# -----------------------------------------------------------------------------------
+credenciales:
+  user: srovere
+  pass: Dcft6789vbnm
+# -----------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------------
+# Especificaciones del producto a descargar
+# -----------------------------------------------------------------------------------
+producto:
+  plataforma: Sentinel-2
+  nombre.capa: ndvi
+  nivel.aceptacion: L2A
+# -----------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------------
+# Mascara para filtrar pixels:
+# https://earth.esa.int/web/sentinel/technical-guides/sentinel-2-msi/level-2a/algorithm
+# - "nomask": do not mask any pixel;•"nodata": mask pixels checked as "No data" or "Saturated or defective" inthe SCL product (all pixels with values are maintained);
+# - "cloud_high_proba": mask pixels checked as "No data", "Saturated ordefective" or "Cloud (high probability)" in the SCL product;
+# - "cloud_medium_proba": mask pixels checked as "No data", "Saturated ordefective" or "Cloud (high or medium probability)" in the SCL product;
+# - "cloud_and_shadow": mask pixels checked as "No data", "Saturated ordefective", "Cloud (high or medium probability)" or "Cloud shadow" in theSCL product;
+# - "clear_sky": mask pixels checked as "No data", "Saturated or defective", "Cloud (high or medium probability)", "Cloud shadow", "Unclassified" or "Thin cirrus" in the SCL product (only pixels classified as clear-sky sur-face - so "Dark area", "Vegetation", "Bare soil", "Water" or "Snow" - aremaintained);
+# - "land": mask pixels checked as "No data", "Saturated or defective", "Cloud(high or medium probability)", "Cloud shadow", "Dark area", "Unclassified", "Thin cirrus", "Water" or "Snow" in the SCL product (only pixels classified as land surface - so "Vegetation" or "Bare soil" - are maintained);
+# - a string in the following form:"scl_n_m_n", wheren,mandnare one ormore SCL class numbers. E.g. string"scl_0_8_9_11"can be used to maskclasses 0 ("No data"), 8-9 ("Cloud (high or medium probability)") and 11("Snow
+mascara: scl_6 # Water
+# -----------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------------
+# Sistemas de coordenadas a utilizar
+# -----------------------------------------------------------------------------------
+proj4string:
+  latlon: '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+# -----------------------------------------------------------------------------------
