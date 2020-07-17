@@ -87,7 +87,7 @@ text(modelo.cart, cex = 0.8)
 
 
 # b) Crear modelo usando RandomForest con los parametros base
-modelo.rf <- randomForest::randomForest(x = dplyr::select(datos.muestras, -clase), 
+modelo.rf <- randomForest::randomForest(x = dplyr::select(datos.muestras, -clase), ntree = 20,
                                         y = as.factor(dplyr::pull(dplyr::select(datos.muestras, clase))),
                                         importance = TRUE)
 randomForest::varImpPlot(modelo.rf)
@@ -97,8 +97,24 @@ randomForest::varImpPlot(modelo.rf)
 # --- PASO 6. Predecir ----
 # -----------------------------------------------------------------------------#
 
-# a) Prediccion naive utilizando la misma imagen (pero ahora completa)
-prediccion.entrenamiento <- raster::predict(object = imagen.entrenamiento, 
-                                            model = modelo.rf, 
-                                            type = 'class')
+# a) Prediccion naive utilizando la misma imagen (pero ahora completa) - CART
+raster::beginCluster(n = 8)
+prediccion.entrenamiento <- raster::clusterR(
+  x = imagen.entrenamiento, 
+  fun = raster::predict,
+  args = list(model = modelo.cart, type = 'class'),
+  filename = paste0(images.directory, "/predict_cart_201801.tif")
+)
+raster::endCluster()
+
+# b) Prediccion naive utilizando la misma imagen (pero ahora completa) - RF
+raster::beginCluster(n = 8)
+prediccion.entrenamiento <- raster::clusterR(
+  x = imagen.entrenamiento, 
+  fun = raster::predict,
+  args = list(model = modelo.rf, type = 'class'),
+  filename = paste0(images.directory, "/predict_rf_201801.tif")
+)
+raster::endCluster()
+
 # ------------------------------------------------------------------------------
