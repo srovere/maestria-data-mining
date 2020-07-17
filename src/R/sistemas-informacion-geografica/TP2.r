@@ -80,7 +80,7 @@ raster::projectRaster(from = s, filename = paste0(images.directory, "/masked/201
 # B3 (green)
 # B4 (red)
 # B8 (nir)
-datos.raster <- raster::stack(paste0(images.directory, "/201801_epsg_22185.tif"))
+datos.raster <- raster::stack(paste0(images.directory, "/201811_epsg_22185.tif"))
 green        <- datos.raster[[2]]
 red          <- datos.raster[[3]]
 nir          <- datos.raster[[4]]
@@ -95,6 +95,23 @@ names(raster.con.indices) <- c("b2", "b3", "b4", "b8", "ndwi", "ndvi")
 
 # Guardar raster
 raster::writeRaster(x = raster.con.indices, 
-                    filename = paste0(working.directory, "/images/indices/201801.tif"), 
+                    filename = paste0(working.directory, "/images/indices/201811.tif"), 
                     format = "GTiff")
 # ------------------------------------------------------------------------------
+
+water.bodies <- geojsonsf::geojson_sf(paste0(working.directory, "/ground_truth/aguas_continentales_a.geojson")) %>%
+  sf::st_set_crs(x = ., value = 4326) %>%
+  sf::st_transform(x = ., 22185) %>%
+  sf::st_intersection(area.of.interest) %>%
+  lwgeom::st_make_valid() %>%
+  dplyr::mutate(Objeto = factor(Objeto),
+                Tipo = as.integer(Objeto))
+sf::st_write(obj = water.bodies, dsn = paste0(working.directory, "/ground_truth"), 
+             layer = "WaterBodies", driver = "ESRI shapefile", 
+             update = TRUE, delete_layer = TRUE)
+
+water.bodies.raster <- raster::rasterize(x = sf::as_Spatial(water.bodies), y = imagen.entrenamiento,
+                                         field = 'Tipo', fun = 'count', background = 4)
+raster::writeRaster(x = water.bodies.raster, 
+                    filename = paste0(working.directory, "/ground_truth/WaterBodies.tif"), 
+                    format = "GTiff")
