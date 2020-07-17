@@ -99,19 +99,17 @@ raster::writeRaster(x = raster.con.indices,
                     format = "GTiff")
 # ------------------------------------------------------------------------------
 
+images.directory     <- paste0(working.directory, "/images/indices")
+imagen.entrenamiento <- raster::stack(paste0(images.directory, "/201901.tif"))
 water.bodies <- geojsonsf::geojson_sf(paste0(working.directory, "/ground_truth/aguas_continentales_a.geojson")) %>%
   sf::st_set_crs(x = ., value = 4326) %>%
   sf::st_transform(x = ., 22185) %>%
   sf::st_intersection(area.of.interest) %>%
   lwgeom::st_make_valid() %>%
   dplyr::mutate(Objeto = factor(Objeto),
-                Tipo = as.integer(Objeto))
-sf::st_write(obj = water.bodies, dsn = paste0(working.directory, "/ground_truth"), 
-             layer = "WaterBodies", driver = "ESRI shapefile", 
-             update = TRUE, delete_layer = TRUE)
-
+                Tipo = 1)
 water.bodies.raster <- raster::rasterize(x = sf::as_Spatial(water.bodies), y = imagen.entrenamiento,
-                                         field = 'Tipo', fun = 'count', background = 4)
+                                         field = 'Tipo', fun = 'count', background = 0)
 raster::writeRaster(x = water.bodies.raster, 
                     filename = paste0(working.directory, "/ground_truth/WaterBodies.tif"), 
-                    format = "GTiff")
+                    format = "GTiff", overwrite = TRUE)
