@@ -108,7 +108,7 @@ suma.kappa    <- 0
 for (f in folds) {
   train       <- datos.muestras[-f, ]
   test        <- datos.muestras[f, ]
-  modelo.rf   <- randomForest::randomForest(x = dplyr::select(train, -clase), ntree = 50,
+  modelo.rf   <- randomForest::randomForest(x = dplyr::select(train, -clase), ntree = 100,
                                             y = as.factor(dplyr::pull(dplyr::select(train, clase))),
                                             importance = TRUE)
   pred        <- predict(modelo.rf, test, type = 'class')  
@@ -151,6 +151,23 @@ for (f in folds) {
 }
 print(suma.accuracy/length(folds))
 print(suma.kappa/length(folds))
+
+# e) Entrenar y validar con un GLM para cada fold
+suma.accuracy <- 0
+suma.kappa    <- 0
+for (f in folds) {
+  train       <- datos.muestras[-f, ]
+  test        <- datos.muestras[f, ]
+  modelo.glm  <- glm(formula = as.factor(clase) ~ ndwi+ndvi, family = 'binomial', data = train)
+  pred        <- predict(modelo.glm, test, type = 'response')  
+  resultados  <- data.frame(observado = test$clase, predicho = ifelse(pred >= 0.5, 1, 0))
+  conf.mat    <- caret::confusionMatrix(table(resultados))
+  
+  suma.accuracy <- suma.accuracy + conf.mat$overall['Accuracy']
+  suma.kappa    <- suma.kappa + conf.mat$overall['Kappa']
+}
+print(suma.accuracy/length(folds))
+print(suma.kappa/length(folds))
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
@@ -177,6 +194,9 @@ xgb.train  <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(datos.muestras
 modelo.xgb <- xgboost::xgb.train(data = xgb.train, nrounds = 100, varbose = 0,
                                  nthread = 8, params = parametros)
 xgboost::xgb.plot.importance(xgboost::xgb.importance(model = modelo.xgb))
+
+# d) Crear modelo usando GLM
+modelo.glm <- glm(formula = clase ~ ., family = 'binomial', data = datos.muestras)
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
@@ -189,7 +209,8 @@ prediccion.entrenamiento <- raster::clusterR(
   x = imagen.entrenamiento, 
   fun = raster::predict,
   args = list(model = modelo.cart, type = 'class'),
-  filename = paste0(images.directory, "/predict_cart_201801.tif")
+  filename = paste0(images.directory, "/predict_cart_201801.tif"),
+  progress = 'text'
 )
 raster::endCluster()
 
@@ -199,7 +220,19 @@ prediccion.entrenamiento <- raster::clusterR(
   x = imagen.entrenamiento, 
   fun = raster::predict,
   args = list(model = modelo.rf, type = 'class'),
-  filename = paste0(images.directory, "/predict_rf_201801.tif")
+  filename = paste0(images.directory, "/predict_rf_201801.tif"),
+  progress = 'text'
+)
+raster::endCluster()
+
+# c) Prediccion naive utilizando la misma imagen (pero ahora completa) - GLM
+raster::beginCluster(n = 8)
+prediccion.entrenamiento <- raster::clusterR(
+  x = imagen.entrenamiento, 
+  fun = raster::predict,
+  args = list(model = modelo.glm),
+  filename = paste0(images.directory, "/predict_glm_201801.tif"),
+  progress = 'text'
 )
 raster::endCluster()
 # ------------------------------------------------------------------------------
