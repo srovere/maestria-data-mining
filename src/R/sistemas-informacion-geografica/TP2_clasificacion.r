@@ -27,9 +27,9 @@ images.directory  <- paste0(working.directory, "/images/indices")
 water.bodies <- raster::raster(paste0(working.directory, "/ground_truth/WaterBodies.tif"))
 
 # b) Definir clases
-clases    <- c("Espejo de agua", "Humedal", "No agua")
-colores   <- c("#1f78b4", "#1b9e77", "#4d4d4d")
-clases.df <- data.frame(id = c(1, 2, 4), nombre = clases)
+clases    <- c("NoAgua", "Agua")
+colores   <- c("#543005", "#003c30")
+clases.df <- data.frame(id = c(0, 1), nombre = clases)
 
 # c) Asignar clases a raster
 water.bodies         <- raster::ratify(water.bodies)
@@ -54,6 +54,7 @@ numero.muestras <- 10000
 muestra         <- raster::sampleStratified(water.bodies, size = numero.muestras, 
                                             na.rm = TRUE, sp = TRUE)
 table(muestra$WaterBodies)
+save(sample, file = paste0(working.directory, "/muestra.RData"))
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
@@ -81,13 +82,12 @@ datos.muestras <- data.frame(clase = muestra$WaterBodies, valores.muestras) %>%
 modelo.cart <- rpart::rpart(as.factor(clase) ~ ., 
                             data = datos.muestras, 
                             method = 'class', 
-                            maxdepth = 10)
+                            control = list(maxdepth = 10))
 plot(modelo.cart, uniform = TRUE, main = "Arbol de clasificacion")
 text(modelo.cart, cex = 0.8)
 
-
 # b) Crear modelo usando RandomForest con los parametros base
-modelo.rf <- randomForest::randomForest(x = dplyr::select(datos.muestras, -clase), ntree = 20,
+modelo.rf <- randomForest::randomForest(x = dplyr::select(datos.muestras, -clase), ntree = 50,
                                         y = as.factor(dplyr::pull(dplyr::select(datos.muestras, clase))),
                                         importance = TRUE)
 randomForest::varImpPlot(modelo.rf)
@@ -116,5 +116,51 @@ prediccion.entrenamiento <- raster::clusterR(
   filename = paste0(images.directory, "/predict_rf_201801.tif")
 )
 raster::endCluster()
+# ------------------------------------------------------------------------------
 
+# -----------------------------------------------------------------------------#
+# --- PASO 7. Evaluación del modelo con CV ----
+# -----------------------------------------------------------------------------#
+
+# a) Generar los folds
+folds <- caret::createFolds(seq_len(nrow(datos.muestras)), k = 5)
+
+# b) Entrenar y validar con CART para cada fold
+suma.accuracy <- 0
+suma.kappa    <- 0
+for (f in folds) {
+  train       <- datos.muestras[-f, ]
+  test        <- datos.muestras[f, ]
+  modelo.cart <- rpart::rpart(as.factor(clase) ~ ., 
+                              data = train, 
+                              method = 'class', 
+                              control = list(maxdepth = 10))
+  pred        <- predict(modelo.cart, test, type = 'class')  
+  resultados  <- data.frame(observado = test$clase, predicho = pred)
+  conf.mat    <- caret::confusionMatrix(table(resultados))
+  
+  suma.accuracy <- suma.accuracy + conf.mat$overall['Accuracy']
+  suma.kappa    <- suma.kappa + conf.mat$overall['Kappa']
+}
+print(suma.accuracy/length(folds))
+print(suma.kappa/length(folds))
+
+# c) Entrenar y validar con RF para cada fold
+suma.accuracy <- 0
+suma.kappa    <- 0
+for (f in folds) {
+  train       <- datos.muestras[-f, ]
+  test        <- datos.muestras[f, ]
+  modelo.rf   <- randomForest::randomForest(x = dplyr::select(train, -clase), ntree = 50,
+                                            y = as.factor(dplyr::pull(dplyr::select(train, clase))),
+                                            importance = TRUE)
+  pred        <- predict(modelo.rf, test, type = 'class')  
+  resultados  <- data.frame(observado = test$clase, predicho = pred)
+  conf.mat    <- caret::confusionMatrix(table(resultados))
+  
+  suma.accuracy <- suma.accuracy + conf.mat$overall['Accuracy']
+  suma.kappa    <- suma.kappa + conf.mat$overall['Kappa']
+}
+print(suma.accuracy/length(folds))
+print(suma.kappa/length(folds))
 # ------------------------------------------------------------------------------
