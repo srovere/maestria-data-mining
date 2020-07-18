@@ -112,3 +112,14 @@ water.bodies.raster <- raster::rasterize(x = sf::as_Spatial(water.bodies), y = i
 raster::writeRaster(x = water.bodies.raster, 
                     filename = paste0(working.directory, "/ground_truth/WaterBodies.tif"), 
                     format = "GTiff", overwrite = TRUE)
+
+ground.truth <- geojsonsf::geojson_sf(paste0(working.directory, "/ground_truth/flood.geojson")) %>%
+  sf::st_set_crs(x = ., value = 22185) %>%
+  sf::st_intersection(area.of.interest) %>%
+  lwgeom::st_make_valid() %>%
+  dplyr::mutate(Tipo = factor("Agua"))
+ground.truth.raster <- raster::rasterize(x = sf::as_Spatial(ground.truth), y = imagen.entrenamiento,
+                                         field = 'Tipo', fun = 'last', background = NA)
+raster::writeRaster(x = ground.truth.raster, 
+                    filename = paste0(working.directory, "/ground_truth/GT-Sample-2019.tif"), 
+                    format = "GTiff", overwrite = TRUE)
