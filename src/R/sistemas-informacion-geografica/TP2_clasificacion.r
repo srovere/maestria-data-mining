@@ -6,7 +6,8 @@ rm(list = ls()); gc()
 
 # b) Cargar paquetes
 list.of.packages <- c("dplyr", "geojsonsf", "lubridate", "magrittr", "raster", 
-                      "rasterVis", "randomForest", "sf", "sp", "utils", "yaml")
+                      "rasterVis", "randomForest", "sf", "sp", "utils", 
+                      "xgboost", "yaml")
 for (pack in list.of.packages) {
   if (!require(pack, character.only = TRUE)) {
     stop("Paquete no instalado: ", pack)
@@ -75,51 +76,7 @@ datos.muestras <- data.frame(clase = muestra$WaterBodies, valores.muestras) %>%
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
-# --- PASO 5. Entrenar el modelo ----
-# -----------------------------------------------------------------------------#
-
-# a) Crear modelo usando un arbol de decision CART
-modelo.cart <- rpart::rpart(as.factor(clase) ~ ., 
-                            data = datos.muestras, 
-                            method = 'class', 
-                            control = list(maxdepth = 10))
-plot(modelo.cart, uniform = TRUE, main = "Arbol de clasificacion")
-text(modelo.cart, cex = 0.8)
-
-# b) Crear modelo usando RandomForest con los parametros base
-modelo.rf <- randomForest::randomForest(x = dplyr::select(datos.muestras, -clase), ntree = 50,
-                                        y = as.factor(dplyr::pull(dplyr::select(datos.muestras, clase))),
-                                        importance = TRUE)
-randomForest::varImpPlot(modelo.rf)
-# ------------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------#
-# --- PASO 6. Predecir ----
-# -----------------------------------------------------------------------------#
-
-# a) Prediccion naive utilizando la misma imagen (pero ahora completa) - CART
-raster::beginCluster(n = 8)
-prediccion.entrenamiento <- raster::clusterR(
-  x = imagen.entrenamiento, 
-  fun = raster::predict,
-  args = list(model = modelo.cart, type = 'class'),
-  filename = paste0(images.directory, "/predict_cart_201801.tif")
-)
-raster::endCluster()
-
-# b) Prediccion naive utilizando la misma imagen (pero ahora completa) - RF
-raster::beginCluster(n = 8)
-prediccion.entrenamiento <- raster::clusterR(
-  x = imagen.entrenamiento, 
-  fun = raster::predict,
-  args = list(model = modelo.rf, type = 'class'),
-  filename = paste0(images.directory, "/predict_rf_201801.tif")
-)
-raster::endCluster()
-# ------------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------#
-# --- PASO 7. Evaluación del modelo con CV ----
+# --- PASO 5. Evaluación modelos con CV ----
 # -----------------------------------------------------------------------------#
 
 # a) Generar los folds
@@ -163,4 +120,86 @@ for (f in folds) {
 }
 print(suma.accuracy/length(folds))
 print(suma.kappa/length(folds))
+
+# d) Entrenar y validar con XGBoost para cada fold
+suma.accuracy <- 0
+suma.kappa    <- 0
+parametros <- list(
+  booster = "gbtree",
+  objective = "binary:logistic",
+  groy_policy = "lossguide",
+  tree_method = 'hist',
+  eta = 0.04,
+  max_depth = 10
+)
+for (f in folds) {
+  train       <- datos.muestras[-f, ]
+  test        <- datos.muestras[f, ]
+  xgb.train   <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(train, -clase)),
+                                      label = as.matrix(dplyr::select(train, clase)))
+  xgb.test    <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(test, -clase)),
+                                      label = as.matrix(dplyr::select(test, clase)))
+  modelo.xgb  <- xgboost::xgb.train(data = xgb.train, verbose = 2, nrounds = 100,
+                                    watchlist = list(train = xgb.train, test = xgb.test),
+                                    nthread = 8, params = parametros)
+  pred        <- predict(modelo.xgb, xgb.test) 
+  resultados  <- data.frame(observado = test$clase, predicho = ifelse(pred >= 0.5, 1, 0))
+  conf.mat    <- caret::confusionMatrix(table(resultados))
+  
+  suma.accuracy <- suma.accuracy + conf.mat$overall['Accuracy']
+  suma.kappa    <- suma.kappa + conf.mat$overall['Kappa']
+}
+print(suma.accuracy/length(folds))
+print(suma.kappa/length(folds))
+# ------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------#
+# --- PASO 6. Entrenar el modelo ----
+# -----------------------------------------------------------------------------#
+
+# a) Crear modelo usando un arbol de decision CART
+modelo.cart <- rpart::rpart(as.factor(clase) ~ ., 
+                            data = datos.muestras, 
+                            method = 'class', 
+                            control = list(maxdepth = 10))
+plot(modelo.cart, uniform = TRUE, main = "Arbol de clasificacion")
+text(modelo.cart, cex = 0.8)
+
+# b) Crear modelo usando RandomForest
+modelo.rf <- randomForest::randomForest(x = dplyr::select(datos.muestras, -clase), ntree = 100,
+                                        y = as.factor(dplyr::pull(dplyr::select(datos.muestras, clase))),
+                                        importance = TRUE)
+randomForest::varImpPlot(modelo.rf)
+
+# c) Crear modelo usando XGBoost
+xgb.train  <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(datos.muestras, -clase)),
+                                   label = as.matrix(dplyr::select(datos.muestras, clase)))
+modelo.xgb <- xgboost::xgb.train(data = xgb.train, nrounds = 100, varbose = 0,
+                                 nthread = 8, params = parametros)
+xgboost::xgb.plot.importance(xgboost::xgb.importance(model = modelo.xgb))
+# ------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------#
+# --- PASO 7. Predecir ----
+# -----------------------------------------------------------------------------#
+
+# a) Prediccion naive utilizando la misma imagen (pero ahora completa) - CART
+raster::beginCluster(n = 8)
+prediccion.entrenamiento <- raster::clusterR(
+  x = imagen.entrenamiento, 
+  fun = raster::predict,
+  args = list(model = modelo.cart, type = 'class'),
+  filename = paste0(images.directory, "/predict_cart_201801.tif")
+)
+raster::endCluster()
+
+# b) Prediccion naive utilizando la misma imagen (pero ahora completa) - RF
+raster::beginCluster(n = 8)
+prediccion.entrenamiento <- raster::clusterR(
+  x = imagen.entrenamiento, 
+  fun = raster::predict,
+  args = list(model = modelo.rf, type = 'class'),
+  filename = paste0(images.directory, "/predict_rf_201801.tif")
+)
+raster::endCluster()
 # ------------------------------------------------------------------------------
