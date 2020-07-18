@@ -106,10 +106,9 @@ water.bodies <- geojsonsf::geojson_sf(paste0(working.directory, "/ground_truth/a
   sf::st_transform(x = ., 22185) %>%
   sf::st_intersection(area.of.interest) %>%
   lwgeom::st_make_valid() %>%
-  dplyr::mutate(Objeto = factor(Objeto),
-                Tipo = 1)
+  dplyr::mutate(Tipo = factor("Agua"))
 water.bodies.raster <- raster::rasterize(x = sf::as_Spatial(water.bodies), y = imagen.entrenamiento,
-                                         field = 'Tipo', fun = 'count', background = 0)
+                                         field = 'Tipo', fun = 'last', background = 0)
 raster::writeRaster(x = water.bodies.raster, 
                     filename = paste0(working.directory, "/ground_truth/WaterBodies.tif"), 
                     format = "GTiff", overwrite = TRUE)
