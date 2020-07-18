@@ -17,7 +17,7 @@ rm(list.of.packages, pack); gc()
 
 # c) Definir carpetas
 working.directory <- paste0(getwd(), "/tp-teledeteccion2020")
-images.directory  <- paste0(working.directory, "/images/indices")
+images.directory  <- paste0(working.directory, "/images/final")
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
