@@ -56,16 +56,17 @@ raster::writeRaster(x = water.bodies.raster, format = "GTiff", overwrite = TRUE,
 # -----------------------------------------------------------------------------#
 
 # a) Cargar, reproyectar, intersectar y corregir
-cuerpos.agua <- geojsonsf::geojson_sf(paste0(working.directory, "/ground_truth/flood.geojson")) %>%
+inundaciones <- geojsonsf::geojson_sf(paste0(working.directory, "/ground_truth/flood.geojson")) %>%
   sf::st_set_crs(x = ., value = 22185) %>%
   sf::st_intersection(area.of.interest) %>%
   lwgeom::st_make_valid() %>%
   dplyr::mutate(Tipo = factor("Agua"))
 
 # b) Transformar a raster (clase positiva)
-ground.truth.positiva <- raster::rasterize(x = sf::as_Spatial(cuerpos.agua), y = imagen.ejemplo,
-                                         field = 'Tipo', fun = 'last', background = NA,
-                                         paste0(final.directory, "/GT-Positive.tif"))
+ground.truth.positiva <- raster::rasterize(x = sf::as_Spatial(inundaciones), y = imagen.ejemplo,
+                                         field = 'Tipo', fun = 'last', background = NA)
+raster::writeRaster(x = ground.truth.positiva, format = "GTiff", overwrite = TRUE,
+                    filename = paste0(final.directory, "/GT-Positive.tif"))
 
 # c) Transformar imagen positiva en negativa
 ground.truth.negativa <- raster::calc(x = ground.truth.positiva, fun = function(x) {
