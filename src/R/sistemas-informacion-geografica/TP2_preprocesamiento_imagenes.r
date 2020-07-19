@@ -79,7 +79,7 @@ for (period in periodos) {
   
   # vii. Limpiar datos temporales
   rm(rasters.imagenes, mosaico.periodo, mosaico.aoi, mosaic.reprojected,
-     blue, gree, red, nir, ndwi, ndvi, raster.con.indices, call.args)
+     blue, green, red, nir, ndwi, ndvi, raster.con.indices, call.args)
   gc()
   raster::removeTmpFiles(h = 0)
 }
