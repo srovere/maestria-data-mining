@@ -19,7 +19,7 @@ rm(list.of.packages, pack); gc()
 # Definir directorios de trabajo
 working.directory <- paste0(getwd(), "/tp-teledeteccion2020")
 images.directory <- paste0(working.directory, "/images")
-final.directory <- paste0(images.directory, "/indices")
+final.directory <- paste0(images.directory, "/final")
 
 # Los datos de ground truth están en EPSG:4326 o EPSG:22185 (POSGAR 94 / Argentina 5)
 # Definir area de interes
@@ -50,7 +50,10 @@ for (period in periodos) {
   rasters.imagenes <- purrr::map(.x = imagenes, .f = raster::stack)
   
   # ii. Armar mosaico (merge)
-  mosaico.periodo <- do.call(what = raster::mosaic, args = rasters.imagenes)
+  call.args             <- rasters.imagenes
+  names(call.args)[1:2] <- c('x', 'y')
+  call.args$fun         <- mean
+  mosaico.periodo       <- do.call(what = raster::mosaic, args = call.args)
   
   # iii. Acotar mosaico a AOI
   mosaico.aoi <- mosaico.periodo %>%
@@ -73,5 +76,11 @@ for (period in periodos) {
   names(raster.con.indices) <- c("b2", "b3", "b4", "b8", "ndwi", "ndvi")
   raster::writeRaster(x = raster.con.indices, format = "GTiff",
                       filename = paste0(final.directory, "/", period, ".tif"))
+  
+  # vii. Limpiar datos temporales
+  rm(rasters.imagenes, mosaico.periodo, mosaico.aoi, mosaic.reprojected,
+     blue, gree, red, nir, ndwi, ndvi, raster.con.indices, call.args)
+  gc()
+  raster::removeTmpFiles(h = 0)
 }
 # ------------------------------------------------------------------------------
