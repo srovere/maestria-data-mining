@@ -226,8 +226,8 @@ modelo.glm <- glm(formula = clase ~ ., family = 'binomial', data = datos.muestra
 # -----------------------------------------------------------------------------#
 
 # a) Definicion de modelo
-modelo <- modelo.cart
-sufijo <- "CART"
+modelo <- modelo.rf
+sufijo <- "RF"
 
 # b) Prediccion para 201811
 raster::beginCluster(n = 8)
@@ -240,7 +240,7 @@ prediccion.sin.inundacion <- raster::clusterR(
 )
 raster::endCluster()
 
-# b) Prediccion para 201901
+# c) Prediccion para 201901
 raster::beginCluster(n = 8)
 prediccion.con.inundacion <- raster::clusterR(
   x = CargarImagen(paste0(images.directory, "/201901.tif")), 
@@ -250,4 +250,21 @@ prediccion.con.inundacion <- raster::clusterR(
   progress = 'text'
 )
 raster::endCluster()
+
+# d) Calcular diferencia
+raster.areas.inundadas <- raster::calc(x = raster::stack(prediccion.sin.inundacion, prediccion.con.inundacion),
+                                       fun = function(x) {
+                                         if (! is.na(x[1]) & ! is.na(x[2])) {
+                                           if (x[2] == 1) {
+                                             # Ahora hay agua. Si antes no había, considerar inundación.
+                                             return (x[2] - x[1])
+                                           } else {
+                                             # Ahora no hay agua. No importa lo que había antes
+                                             return (0)
+                                           }
+                                         }
+                                         return (NA)
+                                       })
+raster::writeRaster(x = raster.areas.inundadas, format = "GTiff",
+                    filename = paste0(images.directory, "/inundaciones_201901_", sufijo, ".tif"))
 # ------------------------------------------------------------------------------
