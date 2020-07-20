@@ -24,32 +24,23 @@ images.directory  <- paste0(working.directory, "/images/final")
 # --- PASO 2. Referenciar los datos ----
 # -----------------------------------------------------------------------------#
 
-# a) Definir clases
+# a) Cargar raster de clases
+water.bodies <- raster::raster(paste0(working.directory, "/ground_truth/WaterBodies.tif"))
+
+# b) Definir clases
 clases    <- c("NoAgua", "Agua")
 colores   <- c("#543005", "#003c30")
 clases.df <- data.frame(id = c(0, 1), nombre = clases)
 
-# b) Definir funcion para cargar raster y asignarle la clase
-CargarGroundTruth <- function(filename, clases) {
-  ground.truth         <- raster::raster(x = filename)
-  ground.truth         <- raster::ratify(ground.truth)
-  rat                  <- data.frame(ID = seq(from = 0, to = length(clases) - 1),
-                                     clase = clases)
-  levels(ground.truth) <- rat
-  return (ground.truth)
-}
-
-# c) Cargar rasters de clases
-ground.truth.agua    <- CargarGroundTruth(filename = paste0(images.directory, "/GT-Positive.tif"),
-                                          clases = clases)
-ground.truth.no.agua <- CargarGroundTruth(filename = paste0(images.directory, "/GT-Negative.tif"),
-                                          clases = clases)
+# c) Asignar clases a raster
+water.bodies         <- raster::ratify(water.bodies)
+rat                  <- raster::levels(water.bodies)[[1]]
+rat$clase            <- clases
+levels(water.bodies) <- rat
 
 # d) Mostrar conjunto de entrenamiento
-plt.gt.agua    <- rasterVis::levelplot(ground.truth.agua, col.regions = colores, main = 'Ground truth (Agua - 2019)')
-plt.gt.no.agua <- rasterVis::levelplot(ground.truth.no.agua, col.regions = colores, main = 'Ground truth (No Agua - 2018)')
-plot(plt.gt.agua)
-plot(plt.gt.no.agua)
+plt.wb <- rasterVis::levelplot(water.bodies, col.regions = colores, main = 'Conjunto de entrenamiento')
+plot(plt.wb)
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
@@ -59,42 +50,29 @@ plot(plt.gt.no.agua)
 # a) Definir semilla
 set.seed(0)
 
-# b) Generar muestra random (se utiliza cualquiera de los 2 rasters)
-numero.muestras <- 40000
-muestra         <- raster::sampleRandom(ground.truth.agua, size = numero.muestras, 
-                                        na.rm = TRUE, sp = TRUE)
-table(muestra$GT.Positive)
+# b) Generar muestra estratificada
+numero.muestras <- 10000
+muestra         <- raster::sampleStratified(water.bodies, size = numero.muestras, 
+                                            na.rm = TRUE, sp = TRUE)
+table(muestra$WaterBodies)
+save(sample, file = paste0(working.directory, "/muestra.RData"))
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
 # --- PASO 4. Extraer muestras ----
 # -----------------------------------------------------------------------------#
 
-# a) Definir funciones para extraer muestra
-CargarImagen   <- function(filename) {
-  imagen        <- raster::stack(x = filename)
-  names(imagen) <- c("b2", "b3", "b4", "b8", "ndwi", "ndvi")
-  return (imagen)
-}
-ExtraerMuestra <- function(filename, muestra, clase) {
-  # i. Definir imagen de entrenamiento y nombrar las bandas
-  imagen.entrenamiento <- CargarImagen(filename)
-  
-  # ii. Extraer muestras para los lugares indicados. Eliminar columna ID.
-  valores.muestras <- raster::extract(imagen.entrenamiento, muestra, df = TRUE)
-  valores.muestras <- valores.muestras[, -1]
-  
-  # iii. Agregar la informacion de la clase a las muestras. Filtrar NAs
-  datos.muestras <- data.frame(clase = clase, valores.muestras) %>%
-    dplyr::filter(! is.na(ndvi) & ! is.na(ndwi))
-  return (datos.muestras)
-}
+# a) Definir imagen de entrenamiento y nombrar las bandas
+imagen.entrenamiento        <- raster::stack(paste0(images.directory, "/201801.tif"))
+names(imagen.entrenamiento) <- c("b2", "b3", "b4", "b8", "ndwi", "ndvi")
 
-# b) Extraer muestras para 201811 y 201901
-datos.muestras <- rbind(
-  ExtraerMuestra(filename = paste0(images.directory, "/201811.tif"), muestra = muestra, clase = 0),
-  ExtraerMuestra(filename = paste0(images.directory, "/201901.tif"), muestra = muestra, clase = 1)
-)
+# b) Extraer muestras para los lugares indicados. Eliminar columna ID.
+valores.muestras <- raster::extract(imagen.entrenamiento, muestra, df = TRUE)
+valores.muestras <- valores.muestras[, -1]
+
+# c) Agregar la informacion de la clase a las muestras
+datos.muestras <- data.frame(clase = muestra$WaterBodies, valores.muestras) %>%
+  dplyr::filter(! is.na(ndvi) & ! is.na(ndwi))
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
@@ -225,28 +203,35 @@ modelo.glm <- glm(formula = clase ~ ., family = 'binomial', data = datos.muestra
 # --- PASO 7. Predecir ----
 # -----------------------------------------------------------------------------#
 
-# a) Definicion de modelo
-modelo <- modelo.cart
-sufijo <- "CART"
-
-# b) Prediccion para 201811
+# a) Prediccion naive utilizando la misma imagen (pero ahora completa) - CART
 raster::beginCluster(n = 8)
-prediccion.sin.inundacion <- raster::clusterR(
-  x = CargarImagen(paste0(images.directory, "/201811.tif")), 
+prediccion.entrenamiento <- raster::clusterR(
+  x = imagen.entrenamiento, 
   fun = raster::predict,
-  args = list(model = modelo, type = 'class'),
-  filename = paste0(images.directory, "/predict_201811_", sufijo, ".tif"),
+  args = list(model = modelo.cart, type = 'class'),
+  filename = paste0(images.directory, "/predict_cart_201801.tif"),
   progress = 'text'
 )
 raster::endCluster()
 
-# b) Prediccion para 201901
+# b) Prediccion naive utilizando la misma imagen (pero ahora completa) - RF
 raster::beginCluster(n = 8)
-prediccion.con.inundacion <- raster::clusterR(
-  x = CargarImagen(paste0(images.directory, "/201901.tif")), 
+prediccion.entrenamiento <- raster::clusterR(
+  x = imagen.entrenamiento, 
   fun = raster::predict,
-  args = list(model = modelo, type = 'class'),
-  filename = paste0(images.directory, "/predict_201901_", sufijo, ".tif"),
+  args = list(model = modelo.rf, type = 'class'),
+  filename = paste0(images.directory, "/predict_rf_201801.tif"),
+  progress = 'text'
+)
+raster::endCluster()
+
+# c) Prediccion naive utilizando la misma imagen (pero ahora completa) - GLM
+raster::beginCluster(n = 8)
+prediccion.entrenamiento <- raster::clusterR(
+  x = imagen.entrenamiento, 
+  fun = raster::predict,
+  args = list(model = modelo.glm),
+  filename = paste0(images.directory, "/predict_glm_201801.tif"),
   progress = 'text'
 )
 raster::endCluster()
