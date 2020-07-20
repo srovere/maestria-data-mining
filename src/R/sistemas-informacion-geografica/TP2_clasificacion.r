@@ -237,10 +237,10 @@ sufijo <- "RF"
 # b) Prediccion para 201811
 raster::beginCluster(n = 8)
 prediccion.sin.inundacion <- raster::clusterR(
-  x = CargarImagen(paste0(images.directory, "/201811.tif")), 
+  x = CargarImagen(paste0(images.directory, "/201801.tif")), 
   fun = raster::predict,
   args = list(model = modelo, type = 'class'),
-  filename = paste0(images.directory, "/predict_201811_", sufijo, ".tif"),
+  filename = paste0(images.directory, "/predict_201801_", sufijo, ".tif"),
   progress = 'text'
 )
 raster::endCluster()
