@@ -56,13 +56,18 @@ plot(plt.gt.no.agua)
 # --- PASO 3. Definir sitios de muestreo ----
 # -----------------------------------------------------------------------------#
 
-# a) Definir semilla
+# a) Definir extent de ground truth
+ground.truth.extent <- geojsonsf::geojson_sf(paste0(working.directory, "/ground_truth/flood.geojson")) %>%
+  sf::st_set_crs(x = ., value = 22185) %>%
+  raster::extent()
+
+# b) Definir semilla
 set.seed(0)
 
-# b) Generar muestra random (se utiliza cualquiera de los 2 rasters)
-numero.muestras <- 40000
+# c) Generar muestra random (se utiliza cualquiera de los 2 rasters)
+numero.muestras <- 400000
 muestra         <- raster::sampleRandom(ground.truth.agua, size = numero.muestras, 
-                                        na.rm = TRUE, sp = TRUE)
+                                        ext = ground.truth.extent, na.rm = TRUE, sp = TRUE)
 table(muestra$GT.Positive)
 # ------------------------------------------------------------------------------
 
@@ -92,7 +97,7 @@ ExtraerMuestra <- function(filename, muestra, clase) {
 
 # b) Extraer muestras para 201811 y 201901
 datos.muestras <- rbind(
-  ExtraerMuestra(filename = paste0(images.directory, "/201811.tif"), muestra = muestra, clase = 0),
+  ExtraerMuestra(filename = paste0(images.directory, "/201801.tif"), muestra = muestra, clase = 0),
   ExtraerMuestra(filename = paste0(images.directory, "/201901.tif"), muestra = muestra, clase = 1)
 )
 # ------------------------------------------------------------------------------
@@ -180,7 +185,7 @@ suma.kappa    <- 0
 for (f in folds) {
   train       <- datos.muestras[-f, ]
   test        <- datos.muestras[f, ]
-  modelo.glm  <- glm(formula = as.factor(clase) ~ ndwi+ndvi, family = 'binomial', data = train)
+  modelo.glm  <- glm(formula = as.factor(clase) ~ ., family = 'binomial', data = train)
   pred        <- predict(modelo.glm, test, type = 'response')  
   resultados  <- data.frame(observado = test$clase, predicho = ifelse(pred >= 0.5, 1, 0))
   conf.mat    <- caret::confusionMatrix(table(resultados))
@@ -232,7 +237,7 @@ sufijo <- "RF"
 # b) Prediccion para 201811
 raster::beginCluster(n = 8)
 prediccion.sin.inundacion <- raster::clusterR(
-  x = CargarImagen(paste0(images.directory, "/201811.tif")), 
+  x = CargarImagen(paste0(images.directory, "/201801.tif")), 
   fun = raster::predict,
   args = list(model = modelo, type = 'class'),
   filename = paste0(images.directory, "/predict_201811_", sufijo, ".tif"),
@@ -241,7 +246,7 @@ prediccion.sin.inundacion <- raster::clusterR(
 )
 raster::endCluster()
 
-# b) Prediccion para 201901
+# c) Prediccion para 201901
 raster::beginCluster(n = 8)
 prediccion.con.inundacion <- raster::clusterR(
   x = CargarImagen(paste0(images.directory, "/201901.tif")), 
@@ -252,4 +257,21 @@ prediccion.con.inundacion <- raster::clusterR(
   overwrite = TRUE
 )
 raster::endCluster()
+
+# d) Calcular diferencia
+raster.areas.inundadas <- raster::calc(x = raster::stack(prediccion.sin.inundacion, prediccion.con.inundacion),
+                                       fun = function(x) {
+                                         if (! is.na(x[1]) & ! is.na(x[2])) {
+                                           if (x[2] == 1) {
+                                             # Ahora hay agua. Si antes no había, considerar inundación.
+                                             return (x[2] - x[1])
+                                           } else {
+                                             # Ahora no hay agua. No importa lo que había antes
+                                             return (0)
+                                           }
+                                         }
+                                         return (NA)
+                                       })
+raster::writeRaster(x = raster.areas.inundadas, format = "GTiff",
+                    filename = paste0(images.directory, "/inundaciones_201901_", sufijo, ".tif"))
 # ------------------------------------------------------------------------------
