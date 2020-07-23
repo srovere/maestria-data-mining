@@ -130,7 +130,7 @@ suma.kappa    <- 0
 for (f in folds) {
   train       <- datos.muestras[-f, ]
   test        <- datos.muestras[f, ]
-  modelo.rf   <- randomForest::randomForest(x = dplyr::select(train, -clase), ntree = 100,
+  modelo.rf   <- randomForest::randomForest(x = dplyr::select(train, -clase), ntree = 500,
                                             y = as.factor(dplyr::pull(dplyr::select(train, clase))),
                                             importance = TRUE)
   pred        <- predict(modelo.rf, test, type = 'class')  
@@ -205,7 +205,7 @@ plot(modelo.cart, uniform = TRUE, main = "Arbol de clasificacion")
 text(modelo.cart, cex = 0.8)
 
 # b) Crear modelo usando RandomForest
-modelo.rf <- randomForest::randomForest(x = dplyr::select(datos.muestras, -clase), ntree = 100,
+modelo.rf <- randomForest::randomForest(x = dplyr::select(datos.muestras, -clase), ntree = 500,
                                         y = as.factor(dplyr::pull(dplyr::select(datos.muestras, clase))),
                                         importance = TRUE)
 randomForest::varImpPlot(modelo.rf)
@@ -226,8 +226,8 @@ modelo.glm <- glm(formula = clase ~ ., family = 'binomial', data = datos.muestra
 # -----------------------------------------------------------------------------#
 
 # a) Definicion de modelo
-modelo <- modelo.cart
-sufijo <- "CART"
+modelo <- modelo.rf
+sufijo <- "RF"
 
 # b) Prediccion para 201811
 raster::beginCluster(n = 8)
@@ -236,7 +236,8 @@ prediccion.sin.inundacion <- raster::clusterR(
   fun = raster::predict,
   args = list(model = modelo, type = 'class'),
   filename = paste0(images.directory, "/predict_201811_", sufijo, ".tif"),
-  progress = 'text'
+  progress = 'text',
+  overwrite = TRUE
 )
 raster::endCluster()
 
@@ -247,7 +248,8 @@ prediccion.con.inundacion <- raster::clusterR(
   fun = raster::predict,
   args = list(model = modelo, type = 'class'),
   filename = paste0(images.directory, "/predict_201901_", sufijo, ".tif"),
-  progress = 'text'
+  progress = 'text',
+  overwrite = TRUE
 )
 raster::endCluster()
 # ------------------------------------------------------------------------------
