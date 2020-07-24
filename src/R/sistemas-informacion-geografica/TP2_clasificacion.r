@@ -57,7 +57,7 @@ plot(plt.gt.no.agua)
 # -----------------------------------------------------------------------------#
 
 # a) Definir extent de ground truth
-ground.truth.extent <- geojsonsf::geojson_sf(paste0(working.directory, "/ground_truth/flood.geojson")) %>%
+ground.truth.extent <- sf::st_read(dsn = paste0(working.directory, "/ground_truth"), layer = "Flood") %>%
   sf::st_set_crs(x = ., value = 22185) %>%
   raster::extent()
 
