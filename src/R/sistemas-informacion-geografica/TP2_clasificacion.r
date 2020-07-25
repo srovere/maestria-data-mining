@@ -166,7 +166,7 @@ for (f in folds) {
                                       label = as.matrix(dplyr::select(train, clase)))
   xgb.test    <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(test, -clase)),
                                       label = as.matrix(dplyr::select(test, clase)))
-  modelo.xgb  <- xgboost::xgb.train(data = xgb.train, verbose = 2, nrounds = 100,
+  modelo.xgb  <- xgboost::xgb.train(data = xgb.train, verbose = 2, nrounds = 500,
                                     watchlist = list(train = xgb.train, test = xgb.test),
                                     nthread = 8, params = parametros)
   pred        <- predict(modelo.xgb, xgb.test) 
@@ -202,6 +202,7 @@ print(suma.kappa/length(folds))
 # -----------------------------------------------------------------------------#
 
 # a) Crear modelo usando un arbol de decision CART
+set.seed(0)
 modelo.cart <- rpart::rpart(as.factor(clase) ~ ., 
                             data = datos.muestras, 
                             method = 'class', 
@@ -210,19 +211,22 @@ plot(modelo.cart, uniform = TRUE, main = "Arbol de clasificacion")
 text(modelo.cart, cex = 0.8)
 
 # b) Crear modelo usando RandomForest
+set.seed(0)
 modelo.rf <- randomForest::randomForest(x = dplyr::select(datos.muestras, -clase), ntree = 500,
                                         y = as.factor(dplyr::pull(dplyr::select(datos.muestras, clase))),
                                         importance = TRUE)
 randomForest::varImpPlot(modelo.rf)
 
 # c) Crear modelo usando XGBoost
+set.seed(0)
 xgb.train  <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(datos.muestras, -clase)),
                                    label = as.matrix(dplyr::select(datos.muestras, clase)))
-modelo.xgb <- xgboost::xgb.train(data = xgb.train, nrounds = 100, varbose = 0,
+modelo.xgb <- xgboost::xgb.train(data = xgb.train, nrounds = 500, varbose = 0,
                                  nthread = 8, params = parametros)
 xgboost::xgb.plot.importance(xgboost::xgb.importance(model = modelo.xgb))
 
 # d) Crear modelo usando GLM
+set.seed(0)
 modelo.glm <- glm(formula = clase ~ ., family = 'binomial', data = datos.muestras)
 # ------------------------------------------------------------------------------
 
@@ -231,13 +235,27 @@ modelo.glm <- glm(formula = clase ~ ., family = 'binomial', data = datos.muestra
 # -----------------------------------------------------------------------------#
 
 # a) Definicion de modelo
+set.seed(0)
 modelo <- modelo.rf
 sufijo <- "RF"
 
-# b) Prediccion para 201811
+# b) Prediccion para 201801
 raster::beginCluster(n = 8)
 prediccion.sin.inundacion <- raster::clusterR(
   x = CargarImagen(paste0(images.directory, "/201801.tif")), 
+  fun = raster::predict,
+  args = list(model = modelo, type = 'class'),
+  filename = paste0(images.directory, "/predict_201801_", sufijo, ".tif"),
+  progress = 'text',
+  overwrite = TRUE
+)
+raster::endCluster()
+raster::removeTmpFiles(h = 0)
+
+# c) Prediccion para 201811
+raster::beginCluster(n = 8)
+prediccion.sin.inundacion2 <- raster::clusterR(
+  x = CargarImagen(paste0(images.directory, "/201811.tif")), 
   fun = raster::predict,
   args = list(model = modelo, type = 'class'),
   filename = paste0(images.directory, "/predict_201811_", sufijo, ".tif"),
@@ -245,8 +263,9 @@ prediccion.sin.inundacion <- raster::clusterR(
   overwrite = TRUE
 )
 raster::endCluster()
+raster::removeTmpFiles(h = 0)
 
-# c) Prediccion para 201901
+# d) Prediccion para 201901
 raster::beginCluster(n = 8)
 prediccion.con.inundacion <- raster::clusterR(
   x = CargarImagen(paste0(images.directory, "/201901.tif")), 
@@ -257,6 +276,7 @@ prediccion.con.inundacion <- raster::clusterR(
   overwrite = TRUE
 )
 raster::endCluster()
+raster::removeTmpFiles(h = 0)
 
 # d) Calcular diferencia
 raster.areas.inundadas <- raster::calc(x = raster::stack(prediccion.sin.inundacion, prediccion.con.inundacion),
