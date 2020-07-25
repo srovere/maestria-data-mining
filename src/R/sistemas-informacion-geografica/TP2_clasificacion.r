@@ -278,20 +278,32 @@ prediccion.con.inundacion <- raster::clusterR(
 raster::endCluster()
 raster::removeTmpFiles(h = 0)
 
-# d) Calcular diferencia
-raster.areas.inundadas <- raster::calc(x = raster::stack(prediccion.sin.inundacion, prediccion.con.inundacion),
-                                       fun = function(x) {
-                                         if (! is.na(x[1]) & ! is.na(x[2])) {
-                                           if (x[2] == 1) {
-                                             # Ahora hay agua. Si antes no había, considerar inundación.
-                                             return (x[2] - x[1])
-                                           } else {
-                                             # Ahora no hay agua. No importa lo que había antes
-                                             return (0)
-                                           }
-                                         }
-                                         return (NA)
-                                       })
-raster::writeRaster(x = raster.areas.inundadas, format = "GTiff",
-                    filename = paste0(images.directory, "/inundaciones_201901_", sufijo, ".tif"))
+# e) Calcular diferencia
+prediccion.diferencia <- raster::calc(
+  x = raster::stack(prediccion.sin.inundacion, prediccion.sin.inundacion2, prediccion.con.inundacion), 
+  fun = function(x) {
+    if (! is.na(x[1]) & ! is.na(x[2]) & ! is.na(x[3])) {
+      if (x[3] == 1) {
+        # Ahora hay agua. Si antes no había, considerar inundación.
+        return (ifelse(x[1] == 1, 0, x[3] - x[1]))
+      } else {
+        # Ahora no hay agua. No importa lo que había antes
+        return (0)
+      }
+    }
+    return (NA)
+  }
+)
+raster::writeRaster(x = prediccion.diferencia, format = "GTiff",
+                    filename = paste0(images.directory, "/predict_diferencia_", sufijo, ".tif"))
+raster::removeTmpFiles(h = 0)
+
+# f) Eliminar cuerpos de agua estables
+water.bodies          <- raster::raster(paste0(images.directory, "/GT-WaterBodies.tif"))
+prediccion.inundacion <- raster::mask(
+  x = prediccion.diferencia,
+  mask = water.bodies,
+  maskvalue = 1, updatevalue = 0,
+  filename = paste0(images.directory, "/predict_inundacion_", sufijo, ".tif")
+)
 # ------------------------------------------------------------------------------
