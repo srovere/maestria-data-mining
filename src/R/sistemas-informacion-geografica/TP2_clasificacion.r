@@ -307,3 +307,22 @@ prediccion.inundacion <- raster::mask(
   filename = paste0(images.directory, "/predict_inundacion_", sufijo, ".tif")
 )
 # ------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------#
+# --- PASO 8. Validar prediccion en ground truth positiva ----
+# -----------------------------------------------------------------------------#
+
+# a) Enmascarar datos
+validacion.modelo <- raster::mask(
+  x = prediccion.inundacion,
+  mask = ground.truth.agua
+)
+
+# b) Obtener valores
+valores.validacion <- raster::values(x = validacion.modelo)
+valores.validacion <- valores.validacion[!is.na(valores.validacion)]
+tabla.validacion   <- table(valores.validacion)
+
+# c) Calcular Recall
+recall <- tabla.validacion[2] / sum(tabla.validacion)
+# ------------------------------------------------------------------------------
