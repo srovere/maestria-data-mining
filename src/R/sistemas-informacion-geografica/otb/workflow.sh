@@ -5,5 +5,4 @@ export PERIODO=$1
 
 ./smoothing.sh
 ./segmentation.sh
-./merge.sh
 ./vectorization.sh

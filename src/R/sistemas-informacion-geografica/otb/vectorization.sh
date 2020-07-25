@@ -2,7 +2,7 @@
 
 # Definicion de variables de entorno
 INPUT=${CARPETA}/${PERIODO}.tif
-INPUT_MERGED=${CARPETA}/${PERIODO}_merged.tif
+INPUT_MERGED=${CARPETA}/${PERIODO}_segmentacion.tif
 OUTPUT=${CARPETA}/${PERIODO}_vectorized.shp
 
 # Ejecutar segmentacion
