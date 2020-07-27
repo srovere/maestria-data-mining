@@ -152,7 +152,7 @@ for (i in seq_along(folds)) {
 parametros <- list(
   booster = "gbtree",
   objective = "binary:logistic",
-  groy_policy = "lossguide",
+  grow_policy = "lossguide",
   tree_method = 'hist',
   eta = 0.04,
   max_depth = 10
@@ -235,7 +235,7 @@ modelo.glm <- glm(formula = clase ~ ., family = 'binomial', data = datos.muestra
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
-# --- PASO 7. Predecir ----
+# --- PASO 7. Seleccionar modelo y predecir ----
 # -----------------------------------------------------------------------------#
 
 # a) Definicion de modelo
@@ -303,7 +303,7 @@ raster::writeRaster(x = prediccion.diferencia, format = "GTiff",
 raster::removeTmpFiles(h = 0)
 
 # f) Eliminar cuerpos de agua estables
-water.bodies          <- raster::raster(paste0(images.directory, "/GT-WaterBodies.tif"))
+water.bodies          <- raster::raster(paste0(images.directory, "/GT-WaterBodies-Complete.tif"))
 prediccion.inundacion <- raster::mask(
   x = prediccion.diferencia,
   mask = water.bodies,
