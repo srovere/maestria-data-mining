@@ -107,12 +107,13 @@ datos.muestras <- rbind(
 # -----------------------------------------------------------------------------#
 
 # a) Generar los folds
-folds <- caret::createFolds(seq_len(nrow(datos.muestras)), k = 5)
+set.seed(0)
+folds    <- caret::createFolds(seq_len(nrow(datos.muestras)), k = 5)
+metricas <- NULL
 
 # b) Entrenar y validar con CART para cada fold
-suma.accuracy <- 0
-suma.kappa    <- 0
-for (f in folds) {
+for (i in seq_along(folds)) {
+  f           <- folds[[i]]
   train       <- datos.muestras[-f, ]
   test        <- datos.muestras[f, ]
   modelo.cart <- rpart::rpart(as.factor(clase) ~ ., 
@@ -121,18 +122,17 @@ for (f in folds) {
                               control = list(maxdepth = 10))
   pred        <- predict(modelo.cart, test, type = 'class')  
   resultados  <- data.frame(observado = test$clase, predicho = pred)
-  conf.mat    <- caret::confusionMatrix(table(resultados))
-  
-  suma.accuracy <- suma.accuracy + conf.mat$overall['Accuracy']
-  suma.kappa    <- suma.kappa + conf.mat$overall['Kappa']
+  conf.mat    <- caret::confusionMatrix(table(resultados), positive = "1")
+  metricas    <- rbind(metricas, 
+    data.frame(algoritmo = "CART", fold = i, accuracy = conf.mat$overall['Accuracy'],
+               f1 = conf.mat$byClass['F1'], kappa = conf.mat$overall['Kappa'], precision = conf.mat$byClass['Precision'],
+               recall = conf.mat$byClass['Recall'])
+  )  
 }
-print(suma.accuracy/length(folds))
-print(suma.kappa/length(folds))
 
 # c) Entrenar y validar con RF para cada fold
-suma.accuracy <- 0
-suma.kappa    <- 0
-for (f in folds) {
+for (i in seq_along(folds)) {
+  f           <- folds[[i]]
   train       <- datos.muestras[-f, ]
   test        <- datos.muestras[f, ]
   modelo.rf   <- randomForest::randomForest(x = dplyr::select(train, -clase), ntree = 500,
@@ -141,16 +141,14 @@ for (f in folds) {
   pred        <- predict(modelo.rf, test, type = 'class')  
   resultados  <- data.frame(observado = test$clase, predicho = pred)
   conf.mat    <- caret::confusionMatrix(table(resultados))
-  
-  suma.accuracy <- suma.accuracy + conf.mat$overall['Accuracy']
-  suma.kappa    <- suma.kappa + conf.mat$overall['Kappa']
+  metricas    <- rbind(metricas, 
+                       data.frame(algoritmo = "RF", fold = i, accuracy = conf.mat$overall['Accuracy'],
+                                  f1 = conf.mat$byClass['F1'], kappa = conf.mat$overall['Kappa'], precision = conf.mat$byClass['Precision'],
+                                  recall = conf.mat$byClass['Recall'])
+  )
 }
-print(suma.accuracy/length(folds))
-print(suma.kappa/length(folds))
 
 # d) Entrenar y validar con XGBoost para cada fold
-suma.accuracy <- 0
-suma.kappa    <- 0
 parametros <- list(
   booster = "gbtree",
   objective = "binary:logistic",
@@ -159,7 +157,8 @@ parametros <- list(
   eta = 0.04,
   max_depth = 10
 )
-for (f in folds) {
+for (i in seq_along(folds)) {
+  f           <- folds[[i]]
   train       <- datos.muestras[-f, ]
   test        <- datos.muestras[f, ]
   xgb.train   <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(train, -clase)),
@@ -172,29 +171,34 @@ for (f in folds) {
   pred        <- predict(modelo.xgb, xgb.test) 
   resultados  <- data.frame(observado = test$clase, predicho = ifelse(pred >= 0.5, 1, 0))
   conf.mat    <- caret::confusionMatrix(table(resultados))
-  
-  suma.accuracy <- suma.accuracy + conf.mat$overall['Accuracy']
-  suma.kappa    <- suma.kappa + conf.mat$overall['Kappa']
+  metricas    <- rbind(metricas, 
+                       data.frame(algoritmo = "XGB", fold = i, accuracy = conf.mat$overall['Accuracy'],
+                                  f1 = conf.mat$byClass['F1'], kappa = conf.mat$overall['Kappa'], precision = conf.mat$byClass['Precision'],
+                                  recall = conf.mat$byClass['Recall'])
+  )
 }
-print(suma.accuracy/length(folds))
-print(suma.kappa/length(folds))
 
 # e) Entrenar y validar con un GLM para cada fold
-suma.accuracy <- 0
-suma.kappa    <- 0
-for (f in folds) {
+for (i in seq_along(folds)) {
+  f           <- folds[[i]]
   train       <- datos.muestras[-f, ]
   test        <- datos.muestras[f, ]
   modelo.glm  <- glm(formula = as.factor(clase) ~ ., family = 'binomial', data = train)
   pred        <- predict(modelo.glm, test, type = 'response')  
   resultados  <- data.frame(observado = test$clase, predicho = ifelse(pred >= 0.5, 1, 0))
   conf.mat    <- caret::confusionMatrix(table(resultados))
-  
-  suma.accuracy <- suma.accuracy + conf.mat$overall['Accuracy']
-  suma.kappa    <- suma.kappa + conf.mat$overall['Kappa']
+  metricas    <- rbind(metricas, 
+                       data.frame(algoritmo = "GLM", fold = i, accuracy = conf.mat$overall['Accuracy'],
+                                  f1 = conf.mat$byClass['F1'], kappa = conf.mat$overall['Kappa'], precision = conf.mat$byClass['Precision'],
+                                  recall = conf.mat$byClass['Recall'])
+  )
 }
-print(suma.accuracy/length(folds))
-print(suma.kappa/length(folds))
+
+# f) Calcular metricas promedio
+metricas.promedio <- metricas %>%
+  dplyr::group_by(algoritmo) %>%
+  dplyr::summarise(accuracy = mean(accuracy), f1 = mean(f1), kappa = mean(kappa),
+                   precision = mean(precision), recall = mean(recall))
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
