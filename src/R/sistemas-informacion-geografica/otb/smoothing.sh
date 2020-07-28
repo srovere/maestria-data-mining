@@ -5,8 +5,8 @@
         -in $1 \
         -fout $2 \
         -foutpos $3 \
-        -spatialr 100 \
-        -ranger 0.05 \
+        -spatialr 10 \
+        -ranger 0.005 \
         -thres 0.1 \
         -maxiter 100 \
         -ram 16384
