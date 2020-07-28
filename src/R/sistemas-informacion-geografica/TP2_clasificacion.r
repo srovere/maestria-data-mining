@@ -135,7 +135,7 @@ for (i in seq_along(folds)) {
   f           <- folds[[i]]
   train       <- datos.muestras[-f, ]
   test        <- datos.muestras[f, ]
-  modelo.rf   <- randomForest::randomForest(x = dplyr::select(train, -clase), ntree = 500,
+  modelo.rf   <- randomForest::randomForest(x = dplyr::select(train, -clase), ntree = 100,
                                             y = as.factor(dplyr::pull(dplyr::select(train, clase))),
                                             importance = TRUE)
   pred        <- predict(modelo.rf, test, type = 'class')  
@@ -165,7 +165,7 @@ for (i in seq_along(folds)) {
                                       label = as.matrix(dplyr::select(train, clase)))
   xgb.test    <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(test, -clase)),
                                       label = as.matrix(dplyr::select(test, clase)))
-  modelo.xgb  <- xgboost::xgb.train(data = xgb.train, verbose = 2, nrounds = 500,
+  modelo.xgb  <- xgboost::xgb.train(data = xgb.train, verbose = 2, nrounds = 100,
                                     watchlist = list(train = xgb.train, test = xgb.test),
                                     nthread = 8, params = parametros)
   pred        <- predict(modelo.xgb, xgb.test) 
@@ -216,22 +216,10 @@ text(modelo.cart, cex = 0.8)
 
 # b) Crear modelo usando RandomForest
 set.seed(0)
-modelo.rf <- randomForest::randomForest(x = dplyr::select(datos.muestras, -clase), ntree = 500,
+modelo.rf <- randomForest::randomForest(x = dplyr::select(datos.muestras, -clase), ntree = 100,
                                         y = as.factor(dplyr::pull(dplyr::select(datos.muestras, clase))),
                                         importance = TRUE)
 randomForest::varImpPlot(modelo.rf)
-
-# c) Crear modelo usando XGBoost
-set.seed(0)
-xgb.train  <- xgboost::xgb.DMatrix(data = as.matrix(dplyr::select(datos.muestras, -clase)),
-                                   label = as.matrix(dplyr::select(datos.muestras, clase)))
-modelo.xgb <- xgboost::xgb.train(data = xgb.train, nrounds = 500, varbose = 0,
-                                 nthread = 8, params = parametros)
-xgboost::xgb.plot.importance(xgboost::xgb.importance(model = modelo.xgb))
-
-# d) Crear modelo usando GLM
-set.seed(0)
-modelo.glm <- glm(formula = clase ~ ., family = 'binomial', data = datos.muestras)
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
