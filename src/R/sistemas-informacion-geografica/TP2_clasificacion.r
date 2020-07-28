@@ -21,42 +21,11 @@ images.directory  <- paste0(working.directory, "/images/final")
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
-# --- PASO 2. Referenciar los datos ----
+# --- PASO 2. Definir sitios de muestreo ----
 # -----------------------------------------------------------------------------#
 
-# a) Definir clases
-clases    <- c("NoAgua", "Agua")
-colores   <- c("#543005", "#003c30")
-clases.df <- data.frame(id = c(0, 1), nombre = clases)
-
-# b) Definir funcion para cargar raster y asignarle la clase
-CargarGroundTruth <- function(filename, clases) {
-  ground.truth         <- raster::raster(x = filename)
-  ground.truth         <- raster::ratify(ground.truth)
-  rat                  <- data.frame(ID = seq(from = 0, to = length(clases) - 1),
-                                     clase = clases)
-  levels(ground.truth) <- rat
-  return (ground.truth)
-}
-
-# c) Cargar rasters de clases
-ground.truth.agua    <- CargarGroundTruth(filename = paste0(images.directory, "/GT-Positive.tif"),
-                                          clases = clases)
-ground.truth.no.agua <- CargarGroundTruth(filename = paste0(images.directory, "/GT-Negative.tif"),
-                                          clases = clases)
-
-# d) Mostrar conjunto de entrenamiento
-plt.gt.agua    <- rasterVis::levelplot(ground.truth.agua, col.regions = colores, main = 'Ground truth (Agua - 2019)')
-plt.gt.no.agua <- rasterVis::levelplot(ground.truth.no.agua, col.regions = colores, main = 'Ground truth (No Agua - 2018)')
-plot(plt.gt.agua)
-plot(plt.gt.no.agua)
-# ------------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------#
-# --- PASO 3. Definir sitios de muestreo ----
-# -----------------------------------------------------------------------------#
-
-# a) Definir extent de ground truth
+# a) Cargar raster de ground truth
+ground.truth.agua   <- raster::raster(paste0(images.directory, "/GT-SinCuerposAgua.tif"))
 ground.truth.extent <- sf::st_read(dsn = paste0(working.directory, "/ground_truth"), layer = "Flood") %>%
   sf::st_set_crs(x = ., value = 22185) %>%
   raster::extent()
@@ -65,14 +34,13 @@ ground.truth.extent <- sf::st_read(dsn = paste0(working.directory, "/ground_trut
 set.seed(0)
 
 # c) Generar muestra random (se utiliza cualquiera de los 2 rasters)
-numero.muestras <- 400000
+numero.muestras <- 500000
 muestra         <- raster::sampleRandom(ground.truth.agua, size = numero.muestras, 
                                         ext = ground.truth.extent, na.rm = TRUE, sp = TRUE)
-table(muestra$GT.Positive)
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
-# --- PASO 4. Extraer muestras ----
+# --- PASO 3. Extraer muestras ----
 # -----------------------------------------------------------------------------#
 
 # a) Definir funciones para extraer muestra
@@ -95,15 +63,18 @@ ExtraerMuestra <- function(filename, muestra, clase) {
   return (datos.muestras)
 }
 
-# b) Extraer muestras para 201811 y 201901
+# b) Extraer muestras para 201801 y 201901
 datos.muestras <- rbind(
   ExtraerMuestra(filename = paste0(images.directory, "/201801.tif"), muestra = muestra, clase = 0),
   ExtraerMuestra(filename = paste0(images.directory, "/201901.tif"), muestra = muestra, clase = 1)
 )
+
+# c) Guardar muestra
+save(muestra, datos.muestras, file = "data/datos_muestras.RData")
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
-# --- PASO 5. Evaluación modelos con CV ----
+# --- PASO 4. Evaluación modelos con CV ----
 # -----------------------------------------------------------------------------#
 
 # a) Generar los folds
@@ -199,122 +170,5 @@ metricas.promedio <- metricas %>%
   dplyr::group_by(algoritmo) %>%
   dplyr::summarise(accuracy = mean(accuracy), f1 = mean(f1), kappa = mean(kappa),
                    precision = mean(precision), recall = mean(recall))
-# ------------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------#
-# --- PASO 6. Entrenar el modelo ----
-# -----------------------------------------------------------------------------#
-
-# a) Crear modelo usando un arbol de decision CART
-set.seed(0)
-modelo.cart <- rpart::rpart(as.factor(clase) ~ ., 
-                            data = datos.muestras, 
-                            method = 'class', 
-                            control = list(maxdepth = 10))
-plot(modelo.cart, uniform = TRUE, main = "Arbol de clasificacion")
-text(modelo.cart, cex = 0.8)
-
-# b) Crear modelo usando RandomForest
-set.seed(0)
-modelo.rf <- randomForest::randomForest(x = dplyr::select(datos.muestras, -clase), ntree = 100,
-                                        y = as.factor(dplyr::pull(dplyr::select(datos.muestras, clase))),
-                                        importance = TRUE)
-randomForest::varImpPlot(modelo.rf)
-# ------------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------#
-# --- PASO 7. Seleccionar modelo y predecir ----
-# -----------------------------------------------------------------------------#
-
-# a) Definicion de modelo
-set.seed(0)
-modelo <- modelo.rf
-sufijo <- "RF"
-
-# b) Prediccion para 201801
-raster::beginCluster(n = 8)
-prediccion.sin.inundacion <- raster::clusterR(
-  x = CargarImagen(paste0(images.directory, "/201801.tif")), 
-  fun = raster::predict,
-  args = list(model = modelo, type = 'class'),
-  filename = paste0(images.directory, "/predict_201801_", sufijo, ".tif"),
-  progress = 'text',
-  overwrite = TRUE
-)
-raster::endCluster()
-raster::removeTmpFiles(h = 0)
-
-# c) Prediccion para 201811
-raster::beginCluster(n = 8)
-prediccion.sin.inundacion2 <- raster::clusterR(
-  x = CargarImagen(paste0(images.directory, "/201811.tif")), 
-  fun = raster::predict,
-  args = list(model = modelo, type = 'class'),
-  filename = paste0(images.directory, "/predict_201811_", sufijo, ".tif"),
-  progress = 'text',
-  overwrite = TRUE
-)
-raster::endCluster()
-raster::removeTmpFiles(h = 0)
-
-# d) Prediccion para 201901
-raster::beginCluster(n = 8)
-prediccion.con.inundacion <- raster::clusterR(
-  x = CargarImagen(paste0(images.directory, "/201901.tif")), 
-  fun = raster::predict,
-  args = list(model = modelo, type = 'class'),
-  filename = paste0(images.directory, "/predict_201901_", sufijo, ".tif"),
-  progress = 'text',
-  overwrite = TRUE
-)
-raster::endCluster()
-raster::removeTmpFiles(h = 0)
-
-# e) Calcular diferencia
-prediccion.diferencia <- raster::calc(
-  x = raster::stack(prediccion.sin.inundacion, prediccion.sin.inundacion2, prediccion.con.inundacion), 
-  fun = function(x) {
-    if (! is.na(x[1]) & ! is.na(x[2]) & ! is.na(x[3])) {
-      if (x[3] == 1) {
-        # Ahora hay agua. Si antes no había, considerar inundación.
-        return (ifelse(x[1] == 1, 0, x[3] - x[1]))
-      } else {
-        # Ahora no hay agua. No importa lo que había antes
-        return (0)
-      }
-    }
-    return (NA)
-  }
-)
-raster::writeRaster(x = prediccion.diferencia, format = "GTiff",
-                    filename = paste0(images.directory, "/predict_diferencia_", sufijo, ".tif"))
-raster::removeTmpFiles(h = 0)
-
-# f) Eliminar cuerpos de agua estables
-water.bodies          <- raster::raster(paste0(images.directory, "/GT-WaterBodies-Complete.tif"))
-prediccion.inundacion <- raster::mask(
-  x = prediccion.diferencia,
-  mask = water.bodies,
-  maskvalue = 1, updatevalue = 0,
-  filename = paste0(images.directory, "/predict_inundacion_", sufijo, ".tif")
-)
-# ------------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------#
-# --- PASO 8. Validar prediccion en ground truth positiva ----
-# -----------------------------------------------------------------------------#
-
-# a) Enmascarar datos
-validacion.modelo <- raster::mask(
-  x = prediccion.inundacion,
-  mask = ground.truth.agua
-)
-
-# b) Obtener valores
-valores.validacion <- raster::values(x = validacion.modelo)
-valores.validacion <- valores.validacion[!is.na(valores.validacion)]
-tabla.validacion   <- table(valores.validacion)
-
-# c) Calcular Recall
-recall <- tabla.validacion[2] / sum(tabla.validacion)
+readr::write_csv(x = metricas.promedio, path = "~/metricas.csv")
 # ------------------------------------------------------------------------------
