@@ -72,4 +72,10 @@ raster::writeRaster(x = ground.truth.positiva, format = "GTiff", overwrite = TRU
 ground.truth.negativa <- raster::calc(x = ground.truth.positiva, fun = function(x) {
   return (ifelse(! is.na(x), 0, as.integer(NA)))
 }, filename = paste0(final.directory, "/GT-Negative.tif"))
+
+# d) Eliminar cuerpos de agua estable
+ground.truth.final <- raster::mask(x = ground.truth.positiva, mask = water.bodies.raster,
+                                   maskvalue = 1, updatevalue = NA)
+raster::writeRaster(x = ground.truth.final, format = "GTiff", overwrite = TRUE,
+                    filename = paste0(final.directory, "/GT-SinCuerposAgua.tif"))
 # ------------------------------------------------------------------------------
