@@ -56,7 +56,6 @@ prediccion.sin.inundacion <- raster::calc(
 )
 raster::writeRaster(x = prediccion.sin.inundacion, format = "GTiff",
                     filename = paste0(images.directory, "/predict_201801_", sufijo, ".tif"))
-raster::removeTmpFiles(h = 0)
 
 # c) Prediccion para 201811
 raster::beginCluster(n = 8)
@@ -75,7 +74,6 @@ prediccion.sin.inundacion2 <- raster::calc(
 )
 raster::writeRaster(x = prediccion.sin.inundacion2, format = "GTiff",
                     filename = paste0(images.directory, "/predict_201811_", sufijo, ".tif"))
-raster::removeTmpFiles(h = 0)
 
 # d) Prediccion para 201901
 raster::beginCluster(n = 8)
@@ -94,7 +92,6 @@ prediccion.con.inundacion <- raster::calc(
 )
 raster::writeRaster(x = prediccion.con.inundacion, format = "GTiff",
                     filename = paste0(images.directory, "/predict_201901_", sufijo, ".tif"))
-raster::removeTmpFiles(h = 0)
 
 # e) Calcular inundacion simple (201901 menos cuerpos de agua estables)
 water.bodies                 <- raster::raster(paste0(images.directory, "/GT-WaterBodies-Complete.tif"))

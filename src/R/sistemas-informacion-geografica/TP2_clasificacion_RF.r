@@ -54,7 +54,6 @@ prediccion.sin.inundacion <- raster::clusterR(
   overwrite = TRUE
 )
 raster::endCluster()
-raster::removeTmpFiles(h = 0)
 
 # c) Prediccion para 201811
 raster::beginCluster(n = 8)
@@ -67,7 +66,6 @@ prediccion.sin.inundacion2 <- raster::clusterR(
   overwrite = TRUE
 )
 raster::endCluster()
-raster::removeTmpFiles(h = 0)
 
 # d) Prediccion para 201901
 raster::beginCluster(n = 8)
@@ -80,7 +78,6 @@ prediccion.con.inundacion <- raster::clusterR(
   overwrite = TRUE
 )
 raster::endCluster()
-raster::removeTmpFiles(h = 0)
 
 # e) Calcular inundacion simple (201901 menos cuerpos de agua estables)
 water.bodies                 <- raster::raster(paste0(images.directory, "/GT-WaterBodies-Complete.tif"))
