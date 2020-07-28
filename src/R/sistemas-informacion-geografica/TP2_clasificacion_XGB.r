@@ -112,4 +112,33 @@ prediccion.con.inundacion <- PredecirRaster(
   modelo = modelo,
   filename = paste0(images.directory, "/predict_201901_", sufijo, ".tif")
 )
+
+# e) Calcular inundacion simple (201901 menos cuerpos de agua estables)
+water.bodies                 <- raster::raster(paste0(images.directory, "/GT-WaterBodies-Complete.tif"))
+preduccion.inundacion.simple <- raster::mask(
+  x = prediccion.con.inundacion,
+  mask = water.bodies,
+  maskvalue = 1, updatevalue = 0,
+  filename = paste0(images.directory, "/predict_inundacion_simple_", sufijo, ".tif")
+)
+
+# f) Considerar diferencia con periodos anteriores
+preduccion.inundacion.diferencia <- raster::calc(
+  x = raster::stack(prediccion.sin.inundacion, prediccion.sin.inundacion2, preduccion.inundacion.simple), 
+  fun = function(x) {
+    if (! is.na(x[1]) & ! is.na(x[2]) & ! is.na(x[3])) {
+      if (x[3] == 1) {
+        # Ahora hay agua. Si antes no había, considerar inundación.
+        return (ifelse(x[1] == 1, 0, x[3] - x[1]))
+      } else {
+        # Ahora no hay agua. No importa lo que había antes
+        return (0)
+      }
+    }
+    return (NA)
+  }
+)
+raster::writeRaster(x = preduccion.inundacion.diferencia, format = "GTiff",
+                    filename = paste0(images.directory, "/predict_inundacion_diferencia_", sufijo, ".tif"))
+raster::removeTmpFiles(h = 0)
 # ------------------------------------------------------------------------------
