@@ -79,7 +79,7 @@ for (i in seq_along(folds)) {
   pred.ensamble <- (pred.glm + pred.rf + pred.xgb) / 3
   
   # Obtener resultados (clase) y metricas
-  resultados  <- data.frame(observado = test$clase, predicho = ifelse(pred.ensamble >= 0.5, 1, 0))
+  resultados  <- data.frame(predicho = ifelse(pred.ensamble >= 0.5, 1, 0), observado = test$clase)
   conf.mat    <- caret::confusionMatrix(table(resultados))
   metricas    <- rbind(metricas, 
                        data.frame(algoritmo = "Ensamble", fold = i, accuracy = conf.mat$overall['Accuracy'],
