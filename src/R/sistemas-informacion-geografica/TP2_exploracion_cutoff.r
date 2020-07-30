@@ -33,7 +33,7 @@ folds    <- caret::createFolds(seq_len(nrow(datos.muestras)), k = 5)
 metricas <- NULL
 
 # b) funcion para Obtener metricas en distintos puntos de corte
-MetricasCutoff <- function(algoritmo, fold, obs, probs, cutoff = seq(from = 0.5, to = 1, by = 0.01)) {
+MetricasCutoff <- function(algoritmo, fold, obs, probs, cutoff = seq(from = 0.01, to = 0.99, by = 0.01)) {
   metricas <- NULL
   for (corte in cutoff) {
     conf.mat    <- caret::confusionMatrix(data = factor(ifelse(probs >= corte, 1, 0)),
@@ -148,7 +148,7 @@ metricas.grafico <- tidyr::pivot_longer(data = metricas.promedio, names_to = "me
 ggplot2::ggplot(data = metricas.grafico) +
   ggplot2::geom_line(mapping = ggplot2::aes(x = cutoff, y = valor, col = metrica)) + 
   ggplot2::facet_grid(~algoritmo) +
-  ggplot2::scale_x_continuous(breaks = seq(from = 0.5, to = 1, by = 0.05)) +
+  ggplot2::scale_x_continuous(breaks = seq(from = 0.01, to = 0.99, by = 0.05)) +
   ggplot2::labs(x = 'Punto de corte (P[Agua])', y = 'Valor de la métrica', col = 'Métrica') +
   ggplot2::theme_bw() +
   ggplot2::theme(
