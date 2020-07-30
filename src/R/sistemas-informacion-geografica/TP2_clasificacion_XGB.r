@@ -49,8 +49,7 @@ PredecirRaster <- function(raster.prediccion, raster.recorte, modelo,
     bloque       <- raster::getValuesBlock(x = raster.prediccion, row = first.row, nrows = n.rows)
     xgb.bloque   <- xgboost::xgb.DMatrix(data = bloque, label = rep(NA, nrow(bloque)))
     prediccion   <- predict(modelo, bloque)
-    resultado    <- ifelse(prediccion >= 0.5, 1, 0)
-    resultados   <- c(resultados, resultado)
+    resultados   <- c(resultados, prediccion)
     elapsed.time <- proc.time()[3] - start.time
     cat(sprintf("Chunk %d de %d. Tarde %f segundos\n", nchunk, nchunks, elapsed.time))
     rm(start.time, first.row, n.rows, bloque, xgb.bloque, prediccion, resultado, elapsed.time)
