@@ -92,7 +92,7 @@ for (i in seq_along(folds)) {
                               method = 'class', 
                               control = list(maxdepth = 10))
   pred        <- predict(modelo.cart, test, type = 'class')  
-  resultados  <- data.frame(observado = test$clase, predicho = pred)
+  resultados  <- data.frame(predicho = pred, observado = test$clase)
   conf.mat    <- caret::confusionMatrix(table(resultados), positive = "1")
   metricas    <- rbind(metricas, 
     data.frame(algoritmo = "CART", fold = i, accuracy = conf.mat$overall['Accuracy'],
@@ -110,7 +110,7 @@ for (i in seq_along(folds)) {
                                             y = as.factor(dplyr::pull(dplyr::select(train, clase))),
                                             importance = TRUE)
   pred        <- predict(modelo.rf, test, type = 'class')  
-  resultados  <- data.frame(observado = test$clase, predicho = pred)
+  resultados  <- data.frame(predicho = pred, observado = test$clase)
   conf.mat    <- caret::confusionMatrix(table(resultados))
   metricas    <- rbind(metricas, 
                        data.frame(algoritmo = "RF", fold = i, accuracy = conf.mat$overall['Accuracy'],
@@ -140,7 +140,7 @@ for (i in seq_along(folds)) {
                                     watchlist = list(train = xgb.train, test = xgb.test),
                                     nthread = 8, params = parametros)
   pred        <- predict(modelo.xgb, xgb.test) 
-  resultados  <- data.frame(observado = test$clase, predicho = ifelse(pred >= 0.5, 1, 0))
+  resultados  <- data.frame(predicho = ifelse(pred >= 0.5, 1, 0), observado = test$clase)
   conf.mat    <- caret::confusionMatrix(table(resultados))
   metricas    <- rbind(metricas, 
                        data.frame(algoritmo = "XGB", fold = i, accuracy = conf.mat$overall['Accuracy'],
@@ -156,7 +156,7 @@ for (i in seq_along(folds)) {
   test        <- datos.muestras[f, ]
   modelo.glm  <- glm(formula = as.factor(clase) ~ ., family = 'binomial', data = train)
   pred        <- predict(modelo.glm, test, type = 'response')  
-  resultados  <- data.frame(observado = test$clase, predicho = ifelse(pred >= 0.5, 1, 0))
+  resultados  <- data.frame(predicho = ifelse(pred >= 0.5, 1, 0), observado = test$clase)
   conf.mat    <- caret::confusionMatrix(table(resultados))
   metricas    <- rbind(metricas, 
                        data.frame(algoritmo = "GLM", fold = i, accuracy = conf.mat$overall['Accuracy'],

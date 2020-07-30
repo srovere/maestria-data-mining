@@ -36,7 +36,7 @@ metricas <- NULL
 MetricasCutoff <- function(algoritmo, fold, obs, probs, cutoff = seq(from = 0.01, to = 0.5, by = 0.01)) {
   metricas <- NULL
   for (corte in cutoff) {
-    conf.mat    <- caret::confusionMatrix(data = factor(ifelse(probs >= corte, 1, 0), levels = c(0, 1)),
+    conf.mat    <- caret::confusionMatrix(data = factor(ifelse(probs >= corte, 1, 0)),
                                           reference = as.factor(obs),
                                           positive = "1")
     metricas    <- rbind(metricas, 
