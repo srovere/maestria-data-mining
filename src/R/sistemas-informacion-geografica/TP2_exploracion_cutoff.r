@@ -42,7 +42,7 @@ MetricasCutoff <- function(algoritmo, fold, obs, probs, cutoff = seq(from = 0.01
     metricas    <- rbind(metricas, 
                          data.frame(algoritmo = algoritmo, fold = fold, cutoff = corte, accuracy = conf.mat$overall['Accuracy'],
                                     f1 = conf.mat$byClass['F1'], kappa = conf.mat$overall['Kappa'], precision = conf.mat$byClass['Precision'],
-                                    recall = conf.mat$byClass['Recall'])
+                                    recall = conf.mat$byClass['Recall'], specificity = conf.mat$byClass['Specificity'])
                          
     )
   }
@@ -143,12 +143,12 @@ readr::write_csv(x = metricas.promedio, path = "~/metricas_cutoff.csv")
 
 # i) Graficar
 metricas.grafico <- tidyr::pivot_longer(data = metricas.promedio, names_to = "metrica", values_to = "valor", 
-                                        cols = c(-algoritmo, -cutoff)) %>%
-  dplyr::filter(cutoff >= 0.3)
+                                        cols = c(-algoritmo, -cutoff))
 ggplot2::ggplot(data = metricas.grafico) +
   ggplot2::geom_line(mapping = ggplot2::aes(x = cutoff, y = valor, col = metrica)) + 
   ggplot2::facet_grid(~algoritmo) +
-  ggplot2::scale_x_continuous(breaks = seq(from = 0.01, to = 0.99, by = 0.05)) +
+  ggplot2::scale_x_continuous(breaks = seq(from = 0, to = 1, by = 0.05),
+                              limits = c(0.01, 0.99)) +
   ggplot2::labs(x = 'Punto de corte (P[Agua])', y = 'Valor de la métrica', col = 'Métrica') +
   ggplot2::theme_bw() +
   ggplot2::theme(
