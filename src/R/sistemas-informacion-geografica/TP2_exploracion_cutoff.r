@@ -138,8 +138,9 @@ for (i in seq_along(folds)) {
 metricas.promedio <- metricas %>%
   dplyr::group_by(algoritmo, cutoff) %>%
   dplyr::summarise(accuracy = mean(accuracy), f1 = mean(f1), kappa = mean(kappa),
-                   precision = mean(precision), recall = mean(recall))
-readr::write_csv(x = metricas.promedio, path = "~/metricas_cutoff.csv")
+                   precision = mean(precision), recall = mean(recall),
+                   specificity = mean(specificity))
+readr::write_csv(x = metricas.promedio, path = "data/metricas_cutoff.csv")
 
 # i) Graficar
 metricas.grafico <- tidyr::pivot_longer(data = metricas.promedio, names_to = "metrica", values_to = "valor", 
