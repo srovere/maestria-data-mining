@@ -62,8 +62,10 @@ grafico.roc  <- ggplot2::ggplot(data = metricas.roc) +
                      ymin = min(puntos.opt$tpr), ymax = max(puntos.opt$tpr), col = 'black', fill = 'grey70', linetype = 'dotted') +
   ggplot2::geom_line(mapping = ggplot2::aes(x = fpr, y = tpr),
                      color = "#377eb8", size = 1) + 
-  ggplot2::geom_abline(slope = 1, intercept = 0, linetype = "dotdash", color = "#4daf4a", size = 1) +
+  ggplot2::geom_abline(slope = 1, intercept = 0, linetype = "dotdash", color = "#e6ab02", size = 1) +
   ggplot2::geom_point(data = data.frame(x = 0.1, y = 0.9), color = '#e41a1c', size = 4,
+                      mapping = ggplot2::aes(x = x, y = y)) +
+  ggplot2::geom_point(data = data.frame(x = 0.0614, y = 0.854), color = '#4daf4a', size = 4,
                       mapping = ggplot2::aes(x = x, y = y)) +
   ggrepel::geom_label_repel(data = data.frame(x = 0.2, y = 0.2, label = paste0("Clasificación aleatoria\nAUC: ", 0.5)),
                             mapping = ggplot2::aes(x = x, y = y, label = label),
@@ -71,7 +73,7 @@ grafico.roc  <- ggplot2::ggplot(data = metricas.roc) +
   ggrepel::geom_label_repel(data = data.frame(x = 0.8, y = 1, label = paste0("Clasificación con XGBoost\nAUC: ", round(roc.auc, 3))),
                             mapping = ggplot2::aes(x = x, y = y, label = label),
                             nudge_x = 0, nudge_y = -0.2, size = 5) +
-  ggrepel::geom_label_repel(data = data.frame(x = 0.15, y = 0.87, label = paste0("Zona de puntos de corte: [0.33, 0.62]")),
+  ggrepel::geom_label_repel(data = data.frame(x = 0.15, y = 0.87, label = paste0("Zona de puntos de corte\n variando entre 0.62 y 0.33")),
                             mapping = ggplot2::aes(x = x, y = y, label = label),
                             nudge_x = 0.1, nudge_y = -0.1, size = 5) +
   ggplot2::scale_x_continuous(breaks = seq(from = 0, to = 1, by = 0.1)) +
@@ -104,18 +106,20 @@ grafico.rp <- ggplot2::ggplot(data = metricas.pr) +
   ggplot2::geom_rect(ymin = 0.85, ymax = 0.95, xmin = 0.85, xmax = 0.95, col = 'black', fill = 'grey70', linetype = 'dotted') +
   ggplot2::geom_line(mapping = ggplot2::aes(x = recall, y = precision), 
                      color = "#377eb8", size = 1) + 
-  ggplot2::geom_hline(yintercept = 0.5, linetype = "dotdash", color = "#4daf4a", size = 1) +
+  ggplot2::geom_hline(yintercept = 0.5, linetype = "dotdash", color = "#e6ab02", size = 1) +
   ggplot2::geom_point(data = data.frame(x = 0.9, y = 0.9), color = '#e41a1c', size = 4,
+                      mapping = ggplot2::aes(x = x, y = y)) +
+  ggplot2::geom_point(data = data.frame(x = 0.854, y = 0.933), color = '#4daf4a', size = 4,
                       mapping = ggplot2::aes(x = x, y = y)) +
   ggrepel::geom_label_repel(data = data.frame(x = 0.5, y = 0.5, label = paste0("Clasificación aleatoria\nAUC: ", 0.5)),
                             mapping = ggplot2::aes(x = x, y = y, label = label),
-                            nudge_x = 0, nudge_y = 0.1) +
+                            nudge_x = 0, nudge_y = 0.1, size = 5) +
   ggrepel::geom_label_repel(data = data.frame(x = 0.2, y = 1, label = paste0("Clasificación con XGBoost\nAUC: ", round(rp.auc, 3))),
                             mapping = ggplot2::aes(x = x, y = y, label = label),
-                            nudge_x = 0, nudge_y = -0.3) +
-  ggrepel::geom_label_repel(data = data.frame(x = 0.87, y = 0.87, label = sprintf("Zona con precision y recall\n dentro del intervalo [0.85, 0.95]\nPuntos de corte: [%.2f, %.2f]", min(cortes.opt), max(cortes.opt))),
+                            nudge_x = 0, nudge_y = -0.3, size = 5) +
+  ggrepel::geom_label_repel(data = data.frame(x = 0.87, y = 0.87, label = sprintf("Zona con precision y recall\n entre 0.85 y 0.95\nPunto de corte entre %.2f y %.2f", max(cortes.opt), min(cortes.opt))),
                             mapping = ggplot2::aes(x = x, y = y, label = label),
-                            nudge_x = -0.25, nudge_y = -0.1) +
+                            nudge_x = -0.15, nudge_y = -0.1, size = 5) +
   ggplot2::scale_x_continuous(breaks = seq(from = 0, to = 1, by = 0.1)) +
   ggplot2::labs(x = 'Recall', y = 'Precision',
                 title = 'Curva PR para conjunto de entrenamiento-validación', subtitle = 'Modelo con algoritmo XGBoost') +
