@@ -45,3 +45,21 @@ votacion <- raster::calc(x = stack.probabilidades, fun = function(x) {
 raster::writeRaster(x = votacion, format = "GTiff", 
                     filename = paste0(images.directory, "/Votacion_0.5.tif"))
 # ------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------#
+# --- PASO 3. Eliminar capas de agua y calcular areas inundadas ----
+# -----------------------------------------------------------------------------#
+
+# a) Eliminar capas de agua
+water.bodies   <- raster::raster(paste0(images.directory, "/GT-WaterBodies-Complete.tif"))
+votacion.final <- raster::mask(
+  x = votacion,
+  mask = water.bodies,
+  maskvalue = 1, updatevalue = 0,
+  filename = paste0(images.directory, "/Votacion_0.5_final.tif")
+)
+
+# b) Calcular areas inundadas
+valores.positivos   <- raster::freq(votacion.final, value = 4)
+hectareas.inundadas <- valores.positivos * raster::xres(votacion.final) * raster::yres(votacion.final) / 10000
+# ------------------------------------------------------------------------------
