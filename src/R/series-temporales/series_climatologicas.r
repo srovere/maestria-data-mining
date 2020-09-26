@@ -90,22 +90,77 @@ base.url        <- 'https://api.crc-sas.org/ws-api'
 usuario.default <- 'clima'
 clave.default   <- 'Dcft^&*('
 
-############### aca comienza lo tuyo ##################
+############### Ejemplos ##################
 
-# Descarga de datos de una estacion
+# Estaciones del SMN
+url.estaciones.smn <- glue::glue("{base.url}/estaciones/AR/SMN")
+estaciones.smn     <- ConsumirServicioJSON(url.estaciones.smn, usuario = usuario.default, clave = clave.default) %>%
+  sf::st_as_sf(x = ., coords = c("longitud", "latitud"), crs = 4326)
+
+# Datos de Pehuajó
 fecha.desde           <- ConvertirFechaISO8601(as.Date("1961-01-01", tz = UTC))
 fecha.hasta           <- ConvertirFechaISO8601(as.Date("2019-12-31", tz = UTC))
 url.registros.diarios <- glue::glue("{base.url}/registros_diarios/87544/{fecha.desde}/{fecha.hasta}")
 registros.largo       <- ConsumirServicioJSON(url = url.registros.diarios,
-                                              usuario = usuario.default, clave = clave.default)
+                                              usuario = usuario.default, clave = clave.default) %>%
+  dplyr::mutate(fecha = as.Date(fecha))
 registros.ancho       <- tidyr::spread(registros.largo, key = variable_id, value = valor)
 
-# Buscar metadatos de estaciones
-estaciones.uruguay <- ConsumirServicioJSON(url = paste0(base.url, "/estaciones/UY"),
-                                           usuario = usuario.default, clave = clave.default)
+# Temperatura maxima
+registros.test <- registros.ancho %>%
+  dplyr::filter(lubridate::year(fecha) == 2013)
+ggplot2::ggplot(data = registros.test) +
+  ggplot2::geom_line(mapping = ggplot2::aes(x = fecha, y = tmax)) +
+  ggplot2::labs(x = "Fecha", y = "Temperatura máxima (ºC)", title = "Temperatura máxima diaria", subtitle = "Pehuajó (87544), 2013") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
 
-# Buscar todos los datos de Las Brujas
-url.registros.diarios <- glue::glue("{base.url}/registros_diarios/90000001/{fecha.desde}/{fecha.hasta}")
-registros.largo       <- ConsumirServicioJSON(url = url.registros.diarios,
-                                              usuario = usuario.default, clave = clave.default)
-registros.ancho       <- tidyr::spread(registros.largo, key = variable_id, value = valor)
+# FFT
+N        <- nrow(registros.test)
+tiempo   <- seq_len(N)
+fft.tmax <- fft(registros.test$tmax)
+plot(Mod(fft.tmax), type = 'l')
+plot(Mod(fft.tmax)[1:32], type = 'b')
+plot(Mod(fft.tmax)[(N-30):N], type = 'b')
+plot(Mod(fft.tmax)[-1], type = 'b')
+
+# Le sacamos el nivel medio y la componente estacional
+fft.filtro      <- rep(1, length(fft.tmax))
+fft.filtro[1:2] <- 0
+fft.filtro[N]   <- 0
+fft.final       <- fft.tmax * fft.filtro
+
+# Transformada inversa: queda ruido gaussiano
+ruido <- Re(fft(fft.final, inverse = TRUE)/length(fft.tmax))
+plot(tiempo, tmax.filtrada, type = 'b')
+hist(ruido)
+shapiro.test(ruido)
+
+# Busqueda de outliers
+boxplot(ruido)
+boxplot(ruido, range = 3)
+
+meses        <- lubridate::month(registros.test$fecha)
+ruidos.meses <- data.frame(mes = meses, ruido = ruido)
+
+boxplot(ruido ~ mes, data = ruidos.meses)
+
+
+# Lectura de datos originales
+datos.originales <- readr::read_delim(file = "data/87544_original_2014.csv", delim = "\t", na = c("", "\\N"), col_types = "iDdddddddddddddd")
+colnames(datos.originales) <- tolower(colnames(datos.originales))
+datos.originales.test <- datos.originales %>%
+  dplyr::filter(lubridate::year(fecha) == 2013)
+
+# Grafico de datos originales
+ggplot2::ggplot(data = datos.originales.test) +
+  ggplot2::geom_line(mapping = ggplot2::aes(x = fecha, y = tmax)) +
+  ggplot2::labs(x = "Fecha", y = "Temperatura máxima (ºC)", title = "Temperatura máxima diaria", subtitle = "Pehuajó (87544), 2013") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
