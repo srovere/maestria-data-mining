@@ -25,7 +25,7 @@ DescomponerSerieTemporal <- function(serie.temporal) {
   # Sealizar decomposicion
   objeto.stl <- stlplus::stlplus(x = dplyr::pull(serie.temporal, valor),
                                  t = dplyr::pull(serie.temporal, fecha),
-                                 n.p = 365, s.window = "periodic")
+                                 n.p = 365, s.window = 'periodic')
   
   # Devolver serie descompuesta
   serie.descompuesta <- dplyr::bind_cols(
@@ -34,7 +34,6 @@ DescomponerSerieTemporal <- function(serie.temporal) {
   )
   return (serie.descompuesta)
 }
-
 
 # Funcion para desestacionalizar una serie temporal
 # Serie temporal es una data frame que al menos tiene

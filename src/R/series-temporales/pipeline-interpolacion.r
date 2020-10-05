@@ -64,4 +64,18 @@ series.interpoladas <- purrr::map_dfr(
   }
 )
 
+# Guardar resultados
 save(series.interpoladas, file = "data/SeriesInterpoladas.RData")
+
+# Generar gráficos para reporte en base a Bariloche (87800)
+serie.seleccionada <- dplyr::filter(series.interpoladas, omm_id == 87800 & lubridate::year(fecha) >= 2009) %>%
+  dplyr::mutate(color = factor(dplyr::if_else(! is.na(valor), "Real", "Imputado"))) %>%
+  dplyr::select(fecha, color, seasonal, trend, remainder, valor_interpolado) %>%
+  tidyr::pivot_longer(cols = c(seasonal, trend, remainder, valor_interpolado), names_to = 'variable', values_to = 'valor')
+
+# Descomposición STL
+ggplot2::ggplot(data = serie.seleccionada) +
+  ggplot2::geom_point(mapping = ggplot2::aes(x = fecha, y = valor, col = color), size = 0.2) +
+  ggplot2::geom_line(mapping = ggplot2::aes(x = fecha, y = valor), size = 0.1) +
+  ggplot2::facet_wrap(~variable, scales = 'free', ncol = 1)
+  
