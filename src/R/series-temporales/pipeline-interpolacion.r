@@ -1,6 +1,7 @@
 rm(list = objects())
 
 require(automap)
+require(Cairo)
 require(dplyr)
 require(gstat)
 require(httr)
@@ -10,6 +11,9 @@ require(tidyr)
 require(sf)
 require(stlplus)
 require(stars)
+
+# Definir bitmapType
+options(bitmapType = "cairo")
 
 # Cargar funciones necesarias para interpolación espacial
 source("funciones-interpolacion.r", echo = FALSE)
@@ -69,13 +73,63 @@ save(series.interpoladas, file = "data/SeriesInterpoladas.RData")
 
 # Generar gráficos para reporte en base a Bariloche (87800)
 serie.seleccionada <- dplyr::filter(series.interpoladas, omm_id == 87800 & lubridate::year(fecha) >= 2009) %>%
-  dplyr::mutate(color = factor(dplyr::if_else(! is.na(valor), "Real", "Imputado"))) %>%
+  dplyr::mutate(color = factor(dplyr::if_else(! is.na(valor), "Real", "Imputado"), levels = c("Real", "Imputado"))) %>%
   dplyr::select(fecha, color, seasonal, trend, remainder, valor_interpolado) %>%
-  tidyr::pivot_longer(cols = c(seasonal, trend, remainder, valor_interpolado), names_to = 'variable', values_to = 'valor')
+  tidyr::pivot_longer(cols = c(seasonal, trend, remainder, valor_interpolado), names_to = 'variable', values_to = 'valor') %>%
+  dplyr::mutate(variable = factor(variable, levels = c("trend", "seasonal", "remainder", "valor_interpolado")))
 
 # Descomposición STL
+facetas   <- list(
+  "trend" = "Tendencia",
+  "seasonal" = "Estacionalidad",
+  "remainder" = "Residuo",
+  "valor_interpolado" = "Serie completa"
+)
+facetador <- function(string) {
+  purrr::map(string, ~facetas[[.x]])
+}
 ggplot2::ggplot(data = serie.seleccionada) +
-  ggplot2::geom_point(mapping = ggplot2::aes(x = fecha, y = valor, col = color), size = 0.2) +
-  ggplot2::geom_line(mapping = ggplot2::aes(x = fecha, y = valor), size = 0.1) +
-  ggplot2::facet_wrap(~variable, scales = 'free', ncol = 1)
-  
+  ggplot2::geom_point(mapping = ggplot2::aes(x = fecha, y = valor, col = color, size = color)) +
+  ggplot2::geom_line(mapping = ggplot2::aes(x = fecha, y = valor), colour = 'grey60', size = 0.1) +
+  ggplot2::facet_wrap(~variable, scales = 'free', ncol = 2, labeller = ggplot2::labeller(variable = facetador)) +
+  ggplot2::scale_colour_manual(values = c("Real" = "grey50", "Imputado" = "tomato")) +
+  ggplot2::scale_size_manual(values = c("Real" = 0.1, "Imputado" = 0.5)) +
+  ggplot2::labs(x = 'Fecha', y = 'Temperatura (ºC)', title = 'Descomposición STL aditiva de temperatura máxima',
+                subtitle = 'El Bolsón Aero (Bariloche, Argentina)', col = "Dato") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5),
+    legend.position = 'bottom'
+  ) + ggplot2::guides(size = FALSE) +
+  ggplot2::ggsave(filename = "data/DescomposicionSTL.png", device = "png", dpi = 150, width = 8, height = 8)
+
+# Interpolación para El Bolsón para 2009-01-04
+fecha    <- as.Date("2009-08-23")
+residuos <- estaciones.estudio %>%
+  dplyr::inner_join(
+    dplyr::filter(series.descompuestas, fecha == !! fecha),
+    by = c("omm_id")
+  )
+
+# Obtener variograma y ajustar modelo
+argentina  <- base::readRDS("data/gadm36_ARG_0_sf.rds")
+locations  <- dplyr::filter(residuos, ! is.na(remainder))
+variograma <- gstat::variogram(remainder ~ 1, data = locations)
+modelo     <- automap::autofitVariogram(formula = remainder ~ 1, input_data = sf::as_Spatial(locations))
+kriging    <- gstat::krige(remainder ~ 1, locations = locations, newdata = residuos, model = modelo$var_model) %>%
+  dplyr::rename(residuo_prediccion = var1.pred, varianza = var1.var) %>%
+  dplyr::mutate(omm_id = dplyr::pull(residuos, omm_id), residuo_original = dplyr::pull(residuos, remainder), error = residuo_prediccion - residuo_original)
+
+# Se grafica el campo interpolado en una grilla regular  
+grilla.regular <- sf::st_make_grid(x = argentina, what = "centers", cellsize = c(0.1, 0.1))
+kriging.grilla <- gstat::krige(remainder ~ 1, locations = locations, newdata = grilla.regular, model = modelo$var_model)
+kriging.arg    <- as(stars::st_rasterize(sf = kriging.grilla), "Raster") %>%
+  raster::mask(x = ., mask = argentina)
+
+# Variograma
+grafico.variograma      <- plot(modelo, plotit = FALSE)
+grafico.variograma$main <- "Variograma empírico vs. modelo ajustado"
+grafico.variograma$xlab <- "Distancia (km)"
+grafico.variograma$ylab <- "Semi-varianza"
+grafico.variograma      <- as.ggplot(grafico.variograma)
