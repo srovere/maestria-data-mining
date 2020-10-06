@@ -3,6 +3,8 @@ rm(list = objects())
 require(automap)
 require(Cairo)
 require(dplyr)
+require(ggplotify)
+require(ggpmisc)
 require(gstat)
 require(httr)
 require(jsonlite)
@@ -129,7 +131,45 @@ kriging.arg    <- as(stars::st_rasterize(sf = kriging.grilla), "Raster") %>%
 
 # Variograma
 grafico.variograma      <- plot(modelo, plotit = FALSE)
-grafico.variograma$main <- "Variograma empírico vs. modelo ajustado"
-grafico.variograma$xlab <- "Distancia (km)"
-grafico.variograma$ylab <- "Semi-varianza"
-grafico.variograma      <- as.ggplot(grafico.variograma)
+grafico.variograma$main <- ""
+grafico.variograma$xlab <- ""
+grafico.variograma$ylab <- ""
+grafico.variograma      <- ggplotify::as.ggplot(grafico.variograma)
+
+# Definir insets
+inset.tibble <- tibble::tibble(
+  x = c(0.99), y = c(0.01),
+  vp.width = c(0.5), vp.height = c(0.5),
+  plot = list(grafico.variograma)
+)
+
+# Mapa de residuos de temperatura
+valores.raster <- as.data.frame(raster::rasterToPoints(kriging.arg))
+ggplot2::ggplot() +
+  ggpmisc::geom_plot_npc(data = inset.tibble,
+                       mapping = ggplot2::aes(npcx = x, npcy = y, label = plot, 
+                                              vp.width = vp.width, vp.height = vp.height)) +
+  ggplot2::geom_raster(data = valores.raster, colour = NA,
+                       mapping = ggplot2::aes(x = x, y = y, fill = layer)) +
+  ggplot2::geom_sf(data = argentina, colour = "black", fill = NA, size = 0.2) +
+  ggplot2::coord_sf(xlim = c(-75, -25), ylim = c(-55, -20)) +
+  ggplot2::annotate(geom = "text", x = -36, y = -56, label = "Distancia (km)") +
+  ggplot2::annotate(geom = "text", x = -50.5, y = -46.5, label = "Semi-varianza", angle = 90) +
+  ggplot2::annotate(geom = "text", x = -37, y = -37.5, label = "Variograma empírico y ajustado", size = 4) +
+  ggplot2::labs(x = "", y = "", title = "Interpolación de temperatura máxima",
+                subtitle = paste0("El Bolsón Aero (Bariloche, Argentina) - ", format(fecha, "%d/%m/%Y"))) +
+  ggplot2::scale_fill_distiller(name = "Residuos (ºC)", palette = "RdYlBu") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(vjust = -12, hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(vjust = -15, hjust = 0.5),
+    panel.grid.major = ggplot2::element_blank(),
+    axis.text.x = ggplot2::element_blank(),
+    axis.ticks.x = ggplot2::element_blank(),
+    axis.text.y = ggplot2::element_blank(),
+    axis.ticks.y = ggplot2::element_blank(),
+    strip.text.x = ggplot2::element_blank(),
+    strip.background = ggplot2::element_rect(colour = "white", fill = "grey50"),
+    legend.position = c(0.9, 0.8),
+    legend.background = ggplot2::element_rect(fill = "grey90", size = 0.1, linetype = "solid", colour = "black")
+  ) + ggplot2::ggsave(filename = "data/Interpolacion.png", device = "png", dpi = 300, width = 8, height = 8)
