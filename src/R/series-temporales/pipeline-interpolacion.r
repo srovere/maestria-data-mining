@@ -73,8 +73,8 @@ series.interpoladas <- purrr::map_dfr(
 # Guardar resultados
 save(series.interpoladas, file = "data/SeriesInterpoladas.RData")
 
-# Generar gráficos para reporte en base a Bariloche (87800)
-serie.seleccionada <- dplyr::filter(series.interpoladas, omm_id == 87800 & lubridate::year(fecha) >= 2009) %>%
+# Generar gráficos para reporte en base a Aeroparque Buenos Aires (87582)
+serie.seleccionada <- dplyr::filter(series.interpoladas, omm_id == 87582) %>%
   dplyr::mutate(color = factor(dplyr::if_else(! is.na(valor), "Real", "Imputado"), levels = c("Real", "Imputado"))) %>%
   dplyr::select(fecha, color, seasonal, trend, remainder, valor_interpolado) %>%
   tidyr::pivot_longer(cols = c(seasonal, trend, remainder, valor_interpolado), names_to = 'variable', values_to = 'valor') %>%
@@ -94,10 +94,10 @@ ggplot2::ggplot(data = serie.seleccionada) +
   ggplot2::geom_point(mapping = ggplot2::aes(x = fecha, y = valor, col = color, size = color)) +
   ggplot2::geom_line(mapping = ggplot2::aes(x = fecha, y = valor), colour = 'grey60', size = 0.1) +
   ggplot2::facet_wrap(~variable, scales = 'free', ncol = 2, labeller = ggplot2::labeller(variable = facetador)) +
-  ggplot2::scale_colour_manual(values = c("Real" = "grey50", "Imputado" = "tomato")) +
+  ggplot2::scale_colour_manual(values = c("Real" = "grey60", "Imputado" = "tomato")) +
   ggplot2::scale_size_manual(values = c("Real" = 0.1, "Imputado" = 0.5)) +
   ggplot2::labs(x = 'Fecha', y = 'Temperatura (ºC)', title = 'Descomposición STL aditiva de temperatura máxima',
-                subtitle = 'El Bolsón Aero (Bariloche, Argentina)', col = "Dato") +
+                subtitle = 'Aeroparque Buenos Aires (Ciudad de Buenos Aires, Argentina)', col = "Dato") +
   ggplot2::theme_bw() +
   ggplot2::theme(
     plot.title = ggplot2::element_text(hjust = 0.5),
@@ -106,8 +106,8 @@ ggplot2::ggplot(data = serie.seleccionada) +
   ) + ggplot2::guides(size = FALSE) +
   ggplot2::ggsave(filename = "data/DescomposicionSTL.png", device = "png", dpi = 150, width = 8, height = 8)
 
-# Interpolación para El Bolsón para 2009-01-04
-fecha    <- as.Date("2009-08-23")
+# Interpolación para Aeroparque Buenos Aires para 2006-06-15
+fecha    <- as.Date("2006-06-15")
 residuos <- estaciones.estudio %>%
   dplyr::inner_join(
     dplyr::filter(series.descompuestas, fecha == !! fecha),
@@ -130,7 +130,7 @@ kriging.arg    <- as(stars::st_rasterize(sf = kriging.grilla), "Raster") %>%
   raster::mask(x = ., mask = argentina)
 
 # Variograma
-grafico.variograma      <- plot(modelo, plotit = FALSE)
+grafico.variograma      <- plot(modelo, col = "tomato", plotit = FALSE)
 grafico.variograma$main <- ""
 grafico.variograma$xlab <- ""
 grafico.variograma$ylab <- ""
@@ -139,7 +139,7 @@ grafico.variograma      <- ggplotify::as.ggplot(grafico.variograma)
 # Definir insets
 inset.tibble <- tibble::tibble(
   x = c(0.99), y = c(0.01),
-  vp.width = c(0.5), vp.height = c(0.5),
+  vp.width = c(0.55), vp.height = c(0.55),
   plot = list(grafico.variograma)
 )
 
@@ -152,13 +152,15 @@ ggplot2::ggplot() +
   ggplot2::geom_raster(data = valores.raster, colour = NA,
                        mapping = ggplot2::aes(x = x, y = y, fill = layer)) +
   ggplot2::geom_sf(data = argentina, colour = "black", fill = NA, size = 0.2) +
+  ggplot2::geom_sf(data = estaciones.estudio, colour = "black", fill = NA, size = 0.5) +
   ggplot2::coord_sf(xlim = c(-75, -25), ylim = c(-55, -20)) +
-  ggplot2::annotate(geom = "text", x = -36, y = -56, label = "Distancia (km)") +
-  ggplot2::annotate(geom = "text", x = -50.5, y = -46.5, label = "Semi-varianza", angle = 90) +
-  ggplot2::annotate(geom = "text", x = -37, y = -37.5, label = "Variograma empírico y ajustado", size = 4) +
-  ggplot2::labs(x = "", y = "", title = "Interpolación de temperatura máxima",
-                subtitle = paste0("El Bolsón Aero (Bariloche, Argentina) - ", format(fecha, "%d/%m/%Y"))) +
-  ggplot2::scale_fill_distiller(name = "Residuos (ºC)", palette = "RdYlBu") +
+  ggplot2::annotate(geom = "text", x = -37, y = -56, label = "Distancia (km)") +
+  ggplot2::annotate(geom = "text", x = -52.5, y = -46, label = "Semi-varianza", angle = 90) +
+  ggplot2::annotate(geom = "text", x = -38, y = -36, label = "Variograma ajustado", size = 4) +
+  ggplot2::labs(x = "", y = "", title = "Interpolación de residuos temperatura máxima",
+                subtitle = paste0("Aeroparque Buenos Aires (Ciudad de Buenos Aires, Argentina) - ", format(fecha, "%d/%m/%Y"))) +
+  ggplot2::scale_fill_distiller(name = "Residuos (ºC)", palette = "RdYlBu",
+                                limits = c(-8, 8)) +
   ggplot2::theme_bw() +
   ggplot2::theme(
     plot.title = ggplot2::element_text(vjust = -12, hjust = 0.5),
@@ -170,6 +172,6 @@ ggplot2::ggplot() +
     axis.ticks.y = ggplot2::element_blank(),
     strip.text.x = ggplot2::element_blank(),
     strip.background = ggplot2::element_rect(colour = "white", fill = "grey50"),
-    legend.position = c(0.9, 0.8),
+    legend.position = c(0.8, 0.75),
     legend.background = ggplot2::element_rect(fill = "grey90", size = 0.1, linetype = "solid", colour = "black")
   ) + ggplot2::ggsave(filename = "data/Interpolacion.png", device = "png", dpi = 300, width = 8, height = 8)
