@@ -71,7 +71,7 @@ series.interpoladas <- purrr::map_dfr(
 )
 
 # Guardar resultados
-save(series.interpoladas, file = "data/SeriesInterpoladas.RData")
+save(estaciones.estudio, series.interpoladas, file = "data/SeriesInterpoladas.RData")
 
 # Generar gráficos para reporte en base a Aeroparque Buenos Aires (87582)
 serie.seleccionada <- dplyr::filter(series.interpoladas, omm_id == 87582) %>%
