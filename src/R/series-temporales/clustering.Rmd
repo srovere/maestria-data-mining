@@ -1,0 +1,223 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Cargo librerias:
+
+```{r}
+rm(list = ls())
+
+require(factoextra)
+require(ggdendro)
+require(dendroextras)
+library(tidyverse)
+library(lubridate)
+library(timetk)
+library(zoo)
+require(tseries)
+require(TSclust)
+require(magrittr)
+require(sf)
+```
+
+Cargo datos
+
+```{r}
+load(file = "data/SeriesInterpoladas.RData")
+
+estaciones_filt <- estaciones.estudio %>%
+  select(omm_id, nombre, tipo)
+```
+
+```{r}
+
+series.interpoladas %<>%
+  tibble(.) %>%
+  select(-variable_id) %>%
+  inner_join(estaciones_filt, by = "omm_id") %>%
+  mutate(id = paste(omm_id, nombre), temp = valor_interpolado) %>%
+  select(omm_id, nombre, id, fecha, temp, geometry.x  )
+```
+
+Transformo los datos a zoo:
+
+```{r}
+sample.datos <-  
+  series.interpoladas %>% 
+  #datos.nest %>%
+  #unnest(data) %>%
+  #ungroup() %>% 
+  #filter(fecha>=as_date("2010-01-01")) %>% 
+  select(id, fecha, temp) %>% 
+  spread(id, temp) %>% 
+  read.zoo(index.column = "fecha") %>% 
+  na.locf() %>% 
+  na.locf(fromLast= TRUE) %>% 
+  na.trim(is.na= "any", sides= "left") 
+```
+
+Construyo la matrix de disimilaridades:
+
+```{r}
+ds.matrix <- 
+  sample.datos %>%
+  as.ts() %>%
+  #box_cox_vec() %>% 
+  diss("CORT")
+
+#names(ds.matrix) %<>% 
+  #stringr::str_sub(9, -1)
+```
+
+```{r}
+factoextra::fviz_dist(ds.matrix, lab_size = 8,
+                      show_labels= FALSE )
+```
+
+
+
+
+
+```{r}
+cl <- hclust(ds.matrix, method= "ward.D2")
+
+k = 3
+
+gr <- cutree(cl, k= k)
+
+fviz_dend(
+  cl,
+  k = k,
+  #rect = TRUE,
+  cex = 0.3,
+  horiz = TRUE,
+  labels_track_height = 1
+)
+
+fviz_cluster(list(data = as_data_frame(t(sample.datos)), cluster = gr),
+               geom= "point",axes= c(1, 2), shape= 'o', show.clust.cent = FALSE, ellipse =  TRUE )
+
+
+ggdendrogram(cl, rotate= TRUE, labels = FALSE, segments = TRUE)+
+  theme_gray()+
+  ylab("Distancia CORT")+
+  theme(axis.title.y = element_blank(), axis.text.y = element_blank(), axis.title.x = element_text(size=8, face="bold"), axis.ticks.y = element_blank(), plot.title = element_text(hjust = 0.5, size= 12, face= "bold"))+
+  geom_hline(yintercept = 700, linetype = 2, col= 'darkgreen')+
+  geom_hline(yintercept = 1100, linetype = 2, col= 'darkgreen')+
+  geom_hline(yintercept = 400, linetype = 2, col= 'darkgreen')
+  #ggtitle("Dendrograma")
+
+get_clust_tendency( as_data_frame(t(sample.datos)), n=ncol(sample.datos)-40)
+```
+
+
+
+In statistics, and especially in biostatistics, cophenetic correlation (more precisely, the cophenetic correlation coefficient) is a measure of how faithfully a dendrogram preserves the pairwise distances between the original unmodeled data points.
+
+```{r}
+cor(ds.matrix,cophenetic(cl))
+```
+
+
+```{r}
+sil <- factoextra::fviz_nbclust(as_data_frame(t(sample.datos)), FUN = hcut, method = "silhouette",
+                                diss = ds.matrix, k.max = 25, print.summary = TRUE, barcolor='#000000',
+                                nboot = 500, verbose = FALSE) +
+  ggplot2::labs(title = "Número óptimo de clusters", subtitle = "Evaluación mediante índice de Silhouette", 
+                x = "Número de clusters", y = "Índice de Silhouette promedio") +
+  ggplot2::geom_vline(xintercept = 14, linetype = 2, col = 'darkgreen') +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+sil
+```
+
+
+```{r}
+colores          <-
+  (
+    c(
+      '#299696',
+      '#e11584',
+      '#23a02c',
+      '#9de043',#4
+      '#e31a1c',
+      '#fdbf6f',
+      '#ef7f00',
+      '#0f3923',#8
+      '#1f78b4',
+      '#6a3d9a',
+      '#fec5e5',
+      "#7f7f7f",
+      '#b15928',
+      "#541e1b",
+      "#fa8072"
+    )
+  )
+
+
+arg_chart <- function(k) {
+  require(sf)
+  require(dendroextras)
+  gr <- dendroextras::slice(cl, k = k)
+  
+  groups_df <-
+    data.frame(id = names(gr),
+               cluster = as_factor(gr),
+               row.names = NULL)
+  
+  estaciones_ext <- estaciones.estudio %>%
+    mutate(
+      id = paste(omm_id, nombre),
+      latitud = sf::st_coordinates(.)[, 2],
+      longitud = sf::st_coordinates(.)[, 1]
+    ) %>%
+    sf::st_set_geometry(NULL) %>%
+    inner_join(groups_df)
+  
+
+  leaflet::leaflet(data = estaciones_ext) %>%
+    leaflet::addTiles(urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png") %>%
+    leaflet::setView(lat = -40,
+                     lng = -62,
+                     zoom = 3) %>%
+    leaflet::addCircles(
+      data = estaciones_ext,
+      lng = ~ longitud,
+      lat = ~ latitud,
+      fillColor = "#377eb8",
+      color = "#377eb8",
+      fillOpacity = 0.2,
+      opacity = 0.9,
+      weight = 1
+    )                 %>%
+    leaflet::addCircleMarkers(
+      lat = ~ latitud,
+      lng = ~ longitud,
+      radius = 7,
+      fillColor = ~ colores[cluster],
+      stroke = TRUE,
+      weight = 2,
+      fillOpacity = 0.8,
+      opacity = .6,
+      color = "#888",
+      popup = ~ sprintf(
+        "<b>%s (%d)</b><br>Lat.: %.3f<br>Lon.: %.3f<br>Elev: %.0f m <br>Cluster: %.i",
+        nombre,
+        omm_id,
+        latitud,
+        longitud,
+        elevacion,
+        cluster
+      ))
+    
+  #table(gr)
+}
+
+for(i in c(3, 8, 14)) {
+  print(arg_chart(i))
+}
+```

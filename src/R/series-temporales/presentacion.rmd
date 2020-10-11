@@ -1,5 +1,5 @@
 ---
-title: "Control de calidad de datos de temperatura máxima"
+title: "Control de calidad de datos de temperatura máxima para clustering de estaciones meteorológicas"
 subtitle: "Series Temporales - Trabajo práctico final"
 runtime: shiny
 output: 
@@ -13,6 +13,8 @@ output:
 require(automap)
 require(Cairo)
 require(dplyr)
+require(factoextra)
+require(ggdendro)
 require(gstat)
 require(highcharts)
 require(httr)
@@ -25,14 +27,48 @@ require(sf)
 require(stlplus)
 require(stars)
 require(tidyr)
+require(TSclust)
+require(zoo)
 
 # Carga de shape de Argentina
 argentina  <- base::readRDS("data/gadm36_ARG_0_sf.rds")
 
-# Carga de datos para imputacion
+### Carga de datos para imputacion
 load("data/SeriesInterpoladas.RData")
 estaciones.estudio <- estaciones.estudio %>%
   dplyr::arrange(nombre)
+
+### Datos para clustering
+sample.datos <- series.interpoladas %>% 
+  dplyr::inner_join(dplyr::select(estaciones.estudio, omm_id, nombre), by = c("omm_id")) %>%
+  dplyr::mutate(id = paste(omm_id, nombre)) %>%
+  dplyr::select(id, fecha, valor) %>% 
+  tidyr::pivot_wider(names_from = "id", values_from = "valor") %>% 
+  zoo::read.zoo(index.column = "fecha") %>% 
+  zoo::na.locf() %>% 
+  zoo::na.locf(fromLast= TRUE) %>% 
+  zoo::na.trim(is.na= "any", sides= "left")
+ds.matrix <- sample.datos %>%
+  as.ts() %>%
+  TSclust::diss("CORT")
+clustering <- stats::hclust(d = ds.matrix, method = "ward.D2")  
+colores <- c(
+  '#299696',
+  '#e11584',
+  '#23a02c',
+  '#9de043',
+  '#e31a1c', #5
+  '#fdbf6f',
+  '#ef7f00',
+  '#0f3923',
+  '#1f78b4',
+  '#6a3d9a', # 10
+  '#fec5e5',
+  "#7f7f7f",
+  '#b15928',
+  "#541e1b",
+  "#fa8072"  #15
+)
 ```
 
 Detección de anomalías
@@ -177,4 +213,71 @@ Indique la cantidad de _grupos_ para realizar el clustering.
 shiny::sliderInput(inputId = "cantidadClusters",
                    label = shiny::div(icon("scale", lib = "glyphicon"), span(style = "padding-left: 5px;", "Cantidad de grupos")), 
                    min = 3, max = 15, step = 1, value = 8)
+```
+
+Column
+-----------------------------------------------------------------------
+
+### Distribución espacial de clusters
+
+```{r}
+leaflet::renderLeaflet({
+  # Generacion de datos para mapa
+  grupos    <- stats::cutree(tree = clustering, k = input$cantidadClusters)
+  groups_df <- data.frame(id = names(grupos), cluster = as.factor(grupos), row.names = NULL)
+  locations <- estaciones.estudio %>%
+    dplyr::mutate(id = paste(omm_id, nombre), latitud = sf::st_coordinates(.)[, 2],
+                  longitud = sf::st_coordinates(.)[, 1]) %>%
+    sf::st_set_geometry(NULL) %>%
+    dplyr::inner_join(groups_df, by = c("id"))
+  
+  # Mapa
+  leaflet::leaflet(data = locations) %>%
+    leaflet::addTiles(map = ., urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png") %>%
+    leaflet::addCircleMarkers(lat = ~ latitud, lng = ~ longitud, radius = 7, fillColor = ~colores[cluster],
+                              stroke = TRUE, weight = 1, fillOpacity = 0.8, opacity = 1, color = ~colores[cluster],
+                              popup = ~sprintf("<b>%s (%d)</b><br>Lat.: %.3f<br>Lon.: %.3f<br>Elev: %.0f m <br>Cluster: %.i", 
+                                               nombre, omm_id, latitud, longitud, elevacion, cluster))
+})
+```
+
+Column
+-----------------------------------------------------------------------
+
+### Índice de Silhouette
+
+```{r}
+shiny::renderPlot({
+  factoextra::fviz_nbclust(as_data_frame(t(sample.datos)), FUN = hcut, method = "silhouette",
+                           diss = ds.matrix, k.max = 25, print.summary = FALSE, barcolor='#000000',
+                           verbose = FALSE) +
+  ggplot2::labs(title = "Número óptimo de clusters", subtitle = "Evaluación mediante índice de Silhouette", 
+                x = "Número de clusters", y = "Índice de Silhouette promedio") +
+  ggplot2::geom_vline(xintercept = input$cantidadClusters, linetype = 2, 
+                      size = 0.5, col = 'darkgreen') +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    text = ggplot2::element_text(size = 12),
+    plot.title = ggplot2::element_text(hjust = 0.5),
+    plot.subtitle = ggplot2::element_text(hjust = 0.5)
+  )
+})
+```
+
+### Dendrograma
+
+```{r}
+shiny::renderPlot({
+  factoextra::fviz_dend(clustering, k = input$cantidadClusters, rect = TRUE,
+                        show_labels = FALSE, cex = 0.3,  horiz = FALSE, labels_track_height = 1) +
+    ggplot2::scale_y_log10() +
+    ggplot2::labs(x = "Estaciones", y = "Distancia (escala logarítmica)", title = "Dendrograma para estaciones meteorológicas",
+                  subtitle = "Agrupación según series temporales de temperatura máxima 2001-2010") +
+    ggplot2::theme_bw() +
+    ggplot2::theme(
+      text = ggplot2::element_text(size = 12),
+      plot.title = ggplot2::element_text(hjust = 0.5),
+      plot.subtitle = ggplot2::element_text(hjust = 0.5)
+    )
+})
 ```

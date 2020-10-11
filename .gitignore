@@ -32,3 +32,4 @@ src/R/visualizacion-informacion/vast/*
 src/R/sistemas-informacion-geografica/data/public*
 src/R/sistemas-informacion-geografica/tp-teledeteccion2020/*
 src/R/series-temporales/data/*.RData
+src/R/series-temporales/*.html
