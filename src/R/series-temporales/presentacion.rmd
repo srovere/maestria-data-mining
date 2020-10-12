@@ -6,10 +6,12 @@ output:
   flexdashboard::flex_dashboard:
     orientation: columns
     vertical_layout: fill
+    css: styles.css
 ---
 
 
 ```{r global, include=FALSE}
+require(anomalize)
 require(automap)
 require(Cairo)
 require(dplyr)
@@ -74,13 +76,81 @@ colores <- c(
 Detección de anomalías
 =======================================================================
 
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+
+Seleccione la estación para realizar la detección de _anomalías_ en la serie temporal de temperatura máxima.
+
+```{r}
+opcionesEstacionesAnomalias        <- dplyr::pull(estaciones.estudio, omm_id)
+names(opcionesEstacionesAnomalias) <- dplyr::pull(estaciones.estudio, nombre)
+shiny::selectInput(inputId = "estacionAnomaliasId",
+                   label = shiny::div(icon("globe", lib = "glyphicon"), span(style = "padding-left: 5px;", "Estación")), 
+                   choices = opcionesEstacionesAnomalias)
+```
+
+Indique el nivel de significancia para el test E-S-D que detectará las potenciales anomalías.
+
+```{r}
+shiny::sliderInput(inputId = "nivelSignificancia",
+                   label = shiny::div(icon("scale", lib = "glyphicon"), span(style = "padding-left: 5px;", "Nivel de significancia")), 
+                   min = 0.01, max = 0.1, step = 0.01, value = 0.05)
+```
+
+Column
+-----------------------------------------------------------------------
+
+### Detección de anomalías en serie temporal de temperatura máxima
+
+```{r}
+highcharter::renderHighchart({
+  # Filtras datos de estación
+  serie.estacion <- series.interpoladas %>%
+    dplyr::filter(omm_id == as.integer(input$estacionAnomaliasId)) %>%
+    dplyr::select(fecha, valor) %>%
+    zoo::read.zoo(index.column = "fecha") %>%
+    zoo::na.approx()
+  estacion <- estaciones.estudio %>%
+    dplyr::filter(omm_id == as.integer(input$estacionAnomaliasId))
+  
+  # Detección de anomalías
+  serie.deteccion <- data.frame(fecha = zoo::index(serie.estacion),
+                                valor = zoo::coredata(serie.estacion)) %>%
+    tibble::as_tibble()
+  deteccion <- serie.deteccion %>%
+    anomalize::time_decompose(valor, method = "stl", frequency = 365) %>%
+    anomalize::anomalize(remainder, method = "gesd", alpha = input$nivelSignificancia) %>%
+    dplyr::filter(anomaly == "Yes") %>%
+    dplyr::mutate(title = paste0("!! ", observed, " ºC"), text = "Posible anomalía")
+  
+  # Grafico
+  shiny::withProgress({
+    highcharter::highchart(type = "stock") %>% 
+      highcharter::hc_add_series(data = xts::as.xts(serie.estacion), id = "tmax", name = "Temperatura máxima") %>%
+      highcharter::hc_add_series(data = deteccion, mapping = highcharter::hcaes(x = fecha), 
+                                 name = "Anomalías", type = "flags", onSeries = "tmax") %>%
+      highcharter::hc_xAxis(title = list(text = "Fecha")) %>%
+      highcharter::hc_yAxis(title = list(text = "Temperatura máxima (ºC)")) %>%
+      highcharter::hc_chart(type = 'line', zoomType = 'x', panning = TRUE, panKey = 'shift') %>%
+      highcharter::hc_legend(enabled = TRUE, layout = "horizontal") %>%
+      highcharter::hc_tooltip(shared = TRUE, valueDecimals = 2) %>%
+      highcharter::hc_colors(c('#1b9e77','#e41a1c')) %>%
+      highcharter::hc_title(text = "Detección de anomalías de temperatura máxima") %>%
+      highcharter::hc_subtitle(text = paste0("Estación ", estacion$nombre, " (", estacion$omm_id, ")")) %>%
+      highcharter::hc_exporting(enabled = TRUE) %>%
+      highcharter::hc_add_theme(highcharter::hc_theme_flat())
+  }, value = NULL, message = "Realizando detección de anomalías...")
+})
+```
+
+
 Imputación de faltantes
 =======================================================================
 
 Inputs {.sidebar}
 -----------------------------------------------------------------------
 
-Seleccione la estación para realizar la descomposición STL aditiva de su serie temporal de temperal de temperatura máxima.
+Seleccione la estación para realizar la descomposición STL aditiva de su serie temporal de temperatura máxima.
 
 ```{r}
 opcionesEstacionesImputacion        <- dplyr::pull(estaciones.estudio, omm_id)
@@ -106,41 +176,33 @@ Column
 
 ```{r}
 highcharter::renderHighchart({
+  estacion <- estaciones.estudio %>%
+    dplyr::filter(omm_id == as.integer(input$estacionAnomaliasId))
   serie.estacion <- series.interpoladas %>%
     dplyr::filter(omm_id == as.integer(input$estacionImputacionId)) %>%
-    dplyr::mutate(color = factor(dplyr::if_else(! is.na(valor), "Real", "Imputado"), levels = c("Real", "Imputado"))) %>%
-    dplyr::select(fecha, color, seasonal, trend, remainder, valor_interpolado) %>%
-    tidyr::pivot_longer(cols = c(seasonal, trend, remainder, valor_interpolado), names_to = 'variable', values_to = 'valor') %>%
-    dplyr::mutate(componente = factor(
-      dplyr::case_when(
-        variable == "trend" ~ "Tendencia",
-        variable == "seasonal" ~ "Estacionalidad",
-        variable == "remainder" ~ "Residuo",
-        TRUE ~ "Serie completa"
-      ), levels = c("Tendencia", "Estacionalidad", "Residuo", "Serie completa")
-    ))
+    dplyr::filter(omm_id == 87582) %>%
+    dplyr::select(fecha, valor, seasonal, trend, remainder, valor_interpolado)
     
   shiny::withProgress({
-    highcharter::highchart() %>%
-      highcharter::hc_add_series(data = serie.estacion, type = "line", visible = TRUE, showInLegend = TRUE,
-                                 mapping = highcharter::hcaes(x = fecha, y = valor, group = componente)) %>%
-      highcharter::hc_xAxis(type = 'datetime', title = list(text = "Fecha")) %>%
+    highcharter::highchart(type = "stock") %>% 
+      highcharter::hc_add_series(data = xts::xts(serie.estacion$trend, order.by = serie.estacion$fecha), 
+                                 id = "trend", name = "Tendencia") %>%
+      highcharter::hc_add_series(data = xts::xts(serie.estacion$seasonal, order.by = serie.estacion$fecha), 
+                                 id = "seasonal", name = "Estacionalidad") %>%
+      highcharter::hc_add_series(data = xts::xts(serie.estacion$remainder, order.by = serie.estacion$fecha), 
+                                 id = "remainder", name = "Residuo") %>%
+      highcharter::hc_add_series(data = xts::xts(serie.estacion$valor_interpolado, order.by = serie.estacion$fecha), 
+                                 id = "complete", name = "Serie completa") %>%
+      highcharter::hc_xAxis(title = list(text = "Fecha")) %>%
       highcharter::hc_yAxis(title = list(text = "Valor (ºC)")) %>%
       highcharter::hc_chart(type = 'line', zoomType = 'x', panning = TRUE, panKey = 'shift') %>%
       highcharter::hc_legend(enabled = TRUE, layout = "horizontal") %>%
       highcharter::hc_tooltip(shared = TRUE, valueDecimals = 2) %>%
       highcharter::hc_colors(c('#e6ab02','#1b9e77','#377eb8','#e41a1c')) %>%
       highcharter::hc_title(text = "Descomposición STL aditiva de temperatura máxima") %>%
+      highcharter::hc_subtitle(text = paste0("Estación ", estacion$nombre, " (", estacion$omm_id, ")")) %>%
       highcharter::hc_exporting(enabled = TRUE) %>%
-      highcharter::hc_add_theme(highcharter::hc_theme_flat()) %>%
-      highcharter::hc_plotOptions(
-        line = list(cursor = 'pointer'),
-        series = list(
-          marker = list(
-            enabled = F
-          )
-        )
-      )
+      highcharter::hc_add_theme(highcharter::hc_theme_flat())
   }, value = NULL, message = "Realizando descomposición STL...")
 })
 ```
