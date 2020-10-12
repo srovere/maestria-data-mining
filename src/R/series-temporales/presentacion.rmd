@@ -259,7 +259,7 @@ leaflet::renderLeaflet({
       leaflet::addLegend(position = "bottomright", pal = paleta.kriging, values = valores.interpolados,
                      title = "Residuos (ºC)", opacity = 1)
     
-  }, value = NULL, message = "Realizando proceso de kriging...")
+  }, value = NULL, message = "Realizando kriging...")
 })
 ```
 
@@ -274,7 +274,7 @@ Indique la cantidad de _grupos_ para realizar el clustering.
 ```{r}
 shiny::sliderInput(inputId = "cantidadClusters",
                    label = shiny::div(icon("scale", lib = "glyphicon"), span(style = "padding-left: 5px;", "Cantidad de grupos")), 
-                   min = 3, max = 15, step = 1, value = 8)
+                   min = 3, max = 15, step = 1, value = 3)
 ```
 
 Column
@@ -284,27 +284,47 @@ Column
 
 ```{r}
 leaflet::renderLeaflet({
-  # Generacion de datos para mapa
-  grupos    <- stats::cutree(tree = clustering, k = input$cantidadClusters)
-  groups_df <- data.frame(id = names(grupos), cluster = as.factor(grupos), row.names = NULL)
-  locations <- estaciones.estudio %>%
-    dplyr::mutate(id = paste(omm_id, nombre), latitud = sf::st_coordinates(.)[, 2],
-                  longitud = sf::st_coordinates(.)[, 1]) %>%
-    sf::st_set_geometry(NULL) %>%
-    dplyr::inner_join(groups_df, by = c("id"))
-  
-  # Mapa
-  leaflet::leaflet(data = locations) %>%
-    leaflet::addTiles(map = ., urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png") %>%
-    leaflet::addCircleMarkers(lat = ~ latitud, lng = ~ longitud, radius = 7, fillColor = ~colores[cluster],
-                              stroke = TRUE, weight = 1, fillOpacity = 0.8, opacity = 1, color = ~colores[cluster],
-                              popup = ~sprintf("<b>%s (%d)</b><br>Lat.: %.3f<br>Lon.: %.3f<br>Elev: %.0f m <br>Cluster: %.i", 
-                                               nombre, omm_id, latitud, longitud, elevacion, cluster))
+  shiny::withProgress({
+    # Generacion de datos para mapa
+    grupos    <- stats::cutree(tree = clustering, k = input$cantidadClusters)
+    groups_df <- data.frame(id = names(grupos), cluster = as.factor(grupos), row.names = NULL)
+    locations <- estaciones.estudio %>%
+      dplyr::mutate(id = paste(omm_id, nombre), latitud = sf::st_coordinates(.)[, 2],
+                    longitud = sf::st_coordinates(.)[, 1]) %>%
+      sf::st_set_geometry(NULL) %>%
+      dplyr::inner_join(groups_df, by = c("id"))
+    
+    # Mapa
+    leaflet::leaflet(data = locations) %>%
+      leaflet::addTiles(map = ., urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png") %>%
+      leaflet::addCircleMarkers(lat = ~ latitud, lng = ~ longitud, radius = 7, fillColor = ~colores[cluster],
+                                stroke = TRUE, weight = 1, fillOpacity = 0.8, opacity = 1, color = ~colores[cluster],
+                                popup = ~sprintf("<b>%s (%d)</b><br>Lat.: %.3f<br>Lon.: %.3f<br>Elev: %.0f m <br>Cluster: %.i", 
+                                                 nombre, omm_id, latitud, longitud, elevacion, cluster))
+  }, value = NULL, message = "Realizando clustering...")
 })
 ```
 
 Column
 -----------------------------------------------------------------------
+
+### Dendrograma
+
+```{r}
+shiny::renderPlot({
+  factoextra::fviz_dend(clustering, k = input$cantidadClusters, rect = TRUE,
+                        show_labels = FALSE, cex = 0.3,  horiz = FALSE, labels_track_height = 1) +
+    ggplot2::scale_y_log10() +
+    ggplot2::labs(x = "Estaciones", y = "Distancia (escala logarítmica)", title = "Dendrograma para estaciones meteorológicas",
+                  subtitle = "Agrupación según series temporales de temperatura máxima 2001-2010") +
+    ggplot2::theme_bw() +
+    ggplot2::theme(
+      text = ggplot2::element_text(size = 10),
+      plot.title = ggplot2::element_text(hjust = 0.5),
+      plot.subtitle = ggplot2::element_text(hjust = 0.5)
+    )
+})
+```
 
 ### Índice de Silhouette
 
@@ -319,27 +339,9 @@ shiny::renderPlot({
                       size = 0.5, col = 'darkgreen') +
   ggplot2::theme_bw() +
   ggplot2::theme(
-    text = ggplot2::element_text(size = 12),
+    text = ggplot2::element_text(size = 10),
     plot.title = ggplot2::element_text(hjust = 0.5),
     plot.subtitle = ggplot2::element_text(hjust = 0.5)
   )
-})
-```
-
-### Dendrograma
-
-```{r}
-shiny::renderPlot({
-  factoextra::fviz_dend(clustering, k = input$cantidadClusters, rect = TRUE,
-                        show_labels = FALSE, cex = 0.3,  horiz = FALSE, labels_track_height = 1) +
-    ggplot2::scale_y_log10() +
-    ggplot2::labs(x = "Estaciones", y = "Distancia (escala logarítmica)", title = "Dendrograma para estaciones meteorológicas",
-                  subtitle = "Agrupación según series temporales de temperatura máxima 2001-2010") +
-    ggplot2::theme_bw() +
-    ggplot2::theme(
-      text = ggplot2::element_text(size = 12),
-      plot.title = ggplot2::element_text(hjust = 0.5),
-      plot.subtitle = ggplot2::element_text(hjust = 0.5)
-    )
 })
 ```
