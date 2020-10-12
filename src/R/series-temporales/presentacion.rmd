@@ -11,20 +11,21 @@ output:
 
 
 ```{r global, include=FALSE}
+require(gstat)
+require(raster)
+require(rgdal)
 require(anomalize)
 require(automap)
 require(Cairo)
 require(dplyr)
 require(factoextra)
 require(ggdendro)
-require(gstat)
-require(highcharts)
+require(highcharter)
 require(httr)
 require(jsonlite)
 require(leaflet)
 require(leafem)
 require(purrr)
-require(raster)
 require(sf)
 require(stlplus)
 require(stars)
@@ -180,7 +181,6 @@ highcharter::renderHighchart({
     dplyr::filter(omm_id == as.integer(input$estacionAnomaliasId))
   serie.estacion <- series.interpoladas %>%
     dplyr::filter(omm_id == as.integer(input$estacionImputacionId)) %>%
-    dplyr::filter(omm_id == 87582) %>%
     dplyr::select(fecha, valor, seasonal, trend, remainder, valor_interpolado)
     
   shiny::withProgress({

@@ -1,0 +1,13 @@
+name: SeriesTemporales
+title: SeriesTemporales
+username:
+account: srovere
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2989087
+bundleId: 3731117
+url: https://srovere.shinyapps.io/SeriesTemporales/
+when: 1602524431.20841
+asMultiple: TRUE
+asStatic: FALSE
+ignoredFiles: clustering.Rmd
