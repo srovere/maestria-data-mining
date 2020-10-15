@@ -20,6 +20,7 @@ require(Cairo)
 require(dplyr)
 require(factoextra)
 require(ggdendro)
+require(ggplotify)
 require(highcharter)
 require(httr)
 require(jsonlite)
@@ -168,6 +169,33 @@ shiny::dateInput(inputId = "fechaInterpolacion",
                  label = shiny::div(icon("calendar", lib = "glyphicon"), span(style = "padding-left: 5px;", "Fecha para interpolación")), 
                  min = min(series.interpoladas$fecha), max = max(series.interpoladas$fecha), 
                  value = as.Date("2006-06-15"), language = "es")
+
+interpolar <- shiny::reactive({
+  if (! is.null(input$fechaInterpolacion)) {
+    residuos <- estaciones.estudio %>%
+    dplyr::inner_join(
+      dplyr::filter(series.interpoladas, fecha == input$fechaInterpolacion),
+      by = c("omm_id")
+    )
+    
+    locations  <- dplyr::filter(residuos, ! is.na(remainder))
+    variograma <- gstat::variogram(remainder ~ 1, data = locations)
+    modelo     <- automap::autofitVariogram(formula = remainder ~ 1, input_data = sf::as_Spatial(locations))
+    kriging    <- gstat::krige(remainder ~ 1, locations = locations, newdata = residuos, model = modelo$var_model) %>%
+      dplyr::rename(residuo_prediccion = var1.pred, varianza = var1.var) %>%
+      dplyr::mutate(omm_id = dplyr::pull(residuos, omm_id), residuo_original = dplyr::pull(residuos, remainder), 
+                    error = residuo_prediccion - residuo_original)
+  
+    # Se genera el raster interpolado
+    grilla.regular <- sf::st_make_grid(x = argentina, what = "centers", cellsize = c(0.1, 0.1))
+    kriging.grilla <- gstat::krige(remainder ~ 1, locations = locations, newdata = grilla.regular, model = modelo$var_model)
+    kriging.arg    <- as(stars::st_rasterize(sf = kriging.grilla), "Raster") %>%
+      raster::mask(x = ., mask = argentina)
+    
+    return (list(locations = locations, modelo = modelo, kriging = kriging.arg))
+  }
+  return (NULL)
+})
 ```
 
 Column
@@ -210,56 +238,58 @@ highcharter::renderHighchart({
 Column
 -----------------------------------------------------------------------
 
-### Interpolación espacial de residuos de temperatura máxima
-
+### Interpolación espacial de residuos de temperatura máxima {data-height=650}
+ 
 ```{r}
 leaflet::renderLeaflet({
   # Obtener residuos para fecha seleccionada
-  residuos <- estaciones.estudio %>%
-  dplyr::inner_join(
-    dplyr::filter(series.interpoladas, fecha == input$fechaInterpolacion),
-    by = c("omm_id")
-  )
-  
   shiny::withProgress({
-    locations  <- dplyr::filter(residuos, ! is.na(remainder))
-    variograma <- gstat::variogram(remainder ~ 1, data = locations)
-    modelo     <- automap::autofitVariogram(formula = remainder ~ 1, input_data = sf::as_Spatial(locations))
-    kriging    <- gstat::krige(remainder ~ 1, locations = locations, newdata = residuos, model = modelo$var_model) %>%
-      dplyr::rename(residuo_prediccion = var1.pred, varianza = var1.var) %>%
-      dplyr::mutate(omm_id = dplyr::pull(residuos, omm_id), residuo_original = dplyr::pull(residuos, remainder), 
-                    error = residuo_prediccion - residuo_original)
-  
-    # Se genera el raster interpolado
-    grilla.regular <- sf::st_make_grid(x = argentina, what = "centers", cellsize = c(0.1, 0.1))
-    kriging.grilla <- gstat::krige(remainder ~ 1, locations = locations, newdata = grilla.regular, model = modelo$var_model)
-    kriging.arg    <- as(stars::st_rasterize(sf = kriging.grilla), "Raster") %>%
-      raster::mask(x = ., mask = argentina)
-    
-    # Dibujar mapa
-    valores.interpolados <- raster::values(kriging.arg)
-    paleta.kriging       <- leaflet::colorBin(palette = "RdYlBu", domain = valores.interpolados, bins = 8,
-                                              na.color = "transparent", reverse = TRUE)
-    
-    leaflet::leaflet(data = locations) %>%
-      leafem::addMouseCoordinates() %>%
-      leaflet::addTiles(map = ., urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png") %>%
-      leaflet::addRasterImage(x = kriging.arg, colors = paleta.kriging, group = "Kriging", layerId = "Kriging") %>%
-      leaflet::addCircleMarkers(map = ., label = ~sprintf("%s", nombre), radius = 5, color = "black", fillColor = "black",
-                                weight = 1, labelOptions = leaflet::labelOptions(noHide = F, textOnly = TRUE, style = list(
-          "color" = "red",
-          "font-weight" = "bold",
-          "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
-          "font-size" = "12px",
-          "border-color" = "rgba(0,0,0,0.5)"
-        )
-      )) %>%
-      leafem::addImageQuery(map = ., x = kriging.arg, type = "mousemove", digits = 2, prefix = "Residuo",
-                        group = "Kriging", layerId = "Kriging") %>%
-      leaflet::addLegend(position = "bottomright", pal = paleta.kriging, values = valores.interpolados,
-                     title = "Residuos (ºC)", opacity = 1)
-    
+    resultado <- interpolar()
+    if (! is.null(resultado)) {
+      locations   <- resultado$locations
+      kriging.arg <- resultado$kriging
+      
+      # Dibujar mapa
+      valores.interpolados <- raster::values(kriging.arg)
+      paleta.kriging       <- leaflet::colorBin(palette = "RdYlBu", domain = valores.interpolados, bins = 8,
+                                                na.color = "transparent", reverse = TRUE)
+      
+      leaflet::leaflet(data = locations) %>%
+        leafem::addMouseCoordinates() %>%
+        leaflet::addTiles(map = ., urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png") %>%
+        leaflet::addRasterImage(x = kriging.arg, colors = paleta.kriging, group = "Kriging", layerId = "Kriging") %>%
+        leaflet::addCircleMarkers(map = ., label = ~sprintf("%s", nombre), radius = 5, color = "black", fillColor = "black",
+                                  weight = 1, labelOptions = leaflet::labelOptions(noHide = F, textOnly = TRUE, style = list(
+            "color" = "red",
+            "font-weight" = "bold",
+            "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
+            "font-size" = "12px",
+            "border-color" = "rgba(0,0,0,0.5)"
+          )
+        )) %>%
+        leafem::addImageQuery(map = ., x = kriging.arg, type = "mousemove", digits = 2, prefix = "Residuo",
+                          group = "Kriging", layerId = "Kriging") %>%
+        leaflet::addLegend(position = "bottomright", pal = paleta.kriging, values = valores.interpolados,
+                       title = "Residuos (ºC)", opacity = 1)
+    }
   }, value = NULL, message = "Realizando kriging...")
+})
+```
+
+### Variograma ajustado {data-height=350}
+
+```{r}
+renderPlot({
+  # Variograma
+  resultado <- interpolar()
+  if (! is.null(resultado)) {
+    grafico.variograma      <- plot(resultado$modelo, col = "tomato", plotit = FALSE)
+    grafico.variograma$main <- ""
+    grafico.variograma$xlab <- "Distancia (km)"
+    grafico.variograma$ylab <- "Semivarianza"
+    grafico.variograma      <- ggplotify::as.ggplot(grafico.variograma)  
+    return (grafico.variograma)
+  }
 })
 ```
 

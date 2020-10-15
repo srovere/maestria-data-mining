@@ -5,9 +5,9 @@ account: srovere
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2989087
-bundleId: 3731797
+bundleId: 3745986
 url: https://srovere.shinyapps.io/SeriesTemporales/
-when: 1602537578.25199
+when: 1602783622.93828
 asMultiple: TRUE
 asStatic: FALSE
 ignoredFiles: clustering.Rmd
