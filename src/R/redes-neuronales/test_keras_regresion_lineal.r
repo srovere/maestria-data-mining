@@ -10,6 +10,7 @@ Sys.setenv(LD_LIBRARY_PATH=paste0(Sys.getenv("LD_LIBRARY_PATH"), ":", conda_lib)
 Sys.getenv("LD_LIBRARY_PATH")
 
 # Cargar libreria
+require(caret)
 require(dplyr)
 require(keras)
 require(tensorflow)
@@ -17,11 +18,22 @@ require(tensorflow)
 # Inicializar tensorflow
 tensorflow::use_condaenv(condaenv = conda_env, conda = conda_bin)
 
-with(tf$device('GPU:0'), {
+# Indicar el dispositivo de ejecucion
+tf$debugging$set_log_device_placement(TRUE)
+
+# Ejecutar en dispositivo seleccionado
+# device <- "GPU:0" # GPU
+device <- "CPU:0" # CPU
+with(tf$device(device), {
   # Crear dataset de entrada
   set.seed(0)
-  x <- matrix(runif(1000), ncol = 1)
-  y <- 2*x + 1 + rnorm(1000, mean = 0, sd = 1)
+  x       <- matrix(runif(1000), ncol = 1)
+  y       <- 2*x + 1 + rnorm(1000, mean = 0, sd = 1)
+  train   <- as.vector(caret::createDataPartition(x, p = 0.7, list = FALSE))
+  x.train <- matrix(x[train], ncol = 1)
+  x.test  <- matrix(x[-train], ncol = 1)
+  y.train <- matrix(y[train], ncol = 1)
+  y.test  <- matrix(y[-train], ncol = 1)
   
   # Crear modelo
   model <- keras::keras_model_sequential(name = "Regresion")
@@ -37,12 +49,17 @@ with(tf$device('GPU:0'), {
   summary(model)
   
   # Compilar
-  model %>% keras::compile(loss = "mse", optimizer = keras::optimizer_adam(lr = 0.2))
-  summary(model)
+  model %>% keras::compile(
+    loss = "mse", 
+    optimizer = keras::optimizer_sgd(lr = 0.2),
+    metrics = c('mean_absolute_error', 'mean_squared_error')
+  )
   
   # Estimar parametros
-  model %>% keras::fit(x = x, y = y, epochs = 1000, verbose = TRUE)
-  summary(model)
+  model %>% keras::fit(x = x.train, y = y.train, epochs = 100, verbose = TRUE)
+  
+  # Evaluar modelo
+  scores <- model %>% keras::evaluate(x.test, y.test)
 })
 
 keras::get_weights(model)
