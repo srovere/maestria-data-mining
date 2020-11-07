@@ -1,25 +1,32 @@
 # Borrar ambiente
 rm(list = objects())
 
-# Indicar LD_LIBRARY_PATH
-conda_home <- "/opt/anaconda3"
-conda_bin  <- paste0(conda_home, "/bin/conda")
-conda_env  <- "r-reticulate"
-conda_lib  <- paste0(conda_home, "/envs/", conda_env, "/lib")
-Sys.setenv(LD_LIBRARY_PATH=paste0(Sys.getenv("LD_LIBRARY_PATH"), ":", conda_lib))
-Sys.getenv("LD_LIBRARY_PATH")
-
-# Cargar libreria
+# Cargar librerias
 require(caret)
 require(dplyr)
 require(keras)
+require(reticulate)
+require(stringr)
 require(tensorflow)
 
-# Inicializar tensorflow
-tensorflow::use_condaenv(condaenv = conda_env, conda = conda_bin)
-
-# Indicar el dispositivo de ejecucion
-tf$debugging$set_log_device_placement(TRUE)
+# Inicializar Tensorflow con ambiente de Anaconda
+{
+  # Especificar variables de entorno
+  conda_home <- "/opt/anaconda3"
+  conda_bin  <- paste0(conda_home, "/bin/conda")
+  conda_env  <- "r-reticulate"
+  conda_lib  <- paste0(conda_home, "/envs/", conda_env, "/lib")
+  if (is.na(stringr::str_locate(Sys.getenv("LD_LIBRARY_PATH"), conda_lib)[,1])) {
+    Sys.setenv(LD_LIBRARY_PATH=paste0(Sys.getenv("LD_LIBRARY_PATH"), ":", conda_lib))
+  }
+  Sys.getenv("LD_LIBRARY_PATH")
+  
+  # Inicializar tensorflow
+  tensorflow::use_condaenv(condaenv = conda_env, conda = conda_bin)
+  
+  # Indicar el dispositivo de ejecucion
+  tf$debugging$set_log_device_placement(TRUE)
+}
 
 # Ejecutar en dispositivo seleccionado
 # device <- "GPU:0" # GPU
@@ -58,12 +65,12 @@ with(tf$device(device), {
   model %>% keras::compile(
     loss = "categorical_crossentropy", 
     optimizer = keras::optimizer_sgd(lr = 0.6),
-    metrics = c('accuracy', 'Recall')
+    metrics = c('accuracy', 'Precision', 'Recall')
   )
   
   # Estimar parametros
   one_hot_labels <- keras::to_categorical(as.integer(y.train$Species) - 1, num_classes = 3)
-  model %>% keras::fit(x = x.train, y = one_hot_labels, epochs = 100)
+  model %>% keras::fit(x = x.train, y = one_hot_labels, epochs = 150)
   
   # Evaluar modelo
   one_hot_labels <- keras::to_categorical(as.integer(y.test$Species) - 1, num_classes = 3)
