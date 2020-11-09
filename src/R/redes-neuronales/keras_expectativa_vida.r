@@ -33,7 +33,7 @@ require(tensorflow)
 }
 
 # Leer dataset de entrada
-datos <- readr::read_csv("life_expectancy.csv") %>%
+datos <- readr::read_csv("data/life_expectancy.csv") %>%
   # Quitar pais
   dplyr::select(-Country) %>%
   # Pasar Status a binario (0 = developing, 1 = developed)
