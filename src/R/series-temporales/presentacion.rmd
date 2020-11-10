@@ -256,7 +256,7 @@ leaflet::renderLeaflet({
       
       leaflet::leaflet(data = locations) %>%
         leafem::addMouseCoordinates() %>%
-        leaflet::addTiles(map = ., urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png") %>%
+        leaflet::addTiles(map = ., urlTemplate = "//server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}") %>%
         leaflet::addRasterImage(x = kriging.arg, colors = paleta.kriging, group = "Kriging", layerId = "Kriging") %>%
         leaflet::addCircleMarkers(map = ., label = ~sprintf("%s", nombre), radius = 5, color = "black", fillColor = "black",
                                   weight = 1, labelOptions = leaflet::labelOptions(noHide = F, textOnly = TRUE, style = list(
@@ -326,7 +326,7 @@ leaflet::renderLeaflet({
     
     # Mapa
     leaflet::leaflet(data = locations) %>%
-      leaflet::addTiles(map = ., urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png") %>%
+      leaflet::addTiles(map = ., urlTemplate = "//server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}") %>%
       leaflet::addCircleMarkers(lat = ~ latitud, lng = ~ longitud, radius = 7, fillColor = ~colores[cluster],
                                 stroke = TRUE, weight = 1, fillOpacity = 0.8, opacity = 1, color = ~colores[cluster],
                                 popup = ~sprintf("<b>%s (%d)</b><br>Lat.: %.3f<br>Lon.: %.3f<br>Elev: %.0f m <br>Cluster: %.i", 

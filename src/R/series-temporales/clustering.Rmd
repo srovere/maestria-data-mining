@@ -180,7 +180,7 @@ arg_chart <- function(k) {
   
 
   leaflet::leaflet(data = estaciones_ext) %>%
-    leaflet::addTiles(urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png") %>%
+    leaflet::addTiles(urlTemplate = "//server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}") %>%
     leaflet::setView(lat = -40,
                      lng = -62,
                      zoom = 3) %>%

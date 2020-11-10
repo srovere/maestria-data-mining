@@ -125,7 +125,7 @@ shiny::shinyServer(function(input, output, session) {
   ## Porcentaje de hogares NBI
   output$mapaNBIBarrio <- leaflet::renderLeaflet({
     leaflet::leaflet() %>%
-      leaflet::addTiles(map = ., urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png",
+      leaflet::addTiles(map = ., urlTemplate = "//server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
                         attribution = "SDIG-2020 TP1")
   })
   observe({
@@ -199,7 +199,7 @@ shiny::shinyServer(function(input, output, session) {
   # Según zona de influencia
   output$mapaCoberturaInfluencia <- leaflet::renderLeaflet({
     leaflet::leaflet() %>%
-      leaflet::addTiles(map = ., urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png",
+      leaflet::addTiles(map = ., urlTemplate = "//server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
                         attribution = "SDIG-2020 TP1")
   })
   observe({
@@ -375,7 +375,7 @@ shiny::shinyServer(function(input, output, session) {
   # Conectividad
   output$mapaConectividad <- leaflet::renderLeaflet({
     leaflet::leaflet() %>%
-      leaflet::addTiles(map = ., urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png",
+      leaflet::addTiles(map = ., urlTemplate = "//server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
                         attribution = "SDIG-2020 TP1")
   })
   observe({
@@ -484,7 +484,7 @@ shiny::shinyServer(function(input, output, session) {
   # Senderos escolares
   output$mapaSenderosEscolares <- leaflet::renderLeaflet({
     leaflet::leaflet() %>%
-      leaflet::addTiles(map = ., urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png",
+      leaflet::addTiles(map = ., urlTemplate = "//server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
                         attribution = "SDIG-2020 TP1")
   })
   observe({
