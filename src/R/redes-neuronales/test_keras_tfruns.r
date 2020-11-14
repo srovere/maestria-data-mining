@@ -99,9 +99,9 @@ Clasificar <- function(input.file, clase, capas, learning.rate, epochs, random.s
 }
 
 tfruns::purge_runs(confirm = FALSE)
-tfruns::training_run("tfruns/model_iris.r")
-tfruns::training_run("tfruns/model_diabetes.r")
-tfruns::training_run("tfruns/model_moons.r")
-tfruns::training_run("tfruns/model_circulos.r")
-tfruns::training_run("tfruns/model_2_clases.r")
-tfruns::training_run("tfruns/model_6_clases.r")
+tfruns::training_run("models/iris.r")
+tfruns::training_run("models/diabetes.r")
+tfruns::training_run("models/moons.r")
+tfruns::training_run("models/circulos.r")
+tfruns::training_run("models/2_clases.r")
+tfruns::training_run("models/6_clases.r")
