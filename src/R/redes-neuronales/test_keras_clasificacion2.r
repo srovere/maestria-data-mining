@@ -32,12 +32,11 @@ require(tensorflow)
 }
 
 # Funcion generica para clasificacion
-Clasificar <- function(input.file, clase, capas, learning.rate, epochs, random.seed = 0, prob.train = 0.7, device = "CPU:0", verbose = FALSE) {
+Clasificar <- function(input.file, clase, capas, learning.rate, epochs, random.seed = 0, prob.train = 0.7, device = "CPU:0", positive = NULL, verbose = FALSE) {
   # Leer y escalar datos
   datos      <- readr::read_csv(file = input.file)
   features   <- dplyr::select(datos, -clase) %>%
-    as.matrix() %>%
-    apply(X = ., MARGIN = 2, FUN = scale)
+    as.matrix()
   labels     <- dplyr::select(datos, clase) %>%
     as.matrix() %>%
     keras::to_categorical(., num_classes = length(unique(dplyr::pull(datos, clase))))
@@ -47,8 +46,10 @@ Clasificar <- function(input.file, clase, capas, learning.rate, epochs, random.s
     # Crear dataset de entrada
     set.seed(random.seed)
     train   <- caret::createDataPartition(dplyr::pull(datos, clase), p = prob.train, list = FALSE)
-    x.train <- features[train, ]
-    x.test  <- features[-train, ]
+    medias  <- apply(X = features[train, ], MARGIN = 2, FUN = mean)  
+    desvios <- apply(X = features[train, ], MARGIN = 2, FUN = sd)
+    x.train <- scale(features[train, ], center = medias, scale = desvios)
+    x.test  <- scale(features[-train, ], center = medias, scale = desvios)
     y.train <- labels[train, ]
     y.test  <- labels[-train, ]
     
@@ -82,7 +83,8 @@ Clasificar <- function(input.file, clase, capas, learning.rate, epochs, random.s
     )
     
     # Estimar parametros
-    model %>% keras::fit(x = x.train, y = y.train, epochs = epochs, verbose = verbose)
+    model %>% keras::fit(x = x.train, y = y.train, validation_data = list(x.test, y.test),
+                         epochs = epochs, verbose = verbose)
     
     # Evaluar modelo
     scores <- model %>% keras::evaluate(x.test, y.test)
@@ -95,7 +97,7 @@ Clasificar <- function(input.file, clase, capas, learning.rate, epochs, random.s
     
     # Matriz de confusion
     y.cats.obs <- factor(as.vector(datos[-train, ][[clase]]), levels = levels(y.cats.pred))
-    mat.conf   <- caret::confusionMatrix(data = y.cats.pred, reference = y.cats.obs)
+    mat.conf   <- caret::confusionMatrix(data = y.cats.pred, reference = y.cats.obs, positive = positive)
   })
   
   return (mat.conf)
@@ -141,9 +143,14 @@ Clasificar(
 Clasificar(
   input.file    = "data/diabetes.csv",
   clase         = "Clase",
-  capas         = list(list(units = 7, activation = 'sigmoid')),
+  capas         = list(
+    list(units = 10, activation = 'tanh'),
+    list(units = 10, activation = 'relu'),
+    list(units = 10, activation = 'tanh')
+  ),
   learning.rate = 0.25,
   epochs        = 100,
+  positive      = "1",
   verbose       = TRUE
 )
 
