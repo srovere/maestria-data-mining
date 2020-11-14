@@ -98,6 +98,7 @@ Clasificar <- function(input.file, clase, capas, learning.rate, epochs, random.s
   return (model)
 }
 
+tfruns::clean_runs(confirm = FALSE)
 tfruns::purge_runs(confirm = FALSE)
 tfruns::training_run("models/iris.r")
 tfruns::training_run("models/diabetes.r")

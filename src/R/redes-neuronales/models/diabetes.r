@@ -3,11 +3,10 @@ Clasificar(
   input.file    = "data/diabetes.csv",
   clase         = "Clase",
   capas         = list(
-    list(units = 10, activation = 'tanh'),
-    list(units = 10, activation = 'relu'),
-    list(units = 10, activation = 'tanh')
+    list(units = 64, activation = 'relu'),
+    list(units = 32, activation = 'relu')
   ),
-  learning.rate = 0.25,
-  epochs        = 100,
+  learning.rate = 0.1,
+  epochs        = 200,
   positive      = "1"
 )
