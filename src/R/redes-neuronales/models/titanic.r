@@ -3,8 +3,8 @@ Clasificar(
   input.file           = "data/titanic.csv",
   clase                = "survived",
   capas                = list(
-    list(units = 8, activation = 'relu'),
-    list(units = 8, activation = 'relu')
+    list(units = 16, activation = 'relu'),
+    list(units = 16, activation = 'sigmoid')
   ),
   learning.rate        =  0.1,
   epochs               = 200,

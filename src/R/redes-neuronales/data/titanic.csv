@@ -1,4 +1,4 @@
-pclass,fare,age,sex,sibsp,parch,survived
+id,pclass,fare,age,sex,sibsp,parch,survived
 0,1,211.3375,29.0,0,0,0,1
 1,1,151.55,0.9167,1,1,2,1
 2,1,151.55,2.0,0,1,2,0
