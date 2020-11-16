@@ -37,9 +37,16 @@ options(bitmapType = "cairo")
   rm(conda_home, conda_bin, conda_env, conda_lib)
 }
 
-Clasificar <- function(input.file, clase, capas, learning.rate, epochs, random.seed = 0, prob.train = 0.7, device = "CPU:0", positive = NULL, verbose = FALSE) {
+Clasificar <- function(input.file, clase, capas, learning.rate, epochs, random.seed = 0, prob.train = 0.7, device = "CPU:0", features.eliminables = NULL, positive = NULL, verbose = FALSE) {
   # Leer y escalar datos
-  datos      <- readr::read_csv(file = input.file)
+  datos <- readr::read_csv(file = input.file)
+  if (! is.null(features.eliminables)) {
+    features.seleccionables <- colnames(datos)[which(! colnames(datos) %in% features.eliminables)]
+    datos <- datos %>%
+      dplyr::select(dplyr::one_of(features.seleccionables))
+  }
+  
+  # Separar features de labels
   features   <- dplyr::select(datos, -clase) %>%
     as.matrix()
   labels     <- dplyr::select(datos, clase) %>%
@@ -106,3 +113,4 @@ tfruns::training_run("models/moons.r")
 tfruns::training_run("models/circulos.r")
 tfruns::training_run("models/2_clases.r")
 tfruns::training_run("models/6_clases.r")
+tfruns::training_run("models/titanic.r")
