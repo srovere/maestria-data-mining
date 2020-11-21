@@ -2,6 +2,7 @@
 rm(list = objects())
 
 # Cargar librerias
+require(Cairo)
 require(caret)
 require(dplyr)
 require(keras)
@@ -9,6 +10,9 @@ require(purrr)
 require(reticulate)
 require(stringr)
 require(tensorflow)
+
+# Uso de Cairo para grafico
+options(bitmapType = "cairo")
 
 # Especificar variables de entorno
 {
@@ -107,6 +111,5 @@ with(tf$device(device), {
   
   # Train model
   model %>% keras::fit(x = x_train, y = y_train, epochs = 10,
-                       validation_data = list(x_test / 255, y_test))
+                       validation_data = list(x_test, y_test))
 })
-end.time <- proc.time()[3]
