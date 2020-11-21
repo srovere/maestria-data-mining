@@ -50,10 +50,12 @@ with(tf$device(device), {
   
   # Definir el modelo
   model <- keras_model_sequential() %>%
-    keras::layer_conv_2d(filters = 128, kernel_size = c(3,3), activation = 'relu',
+    keras::layer_conv_2d(filters = 64, kernel_size = c(3,3), activation = 'relu', padding = 'same',
                          input_shape = dim(x_train)[-1]) %>%
     keras::layer_max_pooling_2d(pool_size = c(2, 2)) %>%
-    keras::layer_conv_2d(filters = 256, kernel_size = c(3,3), activation = 'relu') %>%
+    keras::layer_conv_2d(filters = 128, kernel_size = c(3,3), activation = 'relu', padding = 'same',) %>%
+    keras::layer_max_pooling_2d(pool_size = c(2, 2)) %>%
+    keras::layer_conv_2d(filters = 256, kernel_size = c(3,3), activation = 'relu', padding = 'same',) %>%
     keras::layer_max_pooling_2d(pool_size = c(2, 2)) %>%
     keras::layer_flatten() %>%
     keras::layer_dense(units = 10, activation = 'softmax')
