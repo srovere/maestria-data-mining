@@ -36,7 +36,7 @@ options(bitmapType = "cairo")
 }
 
 # Cargar dataset
-mnist <- keras::dataset_mnist(path = paste0(getwd(), "/large_data/mnist.npz"))
+mnist <- keras::dataset_mnist()
 
 # Definir funcion para hacer plot
 plot_imagen <- function(imagen) {
