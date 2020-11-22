@@ -49,25 +49,41 @@ with(tf$device(device), {
   y_test  <- keras::to_categorical(cifar10$test$y, num_classes = 10)
   
   # Definir el modelo
-  model <- keras_model_sequential() %>%
-    keras::layer_conv_2d(filters = 64, kernel_size = c(3,3), activation = 'relu', padding = 'same',
-                         input_shape = dim(x_train)[-1]) %>%
+  model <- keras_model_sequential(name = "CIFAR10") %>%
+    keras::layer_conv_2d(filters = 32, kernel_size = c(3,3), padding = 'same', input_shape = dim(x_train)[-1]) %>%
+    keras::layer_conv_2d(filters = 32, kernel_size = c(3,3), padding = 'same') %>%
+    keras::layer_batch_normalization() %>%
+    keras::layer_activation_relu() %>%
     keras::layer_max_pooling_2d(pool_size = c(2, 2)) %>%
-    keras::layer_conv_2d(filters = 128, kernel_size = c(3,3), activation = 'relu', padding = 'same',) %>%
+    keras::layer_dropout(rate = 0.1) %>%
+    keras::layer_conv_2d(filters = 64, kernel_size = c(3,3), padding = 'same') %>%
+    keras::layer_conv_2d(filters = 64, kernel_size = c(3,3), padding = 'same') %>%
+    keras::layer_batch_normalization() %>%
+    keras::layer_activation_relu() %>%
     keras::layer_max_pooling_2d(pool_size = c(2, 2)) %>%
-    keras::layer_conv_2d(filters = 256, kernel_size = c(3,3), activation = 'relu', padding = 'same',) %>%
+    keras::layer_dropout(rate = 0.1) %>%
+    keras::layer_conv_2d(filters = 128, kernel_size = c(3,3), padding = 'same') %>%
+    keras::layer_conv_2d(filters = 128, kernel_size = c(3,3), padding = 'same') %>%
+    keras::layer_batch_normalization() %>%
+    keras::layer_activation_relu() %>%
     keras::layer_max_pooling_2d(pool_size = c(2, 2)) %>%
+    keras::layer_dropout(rate = 0.1) %>%
     keras::layer_flatten() %>%
-    keras::layer_dense(units = 10, activation = 'softmax')
+    keras::layer_dense(units = 10) %>%
+    keras::layer_dropout(rate = 0.1) %>%
+    keras::layer_activation(activation = 'softmax')
   
   # Compile model
   model %>% keras::compile(
     loss = "categorical_crossentropy", 
-    optimizer = keras::optimizer_sgd(lr = 0.1),
+    optimizer = keras::optimizer_sgd(lr = 0.01, momentum = 0.25),
     metrics = c('accuracy', 'Precision', 'Recall')
   )
   
   # Train model
-  model %>% keras::fit(x = x_train, y = y_train, epochs = 10,
+  model %>% keras::fit(x = x_train, y = y_train, epochs = 50,
                        validation_data = list(x_test, y_test))
+  
+  # Save model
+  keras::save_model_hdf5(model, filepath = "models/cifar10.hdf5")
 })
