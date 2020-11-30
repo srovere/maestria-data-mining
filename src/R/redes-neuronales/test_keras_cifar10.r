@@ -28,8 +28,17 @@ options(bitmapType = "cairo")
   # Inicializar tensorflow
   tensorflow::use_condaenv(condaenv = conda_env, conda = conda_bin)
   
-  # Indicar el dispositivo de ejecucion
-  tf$debugging$set_log_device_placement(TRUE)
+  # Probar inicializacion
+  initialized <- FALSE
+  while (! initialized) {
+    tryCatch({
+      tf$debugging$set_log_device_placement(TRUE)    
+      initialized <- TRUE
+    }, error = function(e) {
+      warning(paste0("Error al inicializar Tensoflow: ", as.character(e), "\n"))
+      Sys.sleep(1L)
+    })
+  }
   
   # Borrar variables
   rm(conda_home, conda_bin, conda_env, conda_lib)
