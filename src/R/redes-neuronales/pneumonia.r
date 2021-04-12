@@ -19,7 +19,7 @@ options(bitmapType = "cairo")
 {
   conda_home <- "/opt/anaconda3"
   conda_bin  <- paste0(conda_home, "/bin/conda")
-  conda_env  <- "tensorflow-gpu"
+  conda_env  <- "r-reticulate"
   conda_lib  <- paste0(conda_home, "/envs/", conda_env, "/lib")
   if (is.na(stringr::str_locate(Sys.getenv("LD_LIBRARY_PATH"), conda_lib)[,1])) {
     Sys.setenv(LD_LIBRARY_PATH=paste0(Sys.getenv("LD_LIBRARY_PATH"), ":", conda_lib))
