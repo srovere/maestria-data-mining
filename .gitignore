@@ -35,4 +35,5 @@ src/R/series-temporales/data/*.RData
 src/R/series-temporales/*.html
 src/R/redes-neuronales/runs/*
 src/R/redes-neuronales/models/*.hdf5
-src/R/tesis/*.pdf
+src/R/tesis/docs/*.pdf
+src/R/tesis/docs/*.html
