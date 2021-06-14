@@ -1,0 +1,25 @@
+# ------------------------------------------------------------------------------
+# Acceso a la API
+# ------------------------------------------------------------------------------
+api:
+  url: 'https://api.crc-sas.org/ws-api'
+  user: 'clima'
+  pass: 'Dcft^&*('
+# ------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# Configuración para realizar la extraccion de datos
+# ------------------------------------------------------------------------------
+extraccion:
+  estaciones: 
+    omm_id: [ 90000002, 86430, 86490, 86560, 90000001 ]
+  periodo:
+    fecha_desde: '1961-01-01'
+    fecha_hasta: '2020-12-31'
+  variables: [ 'tmax', 'tmin', 'prcp' ]
+  proyeccion:
+    # Proyeccion planar a utilizar (UTM-20S)
+    planar: '+proj=utm +zone=20 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
+    # Latitude and longitude in decimal degrees.
+    latlon: '+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0'
+# ------------------------------------------------------------------------------

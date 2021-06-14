@@ -1,0 +1,23 @@
+# ------------------------------------------------------------------------------
+# Configuración para generacion de series sinteticas
+# ------------------------------------------------------------------------------
+
+# Parametros del ajuste
+fit:
+    control:
+        avbl_cores: 8
+        prcp_occurrence_threshold: 0.1
+        planar_crs_in_metric_coords: 32720
+    
+# Parametros de la simulacion
+sim:
+    start_date: "1961-01-01"
+    end_date: "2020-12-31"
+    control:
+        nsim: 100
+        seed: 1234
+        avbl_cores: 8
+        use_spatially_correlated_noise: TRUE
+        use_temporary_files_to_save_ram: TRUE
+        remove_temp_files_used_to_save_ram: TRUE
+# ------------------------------------------------------------------------------
