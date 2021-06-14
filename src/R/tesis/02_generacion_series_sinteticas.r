@@ -50,7 +50,7 @@ gamgen_fit <- gamwgen::local_calibrate(
 # ------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------#
-# --- PASO 3. Simular series sinteticas ----
+# --- PASO 3. Simular series sinteticas y guardar resultados ----
 # -----------------------------------------------------------------------------#
 
 # i. Definir parametros para las simulaciones
@@ -78,4 +78,7 @@ simulated_climate <- local_simulation(
   seasonal_covariates = filled_covariates,
   verbose = TRUE
 )
+
+# iv. Almacenar resultados
+save(gamgen_fit, simulated_climate, file = "input/SeriesSinteticas.RData")
 # ------------------------------------------------------------------------------
