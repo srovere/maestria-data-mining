@@ -1,0 +1,37 @@
+---
+output: 
+   html_document:
+      toc: true
+      highlight: zenburn
+      css: styles.css
+params:
+   fecha.generacion : ""
+---
+
+---
+title: "Estudio de impactos de sequías en rendimientos de cultivos agrícolas mediante métodos de aprendizaje automático"
+subtitle: "Validación de series sintéticas de precipitación y temperaturas"
+author: 
+- Santiago Rovere (srovere@fi.uba.ar), Facultad de Ingeniería, Universidad de Buenos Aires
+- Alessio Bocco (boccoalessio@gmail.com), Universidad de Río Cuarto
+date: `r params$fecha.generacion`
+---
+\newpage
+
+```{r eval=TRUE, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=10, fig.height=10, fig.align='center'}
+for (omm.id in estaciones) {
+	cat(paste0("# Station ", omm.id, "\n"))
+	plots.estacion <- plots[[omm.id]]
+	for (i in seq(from = 1, to = length(variables))) {
+		cat(paste0("## ", names(variables[i]), "\n"))
+		plots.variable <- plots.estacion[[variables[[i]]]]
+		for (j in seq(from = 1, to = length(plots.variable))) {
+			current.plot <- plots.variable[[j]]
+			if (! is.null(current.plot)) {
+				plot(current.plot)
+				cat("\n\n")
+			}
+		}
+	}
+}
+```
