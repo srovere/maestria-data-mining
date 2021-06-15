@@ -36,7 +36,6 @@ src/R/series-temporales/*.html
 src/R/redes-neuronales/data/pneumonia/*
 src/R/redes-neuronales/runs/*
 src/R/redes-neuronales/models/*.hdf5
-src/R/tesis/docs/*.pdf
 src/R/tesis/docs/*.html
 src/R/tesis/input/*
 src/R/tesis/output/*
