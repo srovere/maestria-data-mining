@@ -8,13 +8,13 @@ rm(list = ls()); gc()
 # ii. Cargar paquetes
 list.of.packages <- c("dplyr", "jsonlite", "magrittr", "purrr", "tidyr", "sirad", 
                       "sf", "xts", "yaml")
-for (package in package.list) {
+for (package in list.of.packages) {
 	require(package, character.only = TRUE)
 }
-rm(package, list.of.packages); invisible(gc())
+rm(package); invisible(gc())
 
-# iii. Cargar metodo de calculo de radiacion Bristow-Campbell
-source("lib/Bristow-Campbell.R", echo = FALSE)
+# iii. Cargar librerias necesarias
+source("../lib/Task.R", echo = FALSE)
 
 # iv. Cargar archivo de configuracion
 config <- yaml::yaml.load_file("configuracion_calculo_radiacion.yml")
@@ -38,102 +38,76 @@ simulated_climate <- data.table::fread(file = "input/SeriesSinteticas.csv") %>%
 constantes <- purrr::map_dfr(
   .x = config$constantes$bristow.campbell,
   .f = function(lista) {
-    if (length(lista$omm_id) > 0) {
+    if (length(lista$station_id) > 0) {
       return(tibble::as_tibble(lista))
     }
     return(NULL)
   }
-)
+) %>% tidyr::pivot_longer(cols = c(-station_id), names_to = "constante", values_to = "valor")
 # ------------------------------------------------------------------------------
 
-estimarRadiacion <- function(estaciones, registrosDiarios, ap.cal=NULL, bc.cal=NULL, svk.cal=NULL) {
-  if(is.null(ap.cal)) ap.cal <- ap.cal.default;
-  if(is.null(bc.cal)) bc.cal <- bc.cal.default;
-  if(is.null(svk.cal)) svk.cal <- svk.cal.default;
+# -----------------------------------------------------------------------------#
+# --- PASO 3. Definir funcion para calcular datos de radiacion ----
+# -----------------------------------------------------------------------------#
+
+EstimarRadiacion <- function(input.value, simulated_climate, constantes) {
+  # Cargar libreria con funciones para calcular radiacion por metodo de Bristow-Campbell
+  source("lib/Bristow-Campbell.R", echo = FALSE)
   
-  totalNoEstimado <- 0
+  # Obtener estacion y sus datos y parametros correspondientes
+  estacion           <- input.value
+  registros_estacion <- simulated_climate %>%
+    dplyr::filter(station_id == estacion$station_id) %>%
+    dplyr::mutate(doy = lubridate::yday(date)) %>% 
+    dplyr::arrange(date)
+  bc.coef            <- constantes %>%
+    dplyr::filter(station_id == estacion$station_id) %>%
+    dplyr::select(-station_id) %>%
+    tibble::deframe() %>%
+    as.list()
   
-  ## Llenamos la radiación extraterrestre y la duración del día en horas para cada registro.
-  for(i in 1:nrow(estaciones)){
-    estacion <- estaciones[i, ]
-    
-    # Obtenemos los índices de los registros que corresponden a la estación en cuestión.
-    registros_idx <- which(registrosDiarios$omm_id == estacion$omm_id)
-    
-    # Calculamos la radiación extraterrestre y el largo del día en horas para cada día.
-    extrat.data <- sirad::extrat(i=sirad::dayOfYear(registrosDiarios[registros_idx, "fecha"]), lat=sirad::radians(estacion$lat_dec))
-    
-    registrosDiarios[registros_idx, 'extrat'] <- extrat.data$ExtraTerrestrialSolarRadiationDaily
-    registrosDiarios[registros_idx, 'daylength'] <- extrat.data$DayLength
-    
-    registros_estacion <- registrosDiarios[registros_idx, ]
-    # Determinamos los índices de los registros que se pueden calcular por cada método.
-    bcIndexes <- which(x=(!is.na(registrosDiarios[registros_idx, "tmax"]) &
-                            !is.na(registrosDiarios[registros_idx, "tmin"])))
-    bcIndexes <- registros_idx[bcIndexes]
-    
-    svkIndexes <- which(x=(!is.na(registrosDiarios[bcIndexes, "nub"]) &
-                             registrosDiarios[bcIndexes, "nub"] <= 8  &
-                             registrosDiarios[bcIndexes, "nub"] >= 0))
-    svkIndexes <- bcIndexes[svkIndexes]
-    
-    apIndexes <- which(x=(!is.na(registrosDiarios[registros_idx, "helio"]) &
-                            registrosDiarios[registros_idx, "helio"] > 0 &
-                            registrosDiarios[registros_idx, "helio"] < registrosDiarios[registros_idx, "daylength"]))
-    apIndexes <- registros_idx[apIndexes]
-    
-    # Filtramos los índices para calcular con los métodos de más precisión (AP > SVK > BC).
-    svkIndexes <- svkIndexes[!svkIndexes %in% apIndexes]
-    bcIndexes <- bcIndexes[!bcIndexes %in% apIndexes & !bcIndexes %in% svkIndexes]
-    
-    if(length(apIndexes) > 0) {
-      relHelio <- (registrosDiarios[apIndexes,"helio"] / registrosDiarios[apIndexes,"daylength"])
-      
-      registrosDiarios[apIndexes,"rad"] <- estimate.angstromprescott(rel.helio= relHelio,
-                                                                     extrat= registrosDiarios[apIndexes,"extrat"],
-                                                                     ap.coef= ap.cal)
-      
-      registrosDiarios[apIndexes,"metodo"] <- "estimate.angstromprescott"
-    }
-    
-    if(length(svkIndexes) > 0){
-      registrosDiarios[svkIndexes,"rad"] <- estimate.supitvankappel(tmax= registrosDiarios[svkIndexes,"tmax"],
-                                                                    tmin= registrosDiarios[svkIndexes,"tmin"],
-                                                                    cloudcover= registrosDiarios[svkIndexes,"nub"],
-                                                                    extrat= registrosDiarios[svkIndexes,"extrat"],
-                                                                    svk.coef= svk.cal)
-      
-      registrosDiarios[svkIndexes,"metodo"] <- "estimate.supitvankappel"
-    }
-    
-    if(length(bcIndexes) > 0) {
-      bcEstimate <- estimate.bristowcampbell.xts(xtsdata=xts::xts(registrosDiarios[registros_idx,], order.by=registrosDiarios[registros_idx, "fecha"]),
-                                                 days= registrosDiarios[bcIndexes, "fecha"],
-                                                 bc.coef= bc.cal)
-      
-      registrosDiarios[bcIndexes, "rad"] <- bcEstimate
-      
-      registrosDiarios[bcIndexes,"metodo"] <- "estimate.bristowcampbell.xts"
-    }
-    
-    noEstimados <- length( which(is.na(registrosDiarios[registros_idx,]$rad)))
-    
-    totalNoEstimado <- totalNoEstimado + noEstimados
-    
-    # Imprimimos un resumen de la estimación realizada.
-    #         writeLines(paste0("Estación ", estacion$omm_id, " (", estacion$nombre, ")", "\n\t ",
-    #                           length(bcIndexes), " registros se estiman por BC", "\n\t\t",
-    #                           length(svkIndexes), " por SVK\n\t\t",
-    #                           length(apIndexes), " por AP\n\t\t",
-    #                           "Registros totales: ", length(registros), " (",
-    #                           (noEstimados), " no estimados).\n"))
-  }
+  # Calculamos la radiación extraterrestre y el largo del día en horas para cada día.
+  days_of_year       <- sort(unique(dplyr::pull(registros_estacion, "doy")))
+  extrat.data        <- sirad::extrat(i = days_of_year, lat = sirad::radians(estacion$latitude))
+  extrat.data.t      <- tibble::tibble(doy = days_of_year, 
+                                       extrat = extrat.data$ExtraTerrestrialSolarRadiationDaily,
+                                       daylength = extrat.data$DayLength)
   
-  #     writeLines(paste("Total de registros procesados: ", nrow(registrosDiarios)))
-  #     writeLines(paste("Total de registros no estimados: ", totalNoEstimado))
-  
-  l <- list()
-  l$not_estimated <- totalNoEstimado
-  l$results <- registrosDiarios
-  return(l)
+  # Calcular radiacion por metodo de Bristow-Campbell
+  registros_estacion <- registros_estacion %>%
+    dplyr::inner_join(extrat.data.t, by = c("doy")) %>%
+    dplyr::mutate(rad = estimate.bristowcampbell(tmax, tmin, extrat, bc.coef)) %>%
+    dplyr::select(-doy, -extrat, -daylength) %>%
+    dplyr::arrange(realization, date)
+
+  return(registros_estacion)
 }
+# ------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------#
+# --- PASO 4. Ejecutar calculo de forma paralela y almacenar resultados ----
+# -----------------------------------------------------------------------------#
+
+# i. Crear tarea distribuida
+task.calculo.radiacion <- Task$new(func.name = "EstimarRadiacion",
+                                   packages = list.of.packages)
+
+# ii. Ejecutar tarea distribuida
+simulated_climate_radiacion <- task.calculo.radiacion$run(number.of.processes = parallel::detectCores(),
+                                                          input.values = stations, 
+                                                          simulated_climate = simulated_climate,
+                                                          constantes = constantes)
+
+# iii. Si hay errores, terminar ejecucion
+task.calculo.radiacion.errors <- task.calculo.radiacion$getErrors()
+if (length(task.calculo.radiacion.errors) > 0) {
+  for (error.obj in task.calculo.radiacion.errors) {
+    warning(paste0("(station_id=", error.obj$input.value$station_id, "): ", error.obj$error))
+  }
+  stop("Finalizando script de forma ANORMAL")
+}
+
+# iv. Almacentar resultados
+simulated_climate <- data.table::rbindlist(simulated_climate_radiacion)
+save(simulated_climate, file = "input/SeriesSinteticasConRadiacion.RData")
+# ------------------------------------------------------------------------------

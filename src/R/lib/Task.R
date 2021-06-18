@@ -8,34 +8,21 @@ require(utils)
 
 Task <- R6Class("Task",
   private = list(
-    parent.script = NULL,
     start.time    = NULL,
     end.time      = NULL,
     func.name     = NULL,
-    db.config     = NULL,
-    facades       = NULL,
     packages      = NULL,
     timeout.value = NULL,
     errors        = NULL
   ),
   public = list(
-    initialize = function(parent.script,func.name, db.config = NULL, packages = NULL,
-                          facades = NULL, timeout.value = NULL) {
-      if (is.null(parent.script) || (class(parent.script)[1] != "Script")) {
-        stop("Script padre invalido")
-      }
+    initialize = function(func.name, packages = NULL, timeout.value = NULL) {
       if (is.null(func.name) || (class(func.name)[1] != "character")) {
         stop("Nombre de funcion invalida")
       }
-      if ((is.null(facades) && ! is.null(db.config)) || (! is.null(facades) && is.null(db.config))) {
-        stop("Para especificar facades, debe ingresar los datos de acceso a la base de datos")
-      }
-
-      private$parent.script <- parent.script
+      
       private$func.name     <- func.name
-      private$db.config     <- db.config
       private$packages      <- packages
-      private$facades       <- facades
       private$timeout.value <- timeout.value
       private$errors        <- list()
     },
@@ -56,16 +43,8 @@ Task <- R6Class("Task",
       return (private$errors)
     },
 
-    getDBConfig = function() {
-      return (private$db.config)
-    },
-
     getPackages = function() {
       return (private$packages)
-    },
-
-    getFacades = function() {
-      return (private$facades)
     },
 
     getTimeoutValue = function() {
@@ -99,9 +78,7 @@ Task <- R6Class("Task",
       )
 
       # 3. Crear cluster
-      log.file <- paste0(private$parent.script$getRunDir(), "/",
-                         private$parent.script$getName(), "-",
-                         private$func.name, ".log")
+      log.file <- paste0(private$func.name, ".log")
       cluster  <- snow::makeCluster(type = "SOCK",
                                     spec = rep('localhost', length.out = number.of.processes),
                                     outfile = log.file)
@@ -109,35 +86,16 @@ Task <- R6Class("Task",
 
       # 4. Ejecutar procesamiento paralelo e informar resultados
       private$start.time <- Sys.time()
-      facades            <- private$facades
       rvs <- foreach::foreach(input.value = input.values, .packages = private$packages,
                               .options.snow = snowOptions, .errorhandling = 'pass',
                               .export = functions, .verbose = FALSE) %dopar% {
         params    <- list(...)
         child.con <- NULL
         tryCatch({
-          # i. Crear conexion a base de datos y hacer setConnection en facades
-          if (! is.null(facades)) {
-            Sys.setenv(TZ = "UTC")
-            child.con <- DBI::dbConnect(drv = private$db.config$driver,
-                                        dbname = private$db.config$name,
-                                        user = private$db.config$user,
-                                        password = private$db.config$pass,
-                                        host = private$db.config$host)
-            DBI::dbExecute(child.con, "SET TIME ZONE 'UTC'")
-
-            for (facade.name in names(facades)) {
-              a.facade <- facades[[facade.name]]
-              a.facade$setConnection(child.con)
-              params[[facade.name]] <- a.facade
-            }
-          }
-
-          # ii. Agregar parametros default
-          params$script      <- private$parent.script
+          # i. Agregar parametros default
           params$input.value <- input.value
 
-          # iii. Ejecutar codigo
+          # ii. Ejecutar codigo
           return.value <- NULL
           if (! is.null(private$timeout.value)) {
             R.utils::evalWithTimeout({
@@ -147,15 +105,11 @@ Task <- R6Class("Task",
             return.value <- do.call(what = private$func.name, args = params, quote = TRUE)
           }
 
-          # iv. Devolver resultado
+          # iii. Devolver resultado
           return (list(input.value = input.value, output.value = return.value, error = NULL))
         }, error = function(e) {
-          private$parent.script$info(paste0("Error procesando para objeto ", base::toString(input.value), ". Error: ", e))
+          warning(paste0("Error procesando para objeto ", base::toString(input.value), ". Error: ", e))
           return (list(input.value = input.value, output.value = NULL, error = as.character(e)))
-        }, finally = {
-          if (! is.null(child.con)) {
-            DBI::dbDisconnect(child.con)
-          }
         })
       }
       snow::stopCluster(cluster)
