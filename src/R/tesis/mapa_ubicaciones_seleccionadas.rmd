@@ -1,0 +1,55 @@
+---
+title: "Estudio de impactos de sequías en rendimientos de cultivos agrícolas mediante métodos de aprendizaje automático"
+subtitle: "Validación de series sintéticas de precipitación y temperaturas"
+author: 
+  - Santiago Rovere (srovere@fi.uba.ar), Facultad de Ingeniería, Universidad de Buenos Aires
+output: 
+  html_document
+---
+
+```{r echo=FALSE, warnings=FALSE, messages=FALSE, fig.width=9, fig.height=16}
+# 1. Cargar librerias
+require(leaflet)
+require(sf)
+
+# 2. Cargar datos de estaciones
+load("input/SeriesHistoricas.RData")
+
+# 3. Transformar a Latitud/Longitud
+estaciones <- stations %>%
+  sf::st_transform(x = ., crs = 4326)
+
+# 3. Calcular extent de la zona abarcada por las estaciones
+extent.zona <- sf::st_bbox(estaciones)
+
+# 4. Funcion para convertir latitud/longitud a DMS
+DecimalToDMS <- function(coordenada, es.latitud) {
+  if (es.latitud) {
+    hemisferio <- ifelse(coordenada < 0, 'S', 'N')
+  } else {
+    hemisferio <- ifelse(coordenada < 0, 'W', 'E')
+  }
+  punto      <- abs(coordenada)
+  grados     <- as.integer(punto)
+  diferencia <- (punto - as.integer(punto)) * 3600
+  minutos    <- diferencia %/% 60
+  segundos   <- diferencia %% 60
+  
+  sprintf("%d° %d' %.1f\" %s", grados, minutos, segundos, hemisferio)
+}
+
+# 5. Mostrar estaciones en mapa
+leaflet::leaflet(data = stations) %>%
+  leaflet::addTiles(map = ., urlTemplate = "//server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}") %>%
+  leaflet::fitBounds(map = ., 
+                     lng1 = as.double(extent.zona["xmin"]), lng2 = as.double(extent.zona["xmax"]),
+                     lat1 = as.double(extent.zona["ymin"]), lat2 = as.double(extent.zona["ymax"])) %>%
+  leaflet::addMarkers(map = ., lat = ~latitude, lng = ~longitude, 
+                      labelOptions = leaflet::labelOptions(noHide = TRUE, closeButton = FALSE),
+                      label = ~purrr::map(
+                        .x = sprintf("<b>%s</b> (%s | %s)",
+                                     name, DecimalToDMS(latitude, TRUE), 
+                                     DecimalToDMS(longitude, FALSE)),
+                        .f = htmltools::HTML
+                      ))
+```

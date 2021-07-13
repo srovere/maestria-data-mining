@@ -1289,6 +1289,15 @@ for (station.id in estaciones) {
                                                                                           subtitle = subtitle)
     }
     
+    # o. Analisis de tendencias (tmax y tmin)
+    # plots.variable[[length(plots.variable)+1]] <- GenerarBoxplotsTendencias(xts.observacion = xts.observacion[[variable]],
+    #                                       xts.realizaciones = xts.realizaciones[[variable]],
+    #                                       station.id = station.id,  
+    #                                       latitud = station.data$lat_dec,
+    #                                       variable = variable,
+    #                                       title = paste0("Histogram of cold spells (3+ days)"), 
+    #                                       subtitle = subtitle)
+    
     plots.estacion[[variable]] <- plots.variable
   }
   
